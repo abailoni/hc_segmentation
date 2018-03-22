@@ -13,12 +13,16 @@ def fixation_agglomerative_clustering_from_wsdt2d(
         sigma_seeds=2.,
         used_offsets=None,
         offset_weights=None,
-        invert_affinities=True,
         min_segment_size=20,
         n_threads=1,
         probability_long_range_edges=0.3,
+
+
+        invert_affinities=True,
         return_fragments=False,
+
         **extra_wsdt_kwargs):
+
 
     wsdt = WatershedOnDistanceTransformFromAffinities(
         offsets,

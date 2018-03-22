@@ -1,0 +1,12 @@
+dtype: float32
+path_in_h5_dataset: data
+slicing_config:
+  downsampling_ratio: [1, 1, 1, 1]
+  padding:
+  - [0 ,0]
+  - [4, 4]
+  - [50, 50]
+  - [50, 50]
+  stride: [12, 10, 224, 224]
+  window_size: [12, 18, 324, 324]
+  data_slice: ':, :, :, :'

@@ -6,6 +6,44 @@ from skunkworks.inference.simple import SimpleParallelLoader
 # TODO: upgrade this basic version with something more advanced
 # here the bad thing is that in the final agglomeration all boundaries between blocks are hard vertical/horizontal boundaries
 
+from skunkworks.postprocessing.segmentation_pipelines.base import SegmentationPipeline
+from .segmentation_pipelines.agglomeration.fixation_clustering.pipelines import FixationAgglomeraterFromSuperpixels
+
+class BlockWise(object):
+    def __init__(self, segmentation_pipeline,
+                 offsets,
+                 blockwise=True,
+                 invert_affinities=False, # Only used for final aggl.
+                 nb_threads=8,
+                 blockwise_config=None):
+        self.segmentation_pipeline = segmentation_pipeline
+        self.blockwise = blockwise
+        if blockwise:
+            assert blockwise_config is not None
+            self.blockwise_solver = BlockWiseSegmentationPipelineSolver.from_config(
+                segmentation_pipeline,
+                offsets,
+                blockwise_config)
+
+            # At the moment the final agglomeration is a usual  HC with 0.5 threshold:
+            self.final_agglomerater = FixationAgglomeraterFromSuperpixels(
+                offsets,
+                max_distance_lifted_edges=2,
+                update_rule_merge='mean',
+                update_rule_not_merge='mean',
+                zero_init=False,
+                n_threads=nb_threads,
+                invert_affinities=invert_affinities)
+
+    def __call__(self, input_):
+        # TODO: check that input_ is a dataset
+        if self.blockwise:
+            blockwise_segm = self.blockwise_solver(input_)
+            output_segm = self.final_agglomerater(input_.volume, blockwise_segm)
+        else:
+            output_segm = self.segmentation_pipeline(input_.volume)
+        return output_segm
+
 class BlockWiseSegmentationPipelineSolver(object):
     def __init__(self,
                  segmentation_pipeline,
@@ -15,6 +53,7 @@ class BlockWiseSegmentationPipelineSolver(object):
                  nb_threads=8,
                  num_workers=1):
         """
+        :param blockwise: if False, the whole dataset is processed together
         :param nb_parallel_blocks: how many blocks are solved in parallel
         :param nb_threads: nb threads used computations in every block
         :param num_workers: used to load affinities from file (probably not needed, since there is no augmentation)
@@ -37,13 +76,12 @@ class BlockWiseSegmentationPipelineSolver(object):
 
 
     @classmethod
-    def from_config(cls, config, segmentation_pipeline):
+    def from_config(cls, segmentation_pipeline, offsets, config):
         config = yaml2dict(config)
         crop_padding = config.get("crop_padding", False)
         nb_threads = config.get("nb_threads", 8)
         nb_parallel_blocks = config.get("nb_parallel_blocks", 1)
         num_workers = config.get("num_workers", 1)
-        offsets = config.get("offsets", None)
         if offsets is not None:
             offsets = [tuple(off) for off in offsets]
         return cls(segmentation_pipeline,
@@ -62,9 +100,10 @@ class BlockWiseSegmentationPipelineSolver(object):
         shape_output = shape_affs[1:]
 
         output = np.zeros(shape_output, dtype='uint64')
+
         # loader
         loader = SimpleParallelLoader(dataset, num_workers=self.num_workers)
-        # mask to count the number of times a pixel was infered
+        # mask to count the number of times a pixel was inferred
 
         max_label = 0
         while True:
@@ -102,8 +141,6 @@ class BlockWiseSegmentationPipelineSolver(object):
         crop = tuple(slice(pad[0], shape_output[i] - pad[1]) for i, pad in enumerate(dataset.padding[1:]))
         out_crop = (slice(None),) + crop
         output = output[out_crop]
-
-        # TODO: add final global agglomeration...?
 
         # return the prediction
         return output
