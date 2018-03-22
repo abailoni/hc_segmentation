@@ -2,75 +2,73 @@
 
 from skunkworks.postprocessing.watershed.wsdt import WatershedOnDistanceTransform, WatershedOnDistanceTransformFromAffinities
 from .segmentation_pipelines.agglomeration.fixation_clustering import FixationAgglomerativeClustering
-from .segmentation_pipelines.agglomeration.fixation_clustering.pipelines_old import FixationAgglomerativeClusteringOld
 import numpy as np
 
+from skunkworks.postprocessing.watershed import DamWatershed
+from skunkworks.postprocessing.watershed.ws import WatershedFromAffinities
+from copy import deepcopy
 
-# TODO: make this more general
-def fixation_agglomerative_clustering_from_wsdt2d(
+def get_segmentation_pipeline(
+        segm_pipeline_type,
         offsets,
-        threshold=0.4,
-        sigma_seeds=2.,
-        used_offsets=None,
-        offset_weights=None,
-        min_segment_size=20,
-        n_threads=1,
-        probability_long_range_edges=0.3,
-
-
-        invert_affinities=True,
+        nb_threads=1,
+        invert_affinities=False,
         return_fragments=False,
+        MWS_kwargs=None,
+        generalized_HC_kwargs=None):
 
-        **extra_wsdt_kwargs):
+    if segm_pipeline_type == 'gen_HC':
+        # ------------------------------
+        # Build possible fragmenters:
+        # ------------------------------
+        fragmenter = None
+        HC_kwargs = generalized_HC_kwargs
+        if HC_kwargs.get('use_fragmenter', False):
+            assert 'fragmenter' in HC_kwargs
+            fragm_type = HC_kwargs['fragmenter']
+            if fragm_type == 'WSDT':
+                WSDT_kwargs = deepcopy(HC_kwargs.get('WSDT_kwargs', {}))
+                fragmenter = WatershedOnDistanceTransformFromAffinities(
+                    offsets,
+                    WSDT_kwargs.pop('threshold', 0.5),
+                    WSDT_kwargs.pop('sigma_seeds', 0.),
+                    invert_affinities=invert_affinities,
+                    return_hmap=False,
+                    n_threads=nb_threads,
+                    **WSDT_kwargs,
+                    **HC_kwargs.get('prob_map_kwargs',{}))
+            elif fragm_type == 'WS':
+                fragmenter = WatershedFromAffinities(
+                    offsets,
+                    return_hmap=False,
+                    invert_affinities=invert_affinities,
+                    n_threads=nb_threads,
+                    **HC_kwargs.get('prob_map_kwargs', {}))
+            else:
+                raise NotImplementedError()
 
+        # ------------------------------
+        # Build agglomeration:
+        # ------------------------------
+        nb_local_offsets = HC_kwargs.get('nb_local_offsets', 3)
+        prob_LR_edges = HC_kwargs.get('probability_long_range_edges', 1.)
+        offsets_probs = np.array([1.] * nb_local_offsets + [prob_LR_edges] * (len(offsets)-nb_local_offsets))
 
-    wsdt = WatershedOnDistanceTransformFromAffinities(
-        offsets,
-        threshold,
-        sigma_seeds,
-        used_offsets=used_offsets,
-        offset_weights=offset_weights,
-        return_hmap=False,
-        invert_affinities=invert_affinities,
-        min_segment_size=min_segment_size,
-        n_threads=n_threads,
-    **extra_wsdt_kwargs)
+        segm_pipeline = FixationAgglomerativeClustering(
+            offsets,
+            fragmenter,
+            n_threads=nb_threads,
+            invert_affinities=invert_affinities,
+            return_fragments=return_fragments,
+            offsets_probabilities=offsets_probs,
+            **HC_kwargs.get('agglomeration_kwargs', {})
+        )
 
-    from skunkworks.postprocessing.watershed.ws import WatershedFromAffinities
-    ws = WatershedFromAffinities(
-        offsets,
-        used_offsets=used_offsets,
-        offset_weights=offset_weights,
-        return_hmap=False,
-        invert_affinities=invert_affinities,
-        n_threads=n_threads)
+    elif segm_pipeline_type == 'MWS':
+        segm_pipeline = DamWatershed(offsets,
+                                   n_threads=nb_threads,
+                                   **MWS_kwargs)
+    else:
+        raise NotImplementedError()
+    return segm_pipeline
 
-    offsets_probs = np.array([1.] * 3 + [probability_long_range_edges] * 9)
-
-
-    return FixationAgglomerativeClustering(offsets,
-                                           # fragmenter=wsdt,
-                                           n_threads=n_threads,
-                                           max_distance_lifted_edges=1,
-                                           invert_affinities=invert_affinities,
-                                           return_fragments=return_fragments,
-                                           # update_rule_merge={'name': 'rank', 'q':0.5, 'numberOfBins':200},
-                                           # update_rule_not_merge={'name': 'rank', 'q':0.5, 'numberOfBins':200},
-                                           update_rule_merge='mean',
-                                           update_rule_not_merge='mean',
-                                           # update_rule_merge={'name': 'generalized_mean', 'p': 1.0},
-                                           # update_rule_not_merge={'name': 'generalized_mean', 'p': 1.0},
-                                           zero_init=True,
-                                           offsets_probabilities=offsets_probs
-                                           )
-
-    # return FixationAgglomerativeClusteringOld(wsdt,
-    #                                        offsets,
-    #                                        n_threads=n_threads,
-    #                                        max_distance_lifted_edges=1,
-    #                                        invert_affinities=invert_affinities,
-    #                                        return_fragments=return_fragments,
-    #                                        zeroInit=False,
-    #                                           p0=1.,
-    #                                           p1=1.
-    #                                        )

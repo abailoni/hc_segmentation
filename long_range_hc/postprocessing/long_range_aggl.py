@@ -2,6 +2,7 @@ import numpy as np
 
 from inferno.utils.io_utils import yaml2dict
 from skunkworks.inference.simple import SimpleParallelLoader
+import vigra
 
 # TODO: upgrade this basic version with something more advanced
 # here the bad thing is that in the final agglomeration all boundaries between blocks are hard vertical/horizontal boundaries
@@ -37,12 +38,16 @@ class BlockWise(object):
 
     def __call__(self, input_):
         # TODO: check that input_ is a dataset
+        final_crop = tuple(slice(pad[0], input_.volume.shape[i+1] - pad[1]) for i, pad in enumerate(input_.padding[1:]))
         if self.blockwise:
             blockwise_segm = self.blockwise_solver(input_)
             output_segm = self.final_agglomerater(input_.volume, blockwise_segm)
+            output_segm = output_segm[final_crop]
+            blockwise_segm = blockwise_segm[final_crop]
+            return output_segm, blockwise_segm
         else:
             output_segm = self.segmentation_pipeline(input_.volume)
-        return output_segm
+            return output_segm[final_crop]
 
 class BlockWiseSegmentationPipelineSolver(object):
     def __init__(self,
@@ -110,13 +115,13 @@ class BlockWiseSegmentationPipelineSolver(object):
             # TODO: parallelize (take care of the max label...)
             batches = loader.next_batch()
             if not batches:
-                print("[*] All blocks were processed")
+                print("[*] All blocks were processed!")
                 break
 
             assert len(batches) == 1
             assert len(batches[0]) == 2
             index, input_ = batches[0]
-            print("[+] Processing block {} of {}.".format(index, len(dataset)))
+            print("[+] Processing block {} of {}.".format(index+1, len(dataset)))
             # print("[*] Input-shape {}".format(input_.shape))
 
             # get the slicings w.r.t. the current prediction and the output
@@ -133,16 +138,14 @@ class BlockWiseSegmentationPipelineSolver(object):
             # TODO: ADD CROP OF PADDING. We should predict with a padding and then crop!
 
             # save predictions in the output
+            output_patch = vigra.analysis.labelVolume(output_patch.astype(np.uint32))
             output[global_slicing] = output_patch[local_slicing] + max_label
             max_label += output_patch.max() + 1
 
-        # crop padding from the outputs
-        # This is only used to crop the dataset in the end
-        crop = tuple(slice(pad[0], shape_output[i] - pad[1]) for i, pad in enumerate(dataset.padding[1:]))
-        out_crop = (slice(None),) + crop
-        output = output[out_crop]
+        # # crop padding from the outputs
+        # crop = tuple(slice(pad[0], shape_output[i] - pad[1]) for i, pad in enumerate(dataset.padding[1:]))
 
-        # return the prediction
+        # return the prediction (not cropped)
         return output
 
 
