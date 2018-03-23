@@ -4,11 +4,10 @@ import numpy as np
 
 # TODO: check if everything is in nifty plmc branch
 
-from skunkworks.postprocessing.segmentation_pipelines.agglomeration.fixation_clustering.utils import \
-    build_pixel_lifted_graph_from_offsets, build_lifted_graph_from_rag
+from .utils import build_pixel_lifted_graph_from_offsets, build_lifted_graph_from_rag
 from skunkworks.postprocessing.segmentation_pipelines.base import SegmentationPipeline
 from ...features import accumulate_affinities_on_graph_edges
-from skunkworks.criteria.learned_HC.utils import segm_utils as segm_utils
+from .....criteria.learned_HC.utils import segm_utils as segm_utils
 
 
 
@@ -19,8 +18,11 @@ class FixationAgglomerativeClustering(SegmentationPipeline):
                  max_distance_lifted_edges=3,
                  offsets_probabilities=None,
                  used_offsets=None,
+                 offsets_weights=None,
                  n_threads=1,
                  invert_affinities=False,
+                 extra_aggl_kwargs=None,
+                 extra_runAggl_kwargs=None,
                  **super_kwargs):
         """
         If a fragmenter is passed (DTWS, SLIC, etc...) then the agglomeration is done
@@ -39,11 +41,15 @@ class FixationAgglomerativeClustering(SegmentationPipeline):
                 offsets,
                 max_distance_lifted_edges=max_distance_lifted_edges,
                 used_offsets=used_offsets,
+                offsets_weights=offsets_weights,
                 update_rule_merge=update_rule_merge,
                 update_rule_not_merge=update_rule_not_merge,
                 zero_init=zero_init,
                 n_threads=n_threads,
-                invert_affinities=invert_affinities)
+                invert_affinities=invert_affinities,
+                extra_aggl_kwargs=extra_aggl_kwargs,
+                extra_runAggl_kwargs=extra_runAggl_kwargs
+            )
             super(FixationAgglomerativeClustering, self).__init__(fragmenter, agglomerater, **super_kwargs)
         else:
             agglomerater = FixationAgglomerater(
@@ -54,7 +60,11 @@ class FixationAgglomerativeClustering(SegmentationPipeline):
                 zero_init=zero_init,
                 n_threads=n_threads,
                 offsets_probabilities=offsets_probabilities,
-                invert_affinities=invert_affinities)
+                offsets_weights=offsets_weights,
+                invert_affinities=invert_affinities,
+                extra_aggl_kwargs=extra_aggl_kwargs,
+                extra_runAggl_kwargs=extra_runAggl_kwargs
+            )
             super(FixationAgglomerativeClustering, self).__init__(agglomerater, **super_kwargs)
 
 
@@ -64,7 +74,10 @@ class FixationAgglomeraterBase(object):
                  update_rule_merge='mean', update_rule_not_merge='mean',
                  zero_init=False,
                  n_threads=1,
-                 invert_affinities=False):
+                 invert_affinities=False,
+                 offsets_weights=None,
+                 extra_aggl_kwargs=None,
+                 extra_runAggl_kwargs=None):
         """
                 Starts from pixels.
 
@@ -84,6 +97,7 @@ class FixationAgglomeraterBase(object):
             assert isinstance(offsets, np.ndarray)
 
         self.used_offsets = used_offsets
+        self.offsets_weights = offsets_weights
 
         self.passed_rules = [update_rule_merge, update_rule_not_merge]
         self.update_rules = [self.parse_update_rule(rule) for rule in self.passed_rules]
@@ -95,6 +109,8 @@ class FixationAgglomeraterBase(object):
         self.zeroInit = zero_init
         self.n_threads = n_threads
         self.invert_affinities = invert_affinities
+        self.extra_aggl_kwargs = extra_aggl_kwargs if extra_aggl_kwargs is not None else {}
+        self.extra_runAggl_kwargs = extra_runAggl_kwargs if extra_runAggl_kwargs is not None else {}
 
     def parse_update_rule(self, rule):
         accepted_rules_1 = ['max', 'min', 'mean', 'ArithmeticMean']
@@ -145,10 +161,14 @@ class FixationAgglomeraterFromSuperpixels(FixationAgglomeraterBase):
         If the opposite is passed, set option `invert_affinities == True`
         """
         offsets = self.offsets
+        offsets_weights = self.offsets_weights
         if self.used_offsets is not None:
             assert len(self.used_offsets) < self.offsets.shape[0]
             offsets = self.offsets[self.used_offsets]
             affinities = affinities[self.used_offsets]
+            if isinstance(offsets_weights, (list, tuple)):
+                offsets_weights = np.array(offsets_weights)
+            offsets_weights = offsets_weights[self.used_offsets]
 
         assert affinities.ndim == 4
         # affinities = affinities[:3]
@@ -177,6 +197,7 @@ class FixationAgglomeraterFromSuperpixels(FixationAgglomeraterBase):
                 label_image=segmentation,
                 use_undirected_graph=True,
                 mode='mean',
+                offsets_weights=offsets_weights,
                 number_of_threads=self.n_threads)
 
         merge_prio = edge_indicators
@@ -195,11 +216,13 @@ class FixationAgglomeraterFromSuperpixels(FixationAgglomeraterBase):
                                                       updateRule0=self.update_rules[0],
                                                       updateRule1=self.update_rules[1],
                                                       zeroInit=self.zeroInit,
-                                                      sizeRegularizer=0.)
-
+                                                      sizeRegularizer=self.extra_aggl_kwargs.get('sizeRegularizer', 0.),
+                                                      sizeThreshMin=self.extra_aggl_kwargs.get('sizeThreshMin', 0.),
+                                                      sizeThreshMax=self.extra_aggl_kwargs.get('sizeThreshMax', 300.),
+        )
         # Run agglomerative clustering:
         agglomerativeClustering = nagglo.agglomerativeClustering(cluster_policy)
-        agglomerativeClustering.run() # (True, 10000)
+        agglomerativeClustering.run(**self.extra_runAggl_kwargs) # (True, 10000)
         node_labels = agglomerativeClustering.result()
 
         final_segm = segm_utils.map_features_to_label_array(
@@ -234,11 +257,15 @@ class FixationAgglomerater(FixationAgglomeraterBase):
         """
         offsets = self.offsets
         offsets_rpobabilities = self.offsets_probabilities
+        offsets_weights = self.offsets_weights
         if self.used_offsets is not None:
             assert len(self.used_offsets) < self.offsets.shape[0]
             offsets = self.offsets[self.used_offsets]
             affinities = affinities[self.used_offsets]
             offsets_rpobabilities = self.offsets_probabilities[self.used_offsets]
+            if isinstance(offsets_weights, (list, tuple)):
+                offsets_weights = np.array(offsets_weights)
+            offsets_weights = offsets_weights[self.used_offsets]
 
         assert affinities.ndim == 4
         assert affinities.shape[0] == offsets.shape[0]
@@ -248,12 +275,15 @@ class FixationAgglomerater(FixationAgglomeraterBase):
 
         image_shape = affinities.shape[1:]
 
+        print("Offset avg-weights: ", offsets_weights)
+
         # Build graph:
         graph, is_local_edge, _, edge_sizes = \
             build_pixel_lifted_graph_from_offsets(
                 image_shape,
                 offsets,
                 offsets_probabilities=offsets_rpobabilities,
+                offsets_weights=offsets_weights,
                 nb_local_offsets=3
             )
         print("Number of edges in graph", graph.numberOfEdges)
@@ -272,14 +302,15 @@ class FixationAgglomerater(FixationAgglomeraterBase):
                               updateRule0=self.update_rules[0],
                               updateRule1=self.update_rules[1],
                               zeroInit=self.zeroInit,
-                              sizeRegularizer=0.5)
-                              # sizeThreshMin=10.,
-                              # sizeThresMax=30.)
+                              sizeRegularizer=self.extra_aggl_kwargs.get('sizeRegularizer', 0.),
+                              sizeThreshMin=self.extra_aggl_kwargs.get('sizeThreshMin', 0.),
+                              sizeThreshMax=self.extra_aggl_kwargs.get('sizeThreshMax', 300.),
+         )
 
 
         # Run agglomerative clustering:
         agglomerativeClustering = nagglo.agglomerativeClustering(cluster_policy)
-        agglomerativeClustering.run(verbose=True, printNth=500000)
+        agglomerativeClustering.run(**self.extra_runAggl_kwargs)
         nodeSeg = agglomerativeClustering.result()
 
         segmentation = nodeSeg.reshape(image_shape)

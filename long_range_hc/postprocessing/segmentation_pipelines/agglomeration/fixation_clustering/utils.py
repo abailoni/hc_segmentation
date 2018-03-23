@@ -1,13 +1,14 @@
 import nifty
 import numpy as np
 
-from skunkworks.postprocessing.segmentation_pipelines.features import accumulate_affinities_on_graph_edges
+from ...features import accumulate_affinities_on_graph_edges
 
 
 def build_pixel_lifted_graph_from_offsets(image_shape,
                                           offsets,
                                           GT_label_image=None,
                                           offsets_probabilities=None,
+                                          offsets_weights=None,
                                           nb_local_offsets=3):
     """
     :param offsets: At the moment local offsets should be the first ones
@@ -15,6 +16,7 @@ def build_pixel_lifted_graph_from_offsets(image_shape,
     """
     image_shape = tuple(image_shape) if not isinstance(image_shape, tuple) else image_shape
 
+    # TODO: change name offsets_probabilities
     graph = nifty.graph.undirectedLongRangeGridGraph(shape=image_shape, offsets=offsets, offsets_probabilities=offsets_probabilities)
     offset_index = graph.edgeOffsetIndex()
     nb_nodes = graph.numberOfNodes
@@ -24,12 +26,21 @@ def build_pixel_lifted_graph_from_offsets(image_shape,
     is_local_edge[:] = 0
     is_local_edge[w] = 1
 
-    offsets_weights = np.array(
-        [ 1., 1., 1.,
-          2., 3, 3, 3, 9, 9, 4, 27, 27
-        ]
-    )
-    offsets_weights = 1. / offsets_weights
+
+    if offsets_weights is None:
+        offsets_weights = np.ones(offsets.shape)
+    else:
+        if isinstance(offsets_weights,(list,tuple)):
+            offsets_weights = np.array(offsets_weights)
+        assert offsets_weights.shape[0] == offsets.shape[0]
+
+        if all([w>=1.0 for w in offsets_weights]):
+            # Take the inverse:
+            offsets_weights = 1. / offsets_weights
+        else:
+            assert all([w<=1.0 for w in offsets_weights]) and all([w>=0.0 for w in offsets_weights])
+
+
     edge_weights = offsets_weights[offset_index.astype('int32')]
 
 

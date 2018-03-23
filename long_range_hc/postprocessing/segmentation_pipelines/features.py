@@ -5,7 +5,8 @@ def accumulate_affinities_on_graph_edges(affinities, offsets, graph=None, label_
                                          contractedRag=None,
                                          use_undirected_graph=False,
                                          mode="mean",
-                                         number_of_threads=6):
+                                         number_of_threads=6,
+                                         offsets_weights=None):
     # TODO: Create class and generalize...
     """
     Label image or graph should be passed. Using nifty rag or undirected graph.
@@ -25,15 +26,28 @@ def accumulate_affinities_on_graph_edges(affinities, offsets, graph=None, label_
     if contractedRag is not None:
         assert graph is not None
 
+    if offsets_weights is not None:
+        if isinstance(offsets_weights, (list, tuple)):
+            offsets_weights = np.array(offsets_weights)
+        assert offsets_weights.shape[0] == affinities.shape[-1]
+        if all([w>=1.0 for w in offsets_weights]):
+            # Take the inverse:
+            offsets_weights = 1. / offsets_weights
+        else:
+            assert all([w<=1.0 for w in offsets_weights]) and all([w>=0.0 for w in offsets_weights])
+    else:
+        offsets_weights = np.ones(affinities.shape[-1])
+
     if graph is None:
         graph = nrag.gridRag(label_image.astype(np.uint32))
 
     if not use_undirected_graph:
         if contractedRag is None:
             accumulated_feat, counts = nrag.accumulateAffinitiesMeanAndLength(graph,
-                                                                  affinities.astype(np.float32),
-                                                                  offsets.astype(np.int32),
-                                                                  number_of_threads)
+                                                                              affinities.astype(np.float32),
+                                                                              offsets.astype(np.int32),
+                                                                              offsets_weights.astype(np.float32),
+                                                                              number_of_threads)
         else:
             print("Warning: multipleThread option not implemented!")
             accumulated_feat, counts = nrag.accumulateAffinitiesMeanAndLength(graph, contractedRag,
@@ -43,9 +57,10 @@ def accumulate_affinities_on_graph_edges(affinities, offsets, graph=None, label_
         assert label_image is not None
         # Here 'graph' is actually a general undirected graph (thus label image is needed):
         accumulated_feat, counts = nrag.accumulateAffinitiesMeanAndLength(graph,
-                                                              label_image.astype(np.int32),
-                                                              affinities.astype(np.float32),
-                                                              offsets.astype(np.int32),
-                                                              number_of_threads)
+                                                                          label_image.astype(np.int32),
+                                                                          affinities.astype(np.float32),
+                                                                          offsets.astype(np.int32),
+                                                                          offsets_weights.astype(np.float32),
+                                                                          number_of_threads)
 
     return accumulated_feat, counts

@@ -16,28 +16,31 @@ MWS_kwargs:
 
 
 generalized_HC_kwargs:
-  use_fragmenter: False
+  use_fragmenter: True
   fragmenter: 'WSDT'
 
   nb_local_offsets: 3
-  probability_long_range_edges: 1.
+  probability_long_range_edges: 1
 
   agglomeration_kwargs:
     zero_init: False
     max_distance_lifted_edges: 3
     update_rule_merge: 'mean'
     update_rule_not_merge: 'mean'
-    used_offsets: [0,1,2]
+#    offsets_weights: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    offsets_weights: [1., 1., 1., 2., 3, 3, 3, 9, 9, 4, 27, 27]
+#    used_offsets: [0,1,2]
     # update_rule_merge={'name': 'rank', 'q':0.5, 'numberOfBins':200},
     # update_rule_not_merge={'name': 'rank', 'q':0.5, 'numberOfBins':200},
     # update_rule_merge={'name': 'generalized_mean', 'p': 1.0},
     # update_rule_not_merge={'name': 'generalized_mean', 'p': 1.0},
-
-#    sizeRegularizer: 0.5
-#    sizeThreshMin: 10.
-#    sizeThresMax: 30.
-#    verbose: False
-#    printNth: 500000
+    extra_aggl_kwargs:
+      sizeRegularizer: 0.5
+      sizeThreshMin: 10.
+      sizeThresMax: 30.
+    extra_runAggl_kwargs:
+      verbose: False
+      printNth: 500000
 
 
   WSDT_kwargs:

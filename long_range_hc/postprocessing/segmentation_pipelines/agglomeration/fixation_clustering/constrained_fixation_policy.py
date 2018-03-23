@@ -1,7 +1,7 @@
 import numpy as np
 from nifty.graph import agglo as nagglo
 
-from skunkworks.criteria.learned_HC.utils import segm_utils as segm_utils
+from .....criteria.learned_HC.utils import segm_utils as segm_utils
 
 NODE_KEYS = {'node_sizes':0,
              'node_labels': 1,

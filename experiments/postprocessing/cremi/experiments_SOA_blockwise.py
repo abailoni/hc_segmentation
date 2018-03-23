@@ -1,3 +1,7 @@
+# FIXME:
+import sys
+sys.path.append("/net/hciserver03/storage/abailoni/pyCharm_projects/hc_segmentation/")
+
 from train_with_offset_HC import MultiScaleLossMaxPool, parse_offsets
 import os
 import numpy as np
@@ -10,9 +14,7 @@ import time
 from inferno.utils.io_utils import yaml2dict
 from inferno.io.volumetric.volumetric_utils import parse_data_slice
 
-# FIXME:
-import sys
-sys.path.append("/net/hciserver03/storage/abailoni/pyCharm_projects/hc_segmentation/")
+
 
 from long_range_hc.datasets import AffinitiesVolumeLoader
 from long_range_hc.postprocessing.long_range_aggl import BlockWise
