@@ -5,7 +5,7 @@ import argparse
 import yaml
 import json
 
-from skunkworks.trainers.learnedHC.visualization import VisualizationCallback
+from long_range_hc.trainers.learnedHC.visualization import VisualizationCallback
 
 # FIXME needed to prevent segfault at import ?!
 import vigra
@@ -45,13 +45,14 @@ from inferno.io.transform.base import Compose
 
 
 # Structured stuff:
-from skunkworks.trainers.learnedHC.trainHC import HierarchicalClusteringTrainer
-from skunkworks.criteria.learned_HC import LHC
+from long_range_hc.trainers.learnedHC.trainHC import HierarchicalClusteringTrainer
+from long_range_hc.criteria.learned_HC import LHC
 from skunkworks.metrics import LHCArandError
 
 # from neurofire.criteria.multi_scale_loss
 
-from skunkworks.postprocessing.pipelines import fixation_agglomerative_clustering_from_wsdt2d
+# FIXME: this has been changed!
+# from skunkworks.postprocessing.pipelines import fixation_agglomerative_clustering_from_wsdt2d
 
 # validation
 from skunkworks.metrics import ArandErrorFromSegmentationPipeline
