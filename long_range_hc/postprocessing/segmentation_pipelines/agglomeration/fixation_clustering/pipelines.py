@@ -18,6 +18,7 @@ class FixationAgglomerativeClustering(SegmentationPipeline):
                  zero_init=False,
                  max_distance_lifted_edges=3,
                  offsets_probabilities=None,
+                 used_offsets=None,
                  n_threads=1,
                  invert_affinities=False,
                  **super_kwargs):
@@ -37,6 +38,7 @@ class FixationAgglomerativeClustering(SegmentationPipeline):
             agglomerater = FixationAgglomeraterFromSuperpixels(
                 offsets,
                 max_distance_lifted_edges=max_distance_lifted_edges,
+                used_offsets=used_offsets,
                 update_rule_merge=update_rule_merge,
                 update_rule_not_merge=update_rule_not_merge,
                 zero_init=zero_init,
@@ -46,6 +48,7 @@ class FixationAgglomerativeClustering(SegmentationPipeline):
         else:
             agglomerater = FixationAgglomerater(
                 offsets,
+                used_offsets=used_offsets,
                 update_rule_merge=update_rule_merge,
                 update_rule_not_merge=update_rule_not_merge,
                 zero_init=zero_init,
@@ -57,7 +60,7 @@ class FixationAgglomerativeClustering(SegmentationPipeline):
 
 
 class FixationAgglomeraterBase(object):
-    def __init__(self, offsets,
+    def __init__(self, offsets, used_offsets=None,
                  update_rule_merge='mean', update_rule_not_merge='mean',
                  zero_init=False,
                  n_threads=1,
@@ -80,6 +83,7 @@ class FixationAgglomeraterBase(object):
         else:
             assert isinstance(offsets, np.ndarray)
 
+        self.used_offsets = used_offsets
 
         self.passed_rules = [update_rule_merge, update_rule_not_merge]
         self.update_rules = [self.parse_update_rule(rule) for rule in self.passed_rules]
@@ -140,9 +144,15 @@ class FixationAgglomeraterFromSuperpixels(FixationAgglomeraterBase):
         Here we expect real affinities (1: merge, 0: split).
         If the opposite is passed, set option `invert_affinities == True`
         """
+        offsets = self.offsets
+        if self.used_offsets is not None:
+            assert len(self.used_offsets) < self.offsets.shape[0]
+            offsets = self.offsets[self.used_offsets]
+            affinities = affinities[self.used_offsets]
+
         assert affinities.ndim == 4
         # affinities = affinities[:3]
-        assert affinities.shape[0] == self.offsets.shape[0]
+        assert affinities.shape[0] == offsets.shape[0]
 
         if self.invert_affinities:
             affinities = 1. - affinities
@@ -154,7 +164,7 @@ class FixationAgglomeraterFromSuperpixels(FixationAgglomeraterBase):
         lifted_graph, is_local_edge = build_lifted_graph_from_rag(
             rag,
             segmentation,
-            self.offsets,
+            offsets,
             max_lifted_distance=self.max_distance_lifted_edges,
             number_of_threads=self.n_threads)
 
@@ -162,7 +172,7 @@ class FixationAgglomeraterFromSuperpixels(FixationAgglomeraterBase):
         # Compute edge sizes and accumulate average/max:
         edge_indicators, edge_sizes = \
             accumulate_affinities_on_graph_edges(
-                affinities, self.offsets,
+                affinities, offsets,
                 graph=lifted_graph,
                 label_image=segmentation,
                 use_undirected_graph=True,
@@ -222,8 +232,16 @@ class FixationAgglomerater(FixationAgglomeraterBase):
         Here we expect real affinities (1: merge, 0: split).
         If the opposite is passed, set option `invert_affinities == True`
         """
+        offsets = self.offsets
+        offsets_rpobabilities = self.offsets_probabilities
+        if self.used_offsets is not None:
+            assert len(self.used_offsets) < self.offsets.shape[0]
+            offsets = self.offsets[self.used_offsets]
+            affinities = affinities[self.used_offsets]
+            offsets_rpobabilities = self.offsets_probabilities[self.used_offsets]
+
         assert affinities.ndim == 4
-        assert affinities.shape[0] == self.offsets.shape[0]
+        assert affinities.shape[0] == offsets.shape[0]
 
         if self.invert_affinities:
             affinities = 1. - affinities
@@ -234,8 +252,8 @@ class FixationAgglomerater(FixationAgglomeraterBase):
         graph, is_local_edge, _, edge_sizes = \
             build_pixel_lifted_graph_from_offsets(
                 image_shape,
-                self.offsets,
-                offsets_probabilities=self.offsets_probabilities,
+                offsets,
+                offsets_probabilities=offsets_rpobabilities,
                 nb_local_offsets=3
             )
         print("Number of edges in graph", graph.numberOfEdges)

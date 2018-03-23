@@ -10,7 +10,8 @@ slicing_config:
   - [50, 50]
   stride: [12, 20, 350, 350]
   window_size: [12, 30, 500, 500]
-  data_slice: ':, :, 197:1350, 700:1800'
+  data_slice: ':, 60:, 197:1350, 840:1800'
+#  data_slice: ':, :60, 80:1256,  89:1281'
 #  stride: [12, 1, 350, 350]
 #  window_size: [12, 1, 700, 700]
 #  data_slice: ':, 60:61, :, :'
