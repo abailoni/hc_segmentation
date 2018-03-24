@@ -2,25 +2,28 @@ dtype: float32
 path_in_h5_dataset: data
 slicing_config:
   downsampling_ratio: [1, 1, 1, 1]
-#  padding:
-#  - [0 ,0]
-#  - [3, 3]
-#  - [50, 50]
-#  - [50, 50]
-#  stride: [12, 20, 350, 350]
-#  window_size: [12, 30, 500, 500]
-#  data_slice: ':, 60:, 197:1350, 840:1800'
 
-  # DEBUG
+
   padding:
   - [0 ,0]
-  - [0, 0]
-  - [0, 0]
-  - [0, 0]
-  stride: [12, 1, 100, 100]
-  window_size: [12, 1, 100, 100]
-  data_slice: ':, 60:70, 1000:1100, 1000:1100'
+  - [3, 3]
+  - [50, 50]
+  - [50, 50]
+  stride: [12, 24, 400, 400]
+  window_size: [12, 30, 500, 500]
+  data_slice: ':, 60:, 197:1350, 840:1800'
 
+#  # DEBUG
+#  padding:
+#  - [0 ,0]
+#  - [1, 1]
+#  - [0, 0]
+#  - [0, 0]
+#  stride: [12, 3, 300, 300]
+#  window_size: [12, 5, 400, 400]
+#  data_slice: ':, 54:60, 800:1200, 1000:1400'
+
+# GT in slice 74 (or 75) in dataset C is screwed up!!!
 
 
 #  data_slice: ':, :60, 80:1256,  89:1281'

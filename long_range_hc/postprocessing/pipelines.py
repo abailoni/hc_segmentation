@@ -66,6 +66,8 @@ def get_segmentation_pipeline(
 
     elif segm_pipeline_type == 'MWS':
         segm_pipeline = DamWatershed(offsets,
+                                     min_segment_size=10,
+                                     invert_affinities=not invert_affinities,
                                    n_threads=nb_threads,
                                    **MWS_kwargs)
     else:

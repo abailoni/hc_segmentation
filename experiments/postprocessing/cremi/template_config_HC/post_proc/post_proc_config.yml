@@ -1,7 +1,8 @@
 segm_pipeline_type: 'gen_HC'
 nb_threads: 8
-invert_affinities: False
-blockwise: False
+invert_affinities: false
+blockwise: True
+return_fragments: False
 
 blockwise_kwargs:
   crop_padding: True
@@ -20,11 +21,32 @@ generalized_HC_kwargs:
   fragmenter: 'WSDT'
 
   nb_local_offsets: 3
-  probability_long_range_edges: 1
+  probability_long_range_edges: 0.1
 
   agglomeration_kwargs:
     zero_init: False
     max_distance_lifted_edges: 3
+    update_rule_merge: 'mean'
+    update_rule_not_merge: 'mean'
+#    offsets_weights: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    offsets_weights: [1., 1., 1., 2., 3, 3, 3, 9, 9, 4, 27, 27]
+#    offsets_weights: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3, 3]
+#    used_offsets: [0,1,2]
+    # update_rule_merge={'name': 'rank', 'q':0.5, 'numberOfBins':200},
+    # update_rule_not_merge={'name': 'rank', 'q':0.5, 'numberOfBins':200},
+    # update_rule_merge={'name': 'generalized_mean', 'p': 1.0},
+    # update_rule_not_merge={'name': 'generalized_mean', 'p': 1.0},
+    extra_aggl_kwargs:
+      sizeRegularizer: 0.
+      sizeThreshMin: 0.
+      sizeThresMax: 120.
+    extra_runAggl_kwargs:
+      verbose: True
+      printNth: 500000
+
+  final_agglomeration_kwargs:
+    zero_init: False
+    max_distance_lifted_edges: 1
     update_rule_merge: 'mean'
     update_rule_not_merge: 'mean'
 #    offsets_weights: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
@@ -35,23 +57,22 @@ generalized_HC_kwargs:
     # update_rule_merge={'name': 'generalized_mean', 'p': 1.0},
     # update_rule_not_merge={'name': 'generalized_mean', 'p': 1.0},
     extra_aggl_kwargs:
-      sizeRegularizer: 0.5
-      sizeThreshMin: 10.
-      sizeThresMax: 30.
+      sizeRegularizer: 0.
+      sizeThreshMin: 0.
+      sizeThresMax: 120.
     extra_runAggl_kwargs:
-      verbose: False
+      verbose: True
       printNth: 500000
 
-
   WSDT_kwargs:
-    threshold: 0.45
+    threshold: 0.4
     from_boundary_maps: true
-    min_segment_size: 0
-    preserve_membrane: true
-    sigma_seeds: 0.0
+    min_segment_size: 20 # THIS SHOULD NOT BE PUT TO ZERO...!
+    preserve_membrane: false
+    sigma_seeds: 0.5
     stacked_2d: True
 
   prob_map_kwargs:
-      offset_weights: [1.0, 1.0, 0.6, 0.6, 0.6, 0.6]
+      offset_weights: [1.0, 1.0, 0.8, 0.8, 0.8, 0.8]
       used_offsets: [1, 2, 4, 5, 7, 8]
 

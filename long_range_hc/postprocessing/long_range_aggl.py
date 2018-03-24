@@ -14,11 +14,14 @@ class BlockWise(object):
     def __init__(self, segmentation_pipeline,
                  offsets,
                  blockwise=True,
+                 final_agglomerater=None,
                  invert_affinities=False, # Only used for final aggl.
                  nb_threads=8,
+                 return_fragments=False,
                  blockwise_config=None):
         self.segmentation_pipeline = segmentation_pipeline
         self.blockwise = blockwise
+        self.return_fragments = return_fragments
         if blockwise:
             assert blockwise_config is not None
             self.blockwise_solver = BlockWiseSegmentationPipelineSolver.from_config(
@@ -27,27 +30,50 @@ class BlockWise(object):
                 blockwise_config)
 
             # At the moment the final agglomeration is a usual  HC with 0.5 threshold:
-            self.final_agglomerater = FixationAgglomeraterFromSuperpixels(
-                offsets,
-                max_distance_lifted_edges=2,
-                update_rule_merge='mean',
-                update_rule_not_merge='mean',
-                zero_init=False,
-                n_threads=nb_threads,
-                invert_affinities=invert_affinities)
+            if final_agglomerater is None:
+                raise DeprecationWarning()
+                self.final_agglomerater = FixationAgglomeraterFromSuperpixels(
+                    offsets,
+                    max_distance_lifted_edges=2,
+                    update_rule_merge='mean',
+                    update_rule_not_merge='mean',
+                    zero_init=False,
+                    n_threads=nb_threads,
+                    invert_affinities=invert_affinities)
+            else:
+                self.final_agglomerater = final_agglomerater
 
     def __call__(self, input_):
         # TODO: check that input_ is a dataset
         final_crop = tuple(slice(pad[0], input_.volume.shape[i+1] - pad[1]) for i, pad in enumerate(input_.padding[1:]))
         if self.blockwise:
+            # TODO: change this!!
+            # At the moment if we crop the padding, then we need to crop the global border for the final
+            # agglomeration (but in this way we lose affinities context).
+            # The alternative is to keep somehow the segmentation on the borders...
             blockwise_segm = self.blockwise_solver(input_)
-            output_segm = self.final_agglomerater(input_.volume, blockwise_segm)
-            output_segm = output_segm[final_crop]
+            if self.return_fragments:
+                fragments = blockwise_segm[0]
+                blockwise_segm = blockwise_segm[1]
+
+            # ---- TEMP ----
             blockwise_segm = blockwise_segm[final_crop]
-            return output_segm, blockwise_segm
+            affs = input_.volume[(slice(None),) + final_crop]
+            # ---- TEMP ----
+
+            output_segm = self.final_agglomerater(affs, blockwise_segm)
+            # output_segm = output_segm[final_crop]
+            # blockwise_segm = blockwise_segm[final_crop]
+            if self.return_fragments:
+                return output_segm, blockwise_segm, fragments
+            else:
+                return output_segm, blockwise_segm
         else:
             output_segm = self.segmentation_pipeline(input_.volume)
-            return output_segm[final_crop]
+            if self.return_fragments:
+                return output_segm[1][final_crop], output_segm[0][final_crop]
+            else:
+                return output_segm[final_crop]
 
 class BlockWiseSegmentationPipelineSolver(object):
     def __init__(self,
@@ -104,7 +130,7 @@ class BlockWiseSegmentationPipelineSolver(object):
         assert len(shape_affs) == 4
         shape_output = shape_affs[1:]
 
-        output = np.zeros(shape_output, dtype='uint64')
+        output = np.ones(shape_output, dtype='int64') * (-1)
 
         # loader
         loader = SimpleParallelLoader(dataset, num_workers=self.num_workers)
@@ -138,13 +164,13 @@ class BlockWiseSegmentationPipelineSolver(object):
             # TODO: ADD CROP OF PADDING. We should predict with a padding and then crop!
 
             # save predictions in the output
-            output_patch = vigra.analysis.labelVolume(output_patch.astype(np.uint32))
-            output[global_slicing] = output_patch[local_slicing] + max_label
+            output_patch = vigra.analysis.labelVolume(output_patch[local_slicing].astype(np.uint32))
+            output[global_slicing] = output_patch + max_label
             max_label += output_patch.max() + 1
 
         # # crop padding from the outputs
         # crop = tuple(slice(pad[0], shape_output[i] - pad[1]) for i, pad in enumerate(dataset.padding[1:]))
-
+        output[output==-1] = max_label + 1
         # return the prediction (not cropped)
         return output
 

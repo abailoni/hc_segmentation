@@ -1,1 +1,1 @@
-from .pipelines import FixationAgglomerativeClustering
+from .pipelines import FixationAgglomerativeClustering, FixationAgglomeraterFromSuperpixels, FixationAgglomerater
