@@ -60,36 +60,44 @@ def build_lifted_graph_from_rag(rag,
                                 number_of_threads=6):
 
     local_edges = rag.uvIds()
-    # Search for lifted edges in a certain range (max_dist == 1, then only local)
-    long_range_edges = rag.bfsEdges(max_lifted_distance)
+
+    if max_lifted_distance > 1:
+        # Search for lifted edges in a certain range (max_dist == 1, then only local)
+        long_range_edges = rag.bfsEdges(max_lifted_distance)
 
 
-    temp_lifted_graph = nifty.graph.undirectedGraph(rag.numberOfNodes)
-    temp_lifted_graph.insertEdges(local_edges)
-    nb_local_edges = temp_lifted_graph.numberOfEdges
-    temp_lifted_graph.insertEdges(long_range_edges)
+        temp_lifted_graph = nifty.graph.undirectedGraph(rag.numberOfNodes)
+        temp_lifted_graph.insertEdges(local_edges)
+        nb_local_edges = temp_lifted_graph.numberOfEdges
+        temp_lifted_graph.insertEdges(long_range_edges)
 
 
-    # Check whenever the lifted edges are actually covered by the offsets:
-    fake_affs = np.ones(label_image.shape + (offsets.shape[0], ))
-    label_image = label_image.astype(np.int32)
-    _, edge_sizes = \
-        accumulate_affinities_on_graph_edges(fake_affs, offsets,
-                                             graph=temp_lifted_graph,
-                                             label_image=label_image,
-                                             use_undirected_graph=True,
-                                             number_of_threads=number_of_threads)
+        # Check whenever the lifted edges are actually covered by the offsets:
+        fake_affs = np.ones(label_image.shape + (offsets.shape[0], ))
+        label_image = label_image.astype(np.int32)
+        _, edge_sizes = \
+            accumulate_affinities_on_graph_edges(fake_affs, offsets,
+                                                 graph=temp_lifted_graph,
+                                                 label_image=label_image,
+                                                 use_undirected_graph=True,
+                                                 number_of_threads=number_of_threads)
 
 
-    # Find lifted edges reached by the offsets:
-    edges_to_keep = edge_sizes>0.
-    uvIds_temp_graph = temp_lifted_graph.uvIds()
+        # Find lifted edges reached by the offsets:
+        edges_to_keep = edge_sizes>0.
+        uvIds_temp_graph = temp_lifted_graph.uvIds()
 
-    final_lifted_graph = nifty.graph.undirectedGraph(rag.numberOfNodes)
-    final_lifted_graph.insertEdges(uvIds_temp_graph[edges_to_keep])
-    total_nb_edges = final_lifted_graph.numberOfEdges
+        final_lifted_graph = nifty.graph.undirectedGraph(rag.numberOfNodes)
+        final_lifted_graph.insertEdges(uvIds_temp_graph[edges_to_keep])
+        total_nb_edges = final_lifted_graph.numberOfEdges
 
-    is_local_edge = np.zeros(total_nb_edges, dtype=np.int8)
-    is_local_edge[:nb_local_edges] = 1
+        is_local_edge = np.zeros(total_nb_edges, dtype=np.int8)
+        is_local_edge[:nb_local_edges] = 1
+
+    else:
+        final_lifted_graph = nifty.graph.undirectedGraph(rag.numberOfNodes)
+        final_lifted_graph.insertEdges(local_edges)
+        total_nb_edges = final_lifted_graph.numberOfEdges
+        is_local_edge = np.ones(total_nb_edges, dtype=np.int8)
 
     return final_lifted_graph, is_local_edge
