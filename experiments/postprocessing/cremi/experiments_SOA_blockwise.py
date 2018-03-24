@@ -42,8 +42,6 @@ def evaluate(project_folder, sample, offsets,
     aff_loader_config['sample'] = sample
     aff_loader_config['offsets'] = list(offsets)
 
-    # TODO: it would be really nice to avoid the full loading of the dataset...
-    affinities_dataset = AffinitiesVolumeLoader.from_config(aff_loader_config)
 
     post_proc_config = './template_config_HC/post_proc/post_proc_config.yml'
     post_proc_config = yaml2dict(post_proc_config)
@@ -61,6 +59,11 @@ def evaluate(project_folder, sample, offsets,
         yaml.dump(post_proc_config, f)
     with open(os.path.join(postproc_dir, 'aff_loader_config.yml'), 'w') as f:
         yaml.dump(aff_loader_config, f)
+
+    parsed_slice = parse_data_slice(aff_loader_config.pop('data_slice_not_padded'))
+
+    # TODO: it would be really nice to avoid the full loading of the dataset...
+    affinities_dataset = AffinitiesVolumeLoader.from_config(aff_loader_config)
 
     return_fragments = post_proc_config.get('return_fragments', False)
 
@@ -100,6 +103,7 @@ def evaluate(project_folder, sample, offsets,
     output_segmentations = post_proc_solver(affinities_dataset)
     pred_segm = output_segmentations[0] if isinstance(output_segmentations,tuple) else output_segmentations
     print("Post-processing took {} s".format(time.time() - tick))
+    print(pred_segm.shape)
 
     segm_file = os.path.join(postproc_dir, 'pred_segm.h5')
     name_finalSegm = 'finalSegm'
@@ -109,7 +113,7 @@ def evaluate(project_folder, sample, offsets,
     if return_fragments:
         vigra.writeHDF5(output_segmentations[-1].astype('int64'), segm_file, 'fragments', compression='gzip')
 
-    parsed_slice = parse_data_slice(aff_loader_config['slicing_config']['data_slice'])
+
     parsed_slice = parsed_slice[1:]
 
 

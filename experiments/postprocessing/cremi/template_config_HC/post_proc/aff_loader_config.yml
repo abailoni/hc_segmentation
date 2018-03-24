@@ -2,7 +2,7 @@ dtype: float32
 path_in_h5_dataset: data
 slicing_config:
   downsampling_ratio: [1, 1, 1, 1]
-
+  volume_already_padded: True
 
   padding:
   - [0 ,0]
@@ -11,7 +11,8 @@ slicing_config:
   - [50, 50]
   stride: [12, 24, 400, 400]
   window_size: [12, 30, 500, 500]
-  data_slice: ':, 60:, 197:1350, 840:1800'
+  data_slice: ':, 57:125, 147:1400, 790:1850'
+data_slice_not_padded: ':, 60:122, 197:1350, 840:1800'
 
 #  # DEBUG
 #  padding:

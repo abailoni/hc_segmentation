@@ -38,6 +38,7 @@ nKeys = constr_HC.NODE_KEYS
 
 class LHC_Worker(nn.Module):
     def __init__(self, options):
+        raise DeprecationWarning()
         super(LHC_Worker, self).__init__()
 
         options = yaml2dict(options)

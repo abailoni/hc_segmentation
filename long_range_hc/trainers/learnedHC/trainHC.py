@@ -80,6 +80,7 @@ class HierarchicalClusteringTrainer(Trainer):
     def __init__(self, model=None,
                  pre_train=False,
                  **trainer_kwargs):
+        raise DeprecationWarning()
         super(HierarchicalClusteringTrainer, self).__init__(model=model)
 
 
