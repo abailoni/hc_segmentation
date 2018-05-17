@@ -11,8 +11,15 @@ slicing_config:
   - [50, 50]
   stride: [12, 24, 400, 400]
   window_size: [12, 30, 500, 500]
-  data_slice: ':, 57:125, 147:1400, 790:1850'
-data_slice_not_padded: ':, 60:122, 197:1350, 840:1800'
+#  data_slice: ':, 57:125, 147:1400, 790:1850'
+#data_slice_not_padded: ':, 60:122, 197:1350, 840:1800'
+#  data_slice: ':, :46, :, :'
+#data_slice_not_padded: ':, 3:43, 50:-50, 50:-50'
+
+#  data_slice: ':, :66, :, :'
+#data_slice_not_padded: ':, 3:63, 50:-50, 50:-50'
+  data_slice: ':, 60:, :, :'
+data_slice_not_padded: ':, 63:-3, 50:-50, 50:-50'
 
 #  # DEBUG
 #  padding:

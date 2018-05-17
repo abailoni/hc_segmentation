@@ -219,6 +219,7 @@ class FixationAgglomeraterFromSuperpixels(FixationAgglomeraterBase):
                                                       sizeRegularizer=self.extra_aggl_kwargs.get('sizeRegularizer', 0.),
                                                       sizeThreshMin=self.extra_aggl_kwargs.get('sizeThreshMin', 0.),
                                                       sizeThreshMax=self.extra_aggl_kwargs.get('sizeThreshMax', 300.),
+                                                      postponeThresholding=self.extra_aggl_kwargs.get('postponeThresholding', True),
         )
         # Run agglomerative clustering:
         agglomerativeClustering = nagglo.agglomerativeClustering(cluster_policy)
@@ -305,6 +306,8 @@ class FixationAgglomerater(FixationAgglomeraterBase):
                               sizeRegularizer=self.extra_aggl_kwargs.get('sizeRegularizer', 0.),
                               sizeThreshMin=self.extra_aggl_kwargs.get('sizeThreshMin', 0.),
                               sizeThreshMax=self.extra_aggl_kwargs.get('sizeThreshMax', 300.),
+                              postponeThresholding=self.extra_aggl_kwargs.get(
+                                                          'postponeThresholding', True),
          )
 
 

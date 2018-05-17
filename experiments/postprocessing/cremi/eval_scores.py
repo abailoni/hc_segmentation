@@ -7,66 +7,80 @@ cmap_random = matplotlib.colors.ListedColormap(np.random.rand(100000, 3))
 import os
 import vigra
 import h5py
+from inferno.utils.io_utils import yaml2dict
+from inferno.io.volumetric.volumetric_utils import parse_data_slice
+import json
+
+sample = None
+
+def import_datasets(proj_dir, aggl_name, import_affs=False, import_raw=True):
+    config_file = yaml2dict(os.path.join(proj_dir, "postprocess/{}/aff_loader_config.yml".format(aggl_name)))
+    global sample
+    sample = config_file['sample']
+    dataset_path = '/export/home/abailoni/datasets/cremi/SOA_affinities/sample%s_train.h5' % (sample)
+    slc = tuple(parse_data_slice(config_file['data_slice_not_padded']))
+
+    bb_affs = np.s_[slc]
+    bb = np.s_[slc[1:]]
+    out = []
+    if import_raw:
+        with h5py.File(dataset_path, 'r') as f:
+            out.append(f['raw'][bb].astype(np.float32) / 255.)
+    with h5py.File(dataset_path, 'r') as f:
+        out.append(f['segmentations/groundtruth_fixed'][bb])
+    if import_affs:
+        with h5py.File(config_file['path'], 'r') as f:
+            out.append(f[config_file['path_in_h5_dataset']][bb_affs].astype(np.float32))
+
+    out = out[0] if len(out) == 1 else out
+    return  out
 
 
-sample = 'B'
-model_name = 'SOA_affinities'
-# slice_window = (slice(48,55), slice(560,760), slice(1400,1700))
-# slice_window = (slice(30,55), slice(560,860), slice(1400,1700))
+def import_segmentation(proj_dir, aggl_name, return_fragments=False, return_blocks=False):
+    config_file = yaml2dict(os.path.join(proj_dir, "postprocess/{}/aff_loader_config.yml".format(aggl_name)))
+    sample = config_file['sample']
 
-# Debug block
-slice_window = (slice(28,38), slice(460,860), slice(1200,1650))
+    # scores_file = os.path.join(proj_dir, "postprocess/{}/scores.json".format(aggl_name))
+    # with open(scores_file) as f:
+    #     scores = json.load(f)
+    # print(scores)
+    # print("{0} --> CS: {1:.4f}; AR: {2:.4f}; Split: {3:.4f}; Merge: {4:.4f}".format(aggl_name,
+    #                                                                                 scores[sample]['cremi-score'],
+    #                                                                                 scores[sample]['adapted-rand'],
+    #                                                                                 scores[sample]['vi-split'],
+    #                                                                                 scores[sample]['vi-merge']))
 
-# Larger block:
-slice_window = (slice(28,78), slice(460,860), slice(1200,1650))
-
-# Even larger block:
-slice_window = (slice(28,98), slice(460,1100), slice(900,1650))
-
-# Almost full dataset:
-slice_window = (slice(None), slice(197,1350), slice(700,1800))
-
-project_folder = '/export/home/abailoni/learnedHC/new_experiments/'
-file_path = '/export/home/abailoni/datasets/cremi/SOA_affinities/sample%s_train.h5' % (sample)
-predictions_folder = os.path.join(project_folder, model_name)
-
-# Predictions:
-predictions_path = os.path.join(predictions_folder, 'Predictions/prediction_sample%s.h5' %(sample))
-
-
-
-bb = np.s_[slice_window]
-bb_affs = np.s_[(slice(None),) + slice_window]
-# with h5py.File(file_path, 'r') as f:
-#     raw = f['raw'][bb].astype(np.float32) / 255.
-with h5py.File(file_path, 'r') as f:
-    gt = f['segmentations/groundtruth'][bb].astype(np.uint16)
-# with h5py.File(predictions_path, 'r') as f:
-#     affinities = f['data'][bb_affs].astype(np.float32)
+    file_path = os.path.join(proj_dir, "postprocess/{}/pred_segm.h5".format(aggl_name))
+    if return_fragments:
+        return (vigra.readHDF5(file_path, 'finalSegm').astype(np.uint16),
+                vigra.readHDF5(file_path, 'fragments').astype(np.uint16))
+    elif return_blocks:
+        return (vigra.readHDF5(file_path, 'finalSegm').astype(np.uint16),
+                vigra.readHDF5(file_path, 'finalSegm_blocks').astype(np.uint16))
+    else:
+        return vigra.readHDF5(file_path, 'finalSegm').astype(np.uint16)
 
 
+project_folder = '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities'
 
-from skunkworks.metrics.cremi_score import cremi_score
 
-blocks = vigra.readHDF5(predictions_path, 'finalSegm_mean_weightedLRangeedges_TRY_blocks').astype(np.uint16)
-mean_blockwise = vigra.readHDF5(predictions_path, 'finalSegm_mean_weightedLRangeedges_TRY').astype(np.uint16)
-WSDT = vigra.readHDF5(predictions_path, 'finalSegm_WSDT_full_dataset').astype(np.uint16)
-WSDT_local = vigra.readHDF5(predictions_path, 'finalSegm_WSDT_local_full_dataset').astype(np.uint16)
+def eval_scores(agglo_name):
+    gt = import_datasets(project_folder,agglo_name,import_affs=False, import_raw=False)
 
-crop = (slice(60,None),slice(None), slice(140, None))
+    segm = import_segmentation(project_folder, agglo_name, return_blocks=False)
 
-# print("WSDT naive LR")
-# evals = cremi_score(gt[crop], WSDT[crop], border_threshold=None, return_all_scores=True)
-# print(evals)
-#
-# print("WSDT local edges")
-# evals = cremi_score(gt[crop], WSDT_local[crop], border_threshold=None, return_all_scores=True)
-# print(evals)
-#
-# print("Smart blockwise")
-# evals = cremi_score(gt[crop], mean_blockwise[crop], border_threshold=None, return_all_scores=True)
-# print(evals)
 
-print("Blocks:")
-evals = cremi_score(gt[crop], blocks[crop], border_threshold=None, return_all_scores=True)
-print(evals)
+    from skunkworks.metrics.cremi_score import cremi_score
+
+    evals = cremi_score(gt, segm, border_threshold=None, return_all_scores=True)
+    print(evals)
+    ref = {}
+    ref[sample] = evals
+    scores_file = os.path.join(project_folder, "postprocess/{}/scores.json".format(agglo_name))
+    with open(scores_file, 'w') as f:
+        json.dump(ref, f, indent=4, sort_keys=True)
+
+# for agglo_name in ['LRHC_C_part2', 'MWS_C_part2', 'LRHC_C_part1', 'MWS_C_part1', 'LRHC_A_part2', 'MWS_A_part2', 'LRHC_A_part1', 'MWS_A_part1']:
+for agglo_name in ['LRHC_SR03_LRE01W']:
+    print(agglo_name)
+    eval_scores(agglo_name)

@@ -121,9 +121,10 @@ def evaluate(project_folder, sample, offsets,
     # # bb = np.s_[65:71]
     bb = np.s_[tuple(parsed_slice)]
     with h5py.File(gt_path, 'r') as f:
-        gt = f['segmentations/groundtruth'][bb].astype('uint64')
+        gt = f['segmentations/groundtruth_fixed'][bb].astype('uint64')
     #
     print(gt.shape)
+    print(gt.min())
     #
     #
 
