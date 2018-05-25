@@ -130,7 +130,7 @@ class BlockWiseSegmentationPipelineSolver(object):
         assert len(shape_affs) == 4
         shape_output = shape_affs[1:]
 
-        output = np.ones(shape_output, dtype='int64') * (-1)
+        output = np.ones(shape_output, dtype='uint64')
 
         # loader
         loader = SimpleParallelLoader(dataset, num_workers=self.num_workers)
@@ -167,11 +167,18 @@ class BlockWiseSegmentationPipelineSolver(object):
             output_patch = vigra.analysis.labelVolume(output_patch[local_slicing].astype(np.uint32))
             output[global_slicing] = output_patch + max_label
             max_label += output_patch.max() + 1
+            print("Max label: ", max_label)
+            print("Max in total output: ", output.max())
 
         # # crop padding from the outputs
         # crop = tuple(slice(pad[0], shape_output[i] - pad[1]) for i, pad in enumerate(dataset.padding[1:]))
-        output[output==-1] = max_label + 1
+        # FIXME: why this...?
+        # output[output==-1] = max_label + 1
         # return the prediction (not cropped)
+
+        print("Final blocks: max --> {}, min --> {}".format(output.max(), output.min()))
+        output = vigra.analysis.labelVolume(output.astype(np.uint32))
+        print("Final blocks: max --> {}, min --> {}".format(output.max(), output.min()))
         return output
 
 
