@@ -1,0 +1,18 @@
+defect_augmentation_config: {p_artifact_source: 0, p_deformed_slice: 0, p_low_contrast: 0,
+  p_missing_slice: 0}
+dtype: float32
+loader_config: {batch_size: 1, drop_last: false, num_workers: 12, pin_memory: true}
+path: '/groups/saalfeld/home/papec/Work/neurodata_hdd/cremi/sampleB/raw/sampleB_raw_automatically_realigned_replaced_black.h5'
+path_in_h5_dataset: data
+slicing_config:
+  downsampling_ratio: [1, 1, 1]
+  padding:
+  - [4, 4]
+  - [50, 50]
+  - [50, 50]
+  stride: [10, 224, 224]
+  window_size: [18, 324, 324]
+#  data_slice: '85:, :, :'
+  data_slice: ':, :, :'
+
+
