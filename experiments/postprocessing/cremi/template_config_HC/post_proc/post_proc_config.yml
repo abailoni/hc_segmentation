@@ -17,7 +17,7 @@ MWS_kwargs:
 
 
 generalized_HC_kwargs:
-  use_fragmenter: True
+  use_fragmenter: False
   fragmenter: 'WSDT'
 
   nb_local_offsets: 3
@@ -25,13 +25,13 @@ generalized_HC_kwargs:
 
   agglomeration_kwargs:
     zero_init: False
-    max_distance_lifted_edges: 3
+    max_distance_lifted_edges: 1
     update_rule_merge: 'mean'
     update_rule_not_merge: 'mean'
 #    offsets_weights: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
     offsets_weights: [1., 1., 1., 2., 3, 3, 3, 9, 9, 4, 27, 27]
 #    offsets_weights: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3, 3]
-    used_offsets: [0,1,2]
+#    used_offsets: [0,1,2]
     # update_rule_merge={'name': 'rank', 'q':0.5, 'numberOfBins':200},
     # update_rule_not_merge={'name': 'rank', 'q':0.5, 'numberOfBins':200},
     # update_rule_merge={'name': 'generalized_mean', 'p': 1.0},
@@ -40,14 +40,15 @@ generalized_HC_kwargs:
       sizeRegularizer: 0.
       sizeThreshMin: 0.
       sizeThresMax: 120.
-      postponeThresholding: True
+      postponeThresholding: False
+      threshold: 0.9 # Merge all: 0.0; split all: 1.0
     extra_runAggl_kwargs:
       verbose: True
       printNth: 300000
 
   final_agglomeration_kwargs:
     zero_init: False
-    max_distance_lifted_edges: 2
+    max_distance_lifted_edges: 1
     update_rule_merge: 'mean'
     update_rule_not_merge: 'mean'
 #    offsets_weights: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
@@ -61,10 +62,11 @@ generalized_HC_kwargs:
       sizeRegularizer: 0.
       sizeThreshMin: 0.
       sizeThresMax: 120.
-      postponeThresholding: false
+      postponeThresholding: False
+      threshold: 0.9 # Merge all: 0.0; split all: 1.0
     extra_runAggl_kwargs:
       verbose: True
-      printNth: 500000
+      printNth: 300000
 
   WSDT_kwargs:
     threshold: 0.49

@@ -80,7 +80,6 @@ class HierarchicalClusteringTrainer(Trainer):
     def __init__(self, model=None,
                  pre_train=False,
                  **trainer_kwargs):
-        raise DeprecationWarning()
         super(HierarchicalClusteringTrainer, self).__init__(model=model)
 
 
@@ -106,7 +105,9 @@ class HierarchicalClusteringTrainer(Trainer):
         self.options = trainer_kwargs
 
         if self.pre_train:
-            self.postprocessing = self.get_postprocessing(trainer_kwargs)
+            # FIXME: change to use updted long-range clustering
+            self.postprocessing = None
+            # self.postprocessing = self.get_postprocessing(trainer_kwargs)
 
     def get_postprocessing(self, options):
         affinity_offsets = options['HC_config']['offsets']
@@ -147,6 +148,16 @@ class HierarchicalClusteringTrainer(Trainer):
             suffix = '' if not validation else 'valid'
             self.plotter.plot_batch_pretraining(img_data, batch, suffix)
 
+    def map_labels_to_embedding_space(self, input_):
+        """
+        :param input_: Numpy array with expected shape: (1 batch, 1 channel, 5, 324, 324)
+        """
+
+
+
+
+
+
     def apply_model_and_loss(self, inputs, target, backward=True):
         """
         :type  inputs: list
@@ -163,10 +174,18 @@ class HierarchicalClusteringTrainer(Trainer):
         validation = not backward
         # Check because for some reason it does not expect batch axis...?
 
+        # Combine raw and oversegmentation:
+        assert len(inputs) == 2
+        raw = inputs[0][:,0]
+        init_segm_labels = inputs[1][:,0]
+        init_segm_vectors = inputs[1][:, 1:]
+        inputs = torch.cat([inputs[0], init_segm_vectors], dim=1)
+
         if self.pre_train:
             self.model.set_pre_train_mode(True)
-            static_prediction = self.apply_model(*inputs)
+            static_prediction = self.apply_model(inputs)
         else:
+            raise DeprecationWarning()
             self.model.set_static_prediction(True)
             static_prediction = self.apply_model(*inputs)
 
@@ -180,176 +199,181 @@ class HierarchicalClusteringTrainer(Trainer):
             is_cuda = static_prediction.is_cuda
         if self.pre_train:
             if not validation:
-                self.plot_pretrain_batch({"raw":inputs[0][:,0],
+                pass
+                # TODO: update plots!
+                self.plot_pretrain_batch({"raw":raw,
+                                          "init_segm":init_segm_labels,
                                       "stat_prediction":static_prediction[0],
                                       "target":target})
             else:
-                # Compute segmentation:
-                GT_labels = target.cpu().data.numpy()[:, 0]
-                pred_numpy = out_prediction.cpu().data.numpy()
-                segmentations = [self.postprocessing(pred) for pred in pred_numpy]
-                validation_scores = [cremi_score(gt, segm, return_all_scores=True) for gt, segm in
-                                     zip(GT_labels, segmentations)]
-                self.criterion.validation_score = np.array(validation_scores).mean(axis=0)
-                print(self.criterion.validation_score)
-
-                var_segm = Variable(from_numpy(np.stack(segmentations)))
-                self.plot_pretrain_batch({"raw": inputs[0][:, 0],
-                                      "stat_prediction": static_prediction[0],
-                                      "target": target,
-                                      "segmentation": var_segm,
-                                      "GT_labels": target[:,0]},
-                                         validation=True)
+                pass
+                # # Compute segmentation:
+                # GT_labels = target.cpu().data.numpy()[:, 0]
+                # pred_numpy = out_prediction.cpu().data.numpy()
+                # segmentations = [self.postprocessing(pred) for pred in pred_numpy]
+                # validation_scores = [cremi_score(gt, segm, return_all_scores=True) for gt, segm in
+                #                      zip(GT_labels, segmentations)]
+                # self.criterion.validation_score = np.array(validation_scores).mean(axis=0)
+                # print(self.criterion.validation_score)
+                #
+                # var_segm = Variable(from_numpy(np.stack(segmentations)))
+                # self.plot_pretrain_batch({"raw": inputs[0][:, 0],
+                #                       "stat_prediction": static_prediction[0],
+                #                       "target": target,
+                #                       "segmentation": var_segm,
+                #                       "GT_labels": target[:,0]},
+                #                          validation=True)
 
 
 
 
         # static_prediction = static_prediction[0]
 
-        loss = self.get_loss_static_prediction(static_prediction, target=target,
+        loss = self.get_loss_static_prediction(static_prediction[0], target=target,
                                                validation=validation)
 
 
 
 
         if not self.pre_train:
-            # Keep only largest prediction and invert (we want affinities):
-            static_prediction = 1. - static_prediction[0]
-            # tick0 = time.time()
-
-            self.model.set_static_prediction(False)
-
-            # --------------------------
-            # Initialize LHC criterion:
-            # --------------------------
-            self.criterion.clear()
-            self.criterion.set_validation_mode(validation)
-            raw = inputs[0].cpu().data.numpy()
-            self.criterion.pass_batch_data_to_workers("set_raw_image", np.squeeze(raw, axis=1))
-
-            if(backward or target is not None):
-                # GT labels are in the first channel:
-                GT_labels = target.cpu().data.numpy()[:,0]
-                self.criterion.pass_batch_data_to_workers("set_targets", GT_labels)
-
-            # Set initial segmentation based on static_prediction:
-            self.criterion.pass_batch_data_to_workers("set_static_prediction",
-                                                      static_prediction.cpu().data.numpy())
-
-            # tick1 = time.time()
-            # print("Initialization: {} s".format(tick1 - tick0))
-
-            # --------------------------
-            # Loop and perform mile-steps:
-            # --------------------------
-            dynamic_predictions = []
-            dynamic_loss_targets = []
-            dynamic_loss_weights = []
-            while not self.criterion.is_finished():
-                # tick1 = time.time()
-                # TODO: what if some workers are done...?
-                dict_list, key_list = self.criterion.get_dynamic_inputs_milestep()
-                all_dynamic_inputs = compose_model_inputs(dict_list, key_list, channel_axis=0)
-
-                if is_cuda:
-                    all_dynamic_inputs = [dyn_inp.cuda() for dyn_inp in all_dynamic_inputs]
-
-                # Keep static inputs (raw) on GPU:
-                prediction_milestep = self.apply_model(*(inputs+all_dynamic_inputs))
-
-                # Check if dynamic prediction is multiscale:
-                if isinstance(prediction_milestep, tuple):
-                    highRes_prediction = prediction_milestep[0]
-                else:
-                    highRes_prediction = prediction_milestep
-
-                # Returned values are None in case of validation:
-                milestep_loss_targets, milestep_loss_weights = self.criterion(highRes_prediction)
-
-                dynamic_predictions.append(prediction_milestep)
-                dynamic_loss_targets.append(milestep_loss_targets)
-                dynamic_loss_weights.append(milestep_loss_weights)
-
-            if validation:
-                self.criterion.run_clustering_on_pretrained_affs(start_from_pixels=False)
-
-            # Plot data batch:
-            self.plot_batch(validation=not backward)
-
-            if backward:
-                for iter in range(len(dynamic_predictions)):
-                    # tick5 = time.time()
-                    dynamic_predictions_iter = dynamic_predictions[iter]
-                    dynamic_loss_targets_iter = dynamic_loss_targets[iter]
-                    dynamic_loss_weights_iter = dynamic_loss_weights[iter]
-
-                    # dynamic_predictions_iter = torch.cat(dynamic_predictions, dim=0)
-                    # dynamic_loss_targets_iter = torch.cat(dynamic_loss_targets, dim=0)
-                    # dynamic_loss_weights_iter = torch.cat(dynamic_loss_weights, dim=0)
-
-                    # print(dynamic_loss_targets_iter.size())
-                    # print(dynamic_predictions_iter.size())
-
-                    # CLASSES TRAINING:
-                    # shape = dynamic_loss_targets.size()
-                    # dynamic_loss_targets = dynamic_loss_targets.view(shape[0], -1, shape[3], shape[4], shape[5])
-                    # dynamic_predictions = dynamic_predictions.view(shape[0], -1, shape[3], shape[4], shape[5])
-
-
-                    # # MY STRANGE IMPLEMENTATION WITH WEIGHTS (DOESN'T SEEM TO GIVE GREAT RESULTS)
-                    # print(dynamic_loss_targets.size())
-                    # merge_and_split_targets = dynamic_loss_targets[:,:,0:2]
-                    # self._structured_criterion.weight = self._compute_batch_weights(merge_and_split_targets).data
-                    # loss = loss + self._structured_criterion(dynamic_predictions, dynamic_loss_targets)
-
-                    # dynamic_loss_weights = torch.cat(dynamic_loss_weights, dim=0)
-
-                    # DICE LOSS TRAINING:
-                    # # Find number of trained pixels: (for batch average)
-                    # flat_weights = dynamic_loss_weights.view(-1)
-                    # zero_array = Variable(from_numpy(np.array([0.]))).cuda().float()
-                    # pixels_in_minibatch = torch.sum((flat_weights != zero_array).float())
-                    #
-                    # loss = loss.float()
-                    # loss = loss + self._structured_criterion(dynamic_predictions, dynamic_loss_targets, dynamic_loss_weights)/pixels_in_minibatch.clamp(min=1e-6)
-
-                    # Inferno implementation of Dice Score:
-                    # Different classes are considered as separate channels:
-                    def compress_classes_and_offsets(tensor):
-                        size = tensor.size()
-                        return tensor.view(size[0], -1, size[3], size[4], size[5])
-                    dynamic_loss_targets_iter = compress_classes_and_offsets(dynamic_loss_targets_iter)
-                    dynamic_loss_weights_iter = compress_classes_and_offsets(dynamic_loss_weights_iter)
-                    if isinstance(dynamic_predictions_iter, (tuple, list)):
-                        # Multiscale predictions:
-                        dynamic_predictions_iter = tuple(compress_classes_and_offsets(pred) for pred in dynamic_predictions_iter)
-                    else:
-                        dynamic_predictions_iter = compress_classes_and_offsets(dynamic_predictions_iter)
-                    loss = self._structured_criterion(dynamic_predictions_iter, (dynamic_loss_targets_iter, dynamic_loss_weights_iter))
-
-                    # tick6 = time.time()
-                    # print("Computing loss iter {}: {} s".format(iter, tick6 - tick5))
-                    #
-                    loss.backward()
-                    # break
-
-                    # print("Backward iter {}: {} s".format(iter,time.time() - tick6))
-
-                    # BCE:
-                    # flat_pred = dynamic_predictions.view(-1)
-                    # flat_targets = dynamic_loss_targets.view(-1)
-                    # flat_weights = dynamic_loss_weights.view(-1)
-                    #
-                    # BCE_criteria = BCELoss(weight=flat_weights, size_average=False)
-                    # zero_array = Variable(from_numpy(np.array([0.]))).cuda().float()
-                    #
-                    # pixels_in_minibatch = torch.sum((flat_weights != zero_array).float())
-                    # loss = loss.float()
-                    # loss = loss + BCE_criteria(flat_pred, flat_targets)/pixels_in_minibatch
-
-
-
-            out_prediction = torch.cat(dynamic_predictions, dim=0)
+            raise DeprecationWarning()
+            # # Keep only largest prediction and invert (we want affinities):
+            # static_prediction = 1. - static_prediction[0]
+            # # tick0 = time.time()
+            #
+            # self.model.set_static_prediction(False)
+            #
+            # # --------------------------
+            # # Initialize LHC criterion:
+            # # --------------------------
+            # self.criterion.clear()
+            # self.criterion.set_validation_mode(validation)
+            # raw = inputs[0].cpu().data.numpy()
+            # self.criterion.pass_batch_data_to_workers("set_raw_image", np.squeeze(raw, axis=1))
+            #
+            # if(backward or target is not None):
+            #     # GT labels are in the first channel:
+            #     GT_labels = target.cpu().data.numpy()[:,0]
+            #     self.criterion.pass_batch_data_to_workers("set_targets", GT_labels)
+            #
+            # # Set initial segmentation based on static_prediction:
+            # self.criterion.pass_batch_data_to_workers("set_static_prediction",
+            #                                           static_prediction.cpu().data.numpy())
+            #
+            # # tick1 = time.time()
+            # # print("Initialization: {} s".format(tick1 - tick0))
+            #
+            # # --------------------------
+            # # Loop and perform mile-steps:
+            # # --------------------------
+            # dynamic_predictions = []
+            # dynamic_loss_targets = []
+            # dynamic_loss_weights = []
+            # while not self.criterion.is_finished():
+            #     # tick1 = time.time()
+            #     # TODO: what if some workers are done...?
+            #     dict_list, key_list = self.criterion.get_dynamic_inputs_milestep()
+            #     all_dynamic_inputs = compose_model_inputs(dict_list, key_list, channel_axis=0)
+            #
+            #     if is_cuda:
+            #         all_dynamic_inputs = [dyn_inp.cuda() for dyn_inp in all_dynamic_inputs]
+            #
+            #     # Keep static inputs (raw) on GPU:
+            #     prediction_milestep = self.apply_model(*(inputs+all_dynamic_inputs))
+            #
+            #     # Check if dynamic prediction is multiscale:
+            #     if isinstance(prediction_milestep, tuple):
+            #         highRes_prediction = prediction_milestep[0]
+            #     else:
+            #         highRes_prediction = prediction_milestep
+            #
+            #     # Returned values are None in case of validation:
+            #     milestep_loss_targets, milestep_loss_weights = self.criterion(highRes_prediction)
+            #
+            #     dynamic_predictions.append(prediction_milestep)
+            #     dynamic_loss_targets.append(milestep_loss_targets)
+            #     dynamic_loss_weights.append(milestep_loss_weights)
+            #
+            # if validation:
+            #     self.criterion.run_clustering_on_pretrained_affs(start_from_pixels=False)
+            #
+            # # Plot data batch:
+            # self.plot_batch(validation=not backward)
+            #
+            # if backward:
+            #     for iter in range(len(dynamic_predictions)):
+            #         # tick5 = time.time()
+            #         dynamic_predictions_iter = dynamic_predictions[iter]
+            #         dynamic_loss_targets_iter = dynamic_loss_targets[iter]
+            #         dynamic_loss_weights_iter = dynamic_loss_weights[iter]
+            #
+            #         # dynamic_predictions_iter = torch.cat(dynamic_predictions, dim=0)
+            #         # dynamic_loss_targets_iter = torch.cat(dynamic_loss_targets, dim=0)
+            #         # dynamic_loss_weights_iter = torch.cat(dynamic_loss_weights, dim=0)
+            #
+            #         # print(dynamic_loss_targets_iter.size())
+            #         # print(dynamic_predictions_iter.size())
+            #
+            #         # CLASSES TRAINING:
+            #         # shape = dynamic_loss_targets.size()
+            #         # dynamic_loss_targets = dynamic_loss_targets.view(shape[0], -1, shape[3], shape[4], shape[5])
+            #         # dynamic_predictions = dynamic_predictions.view(shape[0], -1, shape[3], shape[4], shape[5])
+            #
+            #
+            #         # # MY STRANGE IMPLEMENTATION WITH WEIGHTS (DOESN'T SEEM TO GIVE GREAT RESULTS)
+            #         # print(dynamic_loss_targets.size())
+            #         # merge_and_split_targets = dynamic_loss_targets[:,:,0:2]
+            #         # self._structured_criterion.weight = self._compute_batch_weights(merge_and_split_targets).data
+            #         # loss = loss + self._structured_criterion(dynamic_predictions, dynamic_loss_targets)
+            #
+            #         # dynamic_loss_weights = torch.cat(dynamic_loss_weights, dim=0)
+            #
+            #         # DICE LOSS TRAINING:
+            #         # # Find number of trained pixels: (for batch average)
+            #         # flat_weights = dynamic_loss_weights.view(-1)
+            #         # zero_array = Variable(from_numpy(np.array([0.]))).cuda().float()
+            #         # pixels_in_minibatch = torch.sum((flat_weights != zero_array).float())
+            #         #
+            #         # loss = loss.float()
+            #         # loss = loss + self._structured_criterion(dynamic_predictions, dynamic_loss_targets, dynamic_loss_weights)/pixels_in_minibatch.clamp(min=1e-6)
+            #
+            #         # Inferno implementation of Dice Score:
+            #         # Different classes are considered as separate channels:
+            #         def compress_classes_and_offsets(tensor):
+            #             size = tensor.size()
+            #             return tensor.view(size[0], -1, size[3], size[4], size[5])
+            #         dynamic_loss_targets_iter = compress_classes_and_offsets(dynamic_loss_targets_iter)
+            #         dynamic_loss_weights_iter = compress_classes_and_offsets(dynamic_loss_weights_iter)
+            #         if isinstance(dynamic_predictions_iter, (tuple, list)):
+            #             # Multiscale predictions:
+            #             dynamic_predictions_iter = tuple(compress_classes_and_offsets(pred) for pred in dynamic_predictions_iter)
+            #         else:
+            #             dynamic_predictions_iter = compress_classes_and_offsets(dynamic_predictions_iter)
+            #         loss = self._structured_criterion(dynamic_predictions_iter, (dynamic_loss_targets_iter, dynamic_loss_weights_iter))
+            #
+            #         # tick6 = time.time()
+            #         # print("Computing loss iter {}: {} s".format(iter, tick6 - tick5))
+            #         #
+            #         loss.backward()
+            #         # break
+            #
+            #         # print("Backward iter {}: {} s".format(iter,time.time() - tick6))
+            #
+            #         # BCE:
+            #         # flat_pred = dynamic_predictions.view(-1)
+            #         # flat_targets = dynamic_loss_targets.view(-1)
+            #         # flat_weights = dynamic_loss_weights.view(-1)
+            #         #
+            #         # BCE_criteria = BCELoss(weight=flat_weights, size_average=False)
+            #         # zero_array = Variable(from_numpy(np.array([0.]))).cuda().float()
+            #         #
+            #         # pixels_in_minibatch = torch.sum((flat_weights != zero_array).float())
+            #         # loss = loss.float()
+            #         # loss = loss + BCE_criteria(flat_pred, flat_targets)/pixels_in_minibatch
+            #
+            #
+            #
+            # out_prediction = torch.cat(dynamic_predictions, dim=0)
         else:
             # Backprop
             if backward:

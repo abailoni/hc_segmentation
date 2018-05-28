@@ -28,7 +28,7 @@ finalSegm, blocks = import_segmentation(project_folder, aggl_name,return_blocks=
 
 segmToPostproc = finalSegm
 
-segmToPostproc = vigra.analysis.labelVolume(segmToPostproc.astype(np.uint32))
+# segmToPostproc = vigra.analysis.labelVolume(segmToPostproc.astype(np.uint32))
 segmentsSizes = accumulate_segment_features_vigra([segmToPostproc], [segmToPostproc],['Count'], map_to_image=True).squeeze()
 
 sizeMask = segmentsSizes > 6
@@ -51,7 +51,7 @@ print ("Max label after seeded WS: ", watershedResult.max())
 file_path = os.path.join(project_folder, "postprocess/{}/pred_segm.h5".format(aggl_name))
 vigra.writeHDF5(watershedResult, file_path, 'finalSegm_WS', compression='gzip')
 
-crop_slice = (slice(None),slice(270,1198),slice(158,786))
+crop_slice = (slice(None),slice(270,1198),slice(158,1230))
 
 evals = cremi_score(gt[crop_slice], watershedResult[crop_slice], border_threshold=None, return_all_scores=True)
 print(evals)

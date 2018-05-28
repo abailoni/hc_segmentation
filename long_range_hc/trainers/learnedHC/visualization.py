@@ -290,15 +290,12 @@ def plot_dyn_predictions(img_data, targets, z_slice, milestep):
 
 
 def plot_pretrain_predictions(img_data, targets, z_slice):
-    if "segmentation" not in img_data:
-        targets[0, z_slice].matshow(img_data['raw'][z_slice], cmap='gray', interpolation=DEF_INTERP)
-    else:
-        plot_segm(targets[0, z_slice], img_data['segmentation'], z_slice,
+    plot_segm(targets[0, z_slice], img_data['init_segm'], z_slice,
                   background=img_data['raw'])
-        plot_segm(targets[1, z_slice], img_data['GT_labels'], z_slice,
+    plot_segm(targets[1, z_slice], img_data['target'][0], z_slice,
                   background=img_data['raw'])
 
-    plotted_offsets = [1,9,10,15,16] if img_data['stat_prediction'].shape[0] > 3 else [0,1,2]
+    plotted_offsets = [1,5,7,10,0] if img_data['stat_prediction'].shape[0] > 3 else [0,1,2]
     for i, offset in enumerate(plotted_offsets):
         targets[i+2, z_slice].matshow(img_data['stat_prediction'][offset,z_slice], cmap='gray', interpolation=DEF_INTERP)
         # targets[i+1, z_slice].matshow(img_data['target'][offset+1, z_slice], cmap='gray', interpolation=DEF_INTERP)

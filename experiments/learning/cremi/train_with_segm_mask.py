@@ -1,11 +1,14 @@
 import os
+# FIXME:
 import sys
+sys.path.append("/net/hciserver03/storage/abailoni/pyCharm_projects/hc_segmentation/")
 import logging
 import argparse
 import yaml
 import json
 
-from skunkworks.trainers.learnedHC.visualization import VisualizationCallback
+# from skunkworks.trainers.learnedHC.visualization import VisualizationCallback
+from long_range_hc.trainers.learnedHC.visualization import VisualizationCallback
 
 # FIXME needed to prevent segfault at import ?!
 import vigra
@@ -13,7 +16,7 @@ import vigra
 NUM_WORKERS_PER_BATCH = 25
 z_window_slice_training = None
 
-from path import get_template_config_file
+from long_range_hc.datasets.path import get_template_config_file
 
 
 from inferno.trainers.basic import Trainer
@@ -24,7 +27,7 @@ from inferno.trainers.callbacks.essentials import SaveAtBestValidationScore
 
 from neurofire.criteria.loss_wrapper import LossWrapper
 from neurofire.criteria.multi_scale_loss import MultiScaleLossMaxPool
-from neurofire.criteria.loss_transforms import MaskTransitionToIgnoreLabel, RemoveSegmentationFromTarget
+from neurofire.criteria.loss_transforms import MaskTransitionToIgnoreLabel, RemoveSegmentationFromTarget, InvertTarget
 
 from skunkworks.criteria.loss_transforms import GetMaskAndRemoveSegmentation
 from skunkworks.criteria.multi_scale_loss_weighted import MultiScaleLossMaxPoolWeighted
@@ -45,13 +48,13 @@ from inferno.io.transform.base import Compose
 
 
 # Structured stuff:
-from skunkworks.trainers.learnedHC.trainHC import HierarchicalClusteringTrainer
-from skunkworks.criteria.learned_HC import LHC
+from long_range_hc.trainers.learnedHC.trainHC import HierarchicalClusteringTrainer
+from long_range_hc.criteria.learned_HC import LHC
 from skunkworks.metrics import LHCArandError
 
 # from neurofire.criteria.multi_scale_loss
 
-from skunkworks.postprocessing.pipelines import fixation_agglomerative_clustering_from_wsdt2d
+# from skunkworks.postprocessing.pipelines import fixation_agglomerative_clustering_from_wsdt2d
 
 # validation
 from skunkworks.metrics import ArandErrorFromSegmentationPipeline
@@ -74,7 +77,7 @@ def set_up_training(project_directory,
     VALIDATE_EVERY = (150, 'iterations') if pretrain else (1, 'iterations')
     SAVE_EVERY = (500, 'iterations') if pretrain else (300, 'iterations')
     # TODO: move these plots to tensorboard...?
-    PLOT_EVERY = 20 if pretrain else 1 # This is only used by the struct. training
+    PLOT_EVERY = 10 if pretrain else 1 # This is only used by the struct. training
 
     # Get model
     if load_pretrained_model:
@@ -90,36 +93,41 @@ def set_up_training(project_directory,
         model = getattr(models, model_name)(**model_kwargs)
 
     # Unstructed loss:
-    affinity_offsets = data_config['volume_config']['segmentation']['affinity_offsets']
+    affinity_offsets = data_config['volume_config']['GT']['affinity_offsets']
 
-    # unstructured_loss = MultiScaleLossMaxPool(affinity_offsets,
-    #                                           config['pretrained_model_kwargs']['scale_factor'],
-    #                                           **config['loss_kwargs'])
-
-
-    scaling_factor = config['pretrained_model_kwargs']['scale_factor']
-    multiscale_loss_kwargs = config.get('multiscale_loss_kwargs', {})
-
-
-    # Constantin approach:
-    # loss = LossWrapper(criterion=SorensenDiceLoss(),
-    #                    transforms=Compose(MaskTransitionToIgnoreLabel(affinity_offsets),
-    #                                       RemoveSegmentationFromTarget()))
+    # # unstructured_loss = MultiScaleLossMaxPool(affinity_offsets,
+    # #                                           config['pretrained_model_kwargs']['scale_factor'],
+    # #                                           **config['loss_kwargs'])
     #
-    # unstructured_loss = MultiScaleLossMaxPool(loss,
-    #                                         scaling_factor,
-    #                                         invert_target=True,
-    #                                         retain_segmentation=True,
-    #                                         **multiscale_loss_kwargs)
+    #
+    # scaling_factor = config['pretrained_model_kwargs']['scale_factor']
+    # multiscale_loss_kwargs = config.get('multiscale_loss_kwargs', {})
+    #
+    #
+    # # Constantin approach:
+    # # loss = LossWrapper(criterion=SorensenDiceLoss(),
+    # #                    transforms=Compose(MaskTransitionToIgnoreLabel(affinity_offsets),
+    # #                                       RemoveSegmentationFromTarget()))
+    # #
+    # # unstructured_loss = MultiScaleLossMaxPool(loss,
+    # #                                         scaling_factor,
+    # #                                         invert_target=True,
+    # #                                         retain_segmentation=True,
+    # #                                         **multiscale_loss_kwargs)
+    #
+    # multiscale_loss = MultiScaleLossMaxPoolWeighted(SorensenDiceLoss(),
+    #                                                 scaling_factor,
+    #                                                 invert_target=True,
+    #                                                 weighted_loss = False,
+    #                                                 **multiscale_loss_kwargs)
+    #
+    # unstructured_loss = LossWrapper(criterion=multiscale_loss,
+    #                     transforms=GetMaskAndRemoveSegmentation(affinity_offsets))
 
-    multiscale_loss = MultiScaleLossMaxPoolWeighted(SorensenDiceLoss(),
-                                                    scaling_factor,
-                                                    invert_target=True,
-                                                    weighted_loss = False,
-                                                    **multiscale_loss_kwargs)
-
-    unstructured_loss = LossWrapper(criterion=multiscale_loss,
-                        transforms=GetMaskAndRemoveSegmentation(affinity_offsets))
+    unstructured_loss = LossWrapper(criterion=SorensenDiceLoss(),
+                       transforms=Compose(MaskTransitionToIgnoreLabel(affinity_offsets),
+                                          RemoveSegmentationFromTarget(),
+                                          InvertTarget()))
 
     # Build trainer and validation metric
     logger.info("Building trainer.")
@@ -265,7 +273,7 @@ def make_data_config(data_config_file, offsets, n_batches, max_nb_workers, pretr
     if not reload_model:
         template_path = './template_config/data_config.yml' if not pretrain else './template_config/pretrain/data_config.yml'
         template = get_template_config_file(template_path, data_config_file)
-        template['volume_config']['segmentation']['affinity_offsets'] = offsets
+        template['volume_config']['GT']['affinity_offsets'] = offsets
     else:
         # Reload previous settings:
         template = yaml2dict(data_config_file)
@@ -287,7 +295,7 @@ def make_validation_config(validation_config_file, offsets, n_batches, max_nb_wo
     if not reload_model:
         template_path = './template_config/validation_config.yml' if not pretrain else './template_config/pretrain/data_config.yml'
         template = get_template_config_file(template_path, validation_config_file)
-        template['volume_config']['segmentation']['affinity_offsets'] = offsets
+        template['volume_config']['GT']['affinity_offsets'] = offsets
     else:
         # Reload previous settings:
         template = yaml2dict(validation_config_file)
@@ -362,6 +370,7 @@ def main():
     make_validation_config(validation_config, offsets, len(gpus), max_nb_workers, pretrain, reload_model=load_model)
 
     print("Pretrain: {}; Load model: {}".format(pretrain,load_model))
+
 
     training(project_directory,
              train_config,
