@@ -32,7 +32,7 @@ def import_dataset(proj_dir, aggl_name,
     config_file = yaml2dict(os.path.join(proj_dir, "postprocess/{}/aff_loader_config.yml".format(aggl_name)))
     sample = config_file['sample']
     dataset_path = os.path.join(dataset_folder,'sample%s_train.h5' % (sample))
-    slc = tuple(parse_data_slice(config_file['data_slice_not_padded']))
+    slc = tuple(parse_data_slice(config_file['slicing_config']['data_slice']))
 
     bb_affs = np.s_[slc]
     bb = np.s_[slc[1:]]
@@ -47,7 +47,10 @@ def import_dataset(proj_dir, aggl_name,
         if 'affinities' == data_key:
             with h5py.File(config_file['path'], 'r') as f:
                 outputs.append(f[config_file['path_in_h5_dataset']][bb_affs].astype(np.float32))
-    return tuple(outputs)
+    if len(outputs) == 1:
+        return  outputs[0]
+    else:
+        return tuple(outputs)
 
 
 def import_segmentations(proj_dir, aggl_name, keys_to_return=None):
@@ -78,4 +81,7 @@ def import_segmentations(proj_dir, aggl_name, keys_to_return=None):
     outputs = []
     for data_key in keys_to_return:
         outputs.append(vigra.readHDF5(file_path, data_key).astype(np.uint32))
-    return tuple(outputs)
+    if len(outputs) == 1:
+        return  outputs[0]
+    else:
+        return tuple(outputs)

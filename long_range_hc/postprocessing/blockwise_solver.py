@@ -56,12 +56,12 @@ class BlockWise(object):
                 fragments = blockwise_segm[0]
                 blockwise_segm = blockwise_segm[1]
 
-            # ---- TEMP ----
-            blockwise_segm = blockwise_segm[final_crop]
-            affs = input_.volume[(slice(None),) + final_crop]
-            # ---- TEMP ----
+            # # ---- TEMP ----
+            # blockwise_segm = blockwise_segm[final_crop]
+            # affs = input_.volume[(slice(None),) + final_crop]
+            # # ---- TEMP ----
 
-            output_segm = self.final_agglomerater(affs, blockwise_segm)
+            output_segm = self.final_agglomerater(input_.volume, blockwise_segm)
             # output_segm = output_segm[final_crop]
             # blockwise_segm = blockwise_segm[final_crop]
             if self.return_fragments:
@@ -130,7 +130,8 @@ class BlockWiseSegmentationPipelineSolver(object):
         assert len(shape_affs) == 4
         shape_output = shape_affs[1:]
 
-        output = np.ones(shape_output, dtype='uint64')
+        output = np.zeros(shape_output, dtype='uint64')
+        output_padded = np.zeros(shape_output, dtype='uint64')
 
         # loader
         loader = SimpleParallelLoader(dataset, num_workers=self.num_workers)
@@ -151,24 +152,40 @@ class BlockWiseSegmentationPipelineSolver(object):
             # print("[*] Input-shape {}".format(input_.shape))
 
             # get the slicings w.r.t. the current prediction and the output
-            local_slicing, global_slicing = self.get_slicings(dataset.base_sequence[index],
+            global_slicing_incl_pad = dataset.base_sequence[index]
+            local_slicing, global_slicing = self.get_slicings(global_slicing_incl_pad,
                                                               input_.shape,
                                                               dataset.padding)
             # remove offset dim from slicing
+            global_slicing_incl_pad = global_slicing_incl_pad[1:]
             global_slicing = global_slicing[1:]
             local_slicing = local_slicing[1:]
 
             print("Global slice: {}".format(global_slicing))
             output_patch = self.segmentation_pipeline(input_)
 
-            # TODO: ADD CROP OF PADDING. We should predict with a padding and then crop!
+            output_patch, max_label_patch, _ = vigra.analysis.relabelConsecutive(output_patch.astype(np.uint32), keep_zeros=False)
+            # Save padded output:
+            output_padded[global_slicing_incl_pad] = output_patch + max_label
 
-            # save predictions in the output
-            output_patch = vigra.analysis.labelVolume(output_patch[local_slicing].astype(np.uint32))
-            output[global_slicing] = output_patch + max_label
-            max_label += output_patch.max() + 1
+            # Run connected components after cropping the padding:
+            output_patch_cropped = vigra.analysis.labelVolume(output_patch[local_slicing].astype(np.uint32))
+            output[global_slicing] = output_patch_cropped + max_label
+
+            max_label += max_label_patch + 1
+
             # print("Max label: ", max_label)
             # print("Max in total output: ", output.max())
+
+
+        # Combine padded output with cropped one:
+        print("Combining padded outputs:")
+        global_pad = tuple(slice(pad[0], dataset.volume.shape[i] - pad[1])
+                               for i, pad in enumerate(dataset.padding))
+        final_output = output_padded + max_label
+        final_output[global_pad[1:]] = output[global_pad[1:]]
+        final_output, _, _ = vigra.analysis.relabelConsecutive(final_output,
+                                                                             keep_zeros=False)
 
         # # crop padding from the outputs
         # crop = tuple(slice(pad[0], shape_output[i] - pad[1]) for i, pad in enumerate(dataset.padding[1:]))
@@ -179,7 +196,7 @@ class BlockWiseSegmentationPipelineSolver(object):
         # print("Final blocks: max --> {}, min --> {}".format(output.max(), output.min()))
         # output = vigra.analysis.labelVolume(output.astype(np.uint32))
         # print("Final blocks: max --> {}, min --> {}".format(output.max(), output.min()))
-        return output
+        return final_output
 
 
     def get_slicings(self, slicing, shape, padding):
