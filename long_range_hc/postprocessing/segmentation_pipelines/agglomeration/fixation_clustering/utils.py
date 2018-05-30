@@ -1,34 +1,53 @@
 import nifty
 import numpy as np
+import time
 
 from ...features import accumulate_affinities_on_graph_edges
 
 
 def build_pixel_lifted_graph_from_offsets(image_shape,
                                           offsets,
+                                          label_image=None,
                                           GT_label_image=None,
                                           offsets_probabilities=None,
                                           offsets_weights=None,
                                           nb_local_offsets=3):
     """
     :param offsets: At the moment local offsets should be the first ones
-    :param nb_local_offsets:
+    :param nb_local_offsets: UPDATE AND GENERALIZE!
     """
     image_shape = tuple(image_shape) if not isinstance(image_shape, tuple) else image_shape
 
+    is_local_offset = np.zeros(offsets.shape[0], dtype='bool')
+    is_local_offset[:nb_local_offsets] = True
+    if label_image is not None:
+        assert image_shape == label_image.shape
+        if offsets_weights is not None:
+            print("Offset weights ignored...!")
+
+
     # TODO: change name offsets_probabilities
-    graph = nifty.graph.undirectedLongRangeGridGraph(shape=image_shape, offsets=offsets, offsets_probabilities=offsets_probabilities)
-    offset_index = graph.edgeOffsetIndex()
+    print("Actually building graph...")
+    tick = time.time()
+    graph = nifty.graph.undirectedLongRangeGridGraph(image_shape, offsets,
+                        offsets_probabilities=offsets_probabilities,
+                        labels=label_image,
+                        is_local_offset=is_local_offset)
     nb_nodes = graph.numberOfNodes
+    if label_image is None:
+        offset_index = graph.edgeOffsetIndex()
+        is_local_edge = offset_index.astype('int32')
+        w = np.where(offset_index < nb_local_offsets)
+        is_local_edge[:] = 0
+        is_local_edge[w] = 1
+    else:
+        print("Took {} s!".format(time.time() - tick))
+        print("Checking edge locality...")
+        is_local_edge = graph.findLocalEdges(label_image).astype('int32')
 
-    is_local_edge = offset_index.astype('int32')
-    w = np.where(offset_index < nb_local_offsets)
-    is_local_edge[:] = 0
-    is_local_edge[w] = 1
 
-
-    if offsets_weights is None:
-        offsets_weights = np.ones(offsets.shape)
+    if offsets_weights is None or label_image is not None:
+        edge_weights = np.ones(graph.numberOfEdges, dtype='int32')
     else:
         if isinstance(offsets_weights,(list,tuple)):
             offsets_weights = np.array(offsets_weights)
@@ -41,7 +60,7 @@ def build_pixel_lifted_graph_from_offsets(image_shape,
             assert all([w<=1.0 for w in offsets_weights]) and all([w>=0.0 for w in offsets_weights])
 
 
-    edge_weights = offsets_weights[offset_index.astype('int32')]
+        edge_weights = offsets_weights[offset_index.astype('int32')]
 
 
     if GT_label_image is None:

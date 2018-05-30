@@ -9,7 +9,7 @@ from skunkworks.postprocessing.segmentation_pipelines.base import SegmentationPi
 from ...features import accumulate_affinities_on_graph_edges
 from .....criteria.learned_HC.utils import segm_utils as segm_utils
 
-
+import time
 
 class FixationAgglomerativeClustering(SegmentationPipeline):
     def __init__(self, offsets, fragmenter=None,
@@ -178,8 +178,13 @@ class FixationAgglomeraterFromSuperpixels(FixationAgglomeraterBase):
             affinities = 1. - affinities
 
         # Build rag and compute node sizes:
+        print("Computing rag...")
+        tick = time.time()
         rag = nrag.gridRag(segmentation.astype(np.uint32))
+        print("Took {} s!".format(time.time() - tick))
 
+        print("Building graph...")
+        tick = time.time()
         # Build lifted graph:
         lifted_graph, is_local_edge = build_lifted_graph_from_rag(
             rag,
@@ -188,7 +193,18 @@ class FixationAgglomeraterFromSuperpixels(FixationAgglomeraterBase):
             max_lifted_distance=self.max_distance_lifted_edges,
             number_of_threads=self.n_threads)
 
+        # lifted_graph, is_local_edge, _, edge_sizes = build_pixel_lifted_graph_from_offsets(
+        #     segmentation.shape,
+        #     offsets,
+        #     label_image=segmentation,
+        #     offsets_weights=None,
+        #     nb_local_offsets=3,
+        #     GT_label_image=None
+        # )
 
+        print("Took {} s!".format(time.time() - tick))
+        print("Computing edge_features...")
+        tick = time.time()
         # Compute edge sizes and accumulate average/max:
         edge_indicators, edge_sizes = \
             accumulate_affinities_on_graph_edges(
@@ -202,6 +218,10 @@ class FixationAgglomeraterFromSuperpixels(FixationAgglomeraterBase):
 
         merge_prio = edge_indicators
         not_merge_prio = 1. - edge_indicators
+
+        print("Took {} s!".format(time.time() - tick))
+        print("Computing node_features...")
+        tick = time.time()
 
         node_sizes = np.squeeze(segm_utils.accumulate_segment_features_vigra(segmentation,
                                                                   segmentation, statistics=["Count"],
@@ -224,8 +244,16 @@ class FixationAgglomeraterFromSuperpixels(FixationAgglomeraterBase):
         )
         # Run agglomerative clustering:
         agglomerativeClustering = nagglo.agglomerativeClustering(cluster_policy)
+
+        print("Took {} s!".format(time.time() - tick))
+        print("Running clustering...")
+        tick = time.time()
+
         agglomerativeClustering.run(**self.extra_runAggl_kwargs) # (True, 10000)
         node_labels = agglomerativeClustering.result()
+
+        print("Took {} s!".format(time.time() - tick))
+        print("Getting final segm...")
 
         final_segm = segm_utils.map_features_to_label_array(
             segmentation,
