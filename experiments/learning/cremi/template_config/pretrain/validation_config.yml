@@ -90,14 +90,14 @@ volume_config:
   # Membranes
   init_segmentation:
     path:
-      A: '/export/home/abailoni/datasets/cremi/SOA_affinities/sampleA_train.h5'
-      B: '/export/home/abailoni/datasets/cremi/SOA_affinities/sampleB_train.h5'
-      C: '/export/home/abailoni/datasets/cremi/SOA_affinities/sampleC_train.h5'
+      A: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/fancyOverseg_sizeRg00_fullA_blockwise/pred_segm.h5'
+      B: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/fancyOverseg_sizeReg00_firstHalfDaataB_blockwise/pred_segm.h5'
+      C: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/fancyOverseg_sizeRg00_fullC_blockwise/pred_segm.h5'
     # CREMI default is '/volumes/labels/neuron_ids'
     path_in_h5_dataset:
-      A: 'segmentations/groundtruth_fixed'
-      B: 'segmentations/groundtruth_fixed'
-      C: 'segmentations/groundtruth_fixed'
+      A: 'finalSegm_seeds_padded'
+      B: 'finalSegm_seeds_padded'
+      C: 'finalSegm_seeds_padded'
   GT:
     path:
       A: '/export/home/abailoni/datasets/cremi/SOA_affinities/sampleA_train.h5'

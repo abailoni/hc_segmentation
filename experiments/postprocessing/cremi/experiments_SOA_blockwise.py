@@ -60,7 +60,8 @@ def evaluate(project_folder, sample, offsets,
     with open(os.path.join(postproc_dir, 'aff_loader_config.yml'), 'w') as f:
         yaml.dump(aff_loader_config, f)
 
-    parsed_slice = parse_data_slice(aff_loader_config.pop('data_slice_not_padded'))
+    aff_loader_config.pop('data_slice_not_padded')
+    parsed_slice = parse_data_slice(aff_loader_config['slicing_config']['data_slice'])
 
     # TODO: it would be really nice to avoid the full loading of the dataset...
     affinities_dataset = AffinitiesVolumeLoader.from_config(aff_loader_config)

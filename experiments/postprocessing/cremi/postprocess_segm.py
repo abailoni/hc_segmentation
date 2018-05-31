@@ -5,57 +5,73 @@ import os
 
 import numpy as np
 
-from utils_func import import_datasets, import_segmentation
-
-from long_range_hc.criteria.learned_HC.utils.segm_utils import accumulate_segment_features_vigra
+from long_range_hc.postprocessing.data_utils import import_dataset, import_segmentations
 
 from skunkworks.metrics.cremi_score import cremi_score
 
 project_folder = '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities'
-aggl_name = 'fancyOverseg_sizeRg00_fullC_blockwise'
-raw, gt, affinities = import_datasets(project_folder, aggl_name, import_affs=True)
 
-segms = {}
 
-finalSegm, blocks = import_segmentation(project_folder, aggl_name,return_blocks=True)
+for aggl_name in [
+    # 'fancyOverseg_szRg00_fullA_thresh093_blckws',
+    #               'fancyOverseg_szRg00_fullC_thresh093_blckws',
+    #               'fancyOverseg_sizeReg00_secondHalfDaataB_blockwise',
+    'fancyOverseg_szRg00_LREbetterWeights_fullB_thresh093_blckws_2',
+                  # 'fancyOverseg_szRg00_fullB_thresh093_blckws_2'
+]:
+    print("Loading segm {}...".format(aggl_name))
+    affinities, gt = import_dataset(project_folder, aggl_name,
+                                         data_to_import=['affinities', 'gt'])
 
-# crop_slice = (slice(None),slice(270,1198),slice(158,786))
+    finalSegm = import_segmentations(project_folder, aggl_name,
+                                             keys_to_return=['finalSegm'])
+
+
+
+    from long_range_hc.postprocessing.WS_growing import SizeThreshAndGrowWithWS
+
+    grower = SizeThreshAndGrowWithWS(size_threshold=6,
+                            offsets=np.array([[0, -1, 0], [0, 0, -1]]),
+                            apply_WS_growing=True)
+
+    print("Computing WS labels...")
+    seeds = grower(affinities[1:3], finalSegm)
+
+    print("Writing...")
+    file_path = os.path.join(project_folder, "postprocess/{}/pred_segm.h5".format(aggl_name))
+    vigra.writeHDF5(seeds, file_path, 'finalSegm_WS', compression='gzip')
+
+    print("Computing score...")
+    evals = cremi_score(gt, seeds, border_threshold=None, return_all_scores=True)
+    print(evals)
+
+
+# # crop_slice = (slice(None),slice(270,1198),slice(158,1230))
+# #
 #
-# evals = cremi_score(gt[crop_slice], finalSegm[crop_slice], border_threshold=None, return_all_scores=True)
-# print(evals)
-
-
-
-segmToPostproc = finalSegm
-
-# segmToPostproc = vigra.analysis.labelVolume(segmToPostproc.astype(np.uint32))
-segmentsSizes = accumulate_segment_features_vigra([segmToPostproc], [segmToPostproc],['Count'], map_to_image=True).squeeze()
-
-sizeMask = segmentsSizes > 6
-seeds = ((segmToPostproc+1)*sizeMask).astype(np.uint32)
-
-from skunkworks.postprocessing.util import from_affinities_to_hmap
-offsets = np.array([[0, -1, 0], [0, 0, -1]])
-hmap = from_affinities_to_hmap(affinities[1:3], offsets)
-print(hmap.shape)
-
-# watershedResult = seeds
-watershedResult = np.empty_like(seeds)
-for z in range(hmap.shape[0]):
-    watershedResult[z], _ = vigra.analysis.watershedsNew(hmap[z], seeds=seeds[z], method='RegionGrowing')
-
-watershedResult = vigra.analysis.labelVolume(watershedResult.astype(np.uint32))
-print (watershedResult.shape)
-print ("Max label after seeded WS: ", watershedResult.max())
-
-file_path = os.path.join(project_folder, "postprocess/{}/pred_segm.h5".format(aggl_name))
-vigra.writeHDF5(watershedResult, file_path, 'finalSegm_WS', compression='gzip')
-
-crop_slice = (slice(None),slice(270,1198),slice(158,1230))
-
-evals = cremi_score(gt[crop_slice], watershedResult[crop_slice], border_threshold=None, return_all_scores=True)
-print(evals)
-
-
-
-
+#
+#
+# for aggl_name in [
+#     'fancyOverseg_sizeReg00_firstHalfDaataB_blockwise',
+#                   'fancyOverseg_sizeRg00_fullC_blockwise',
+#                   'fancyOverseg_sizeRg00_fullA_blockwise'
+#                   ]:
+#
+#     seeds = import_segmentations(project_folder, aggl_name,
+#                                              keys_to_return=['finalSegm_seeds'])
+#
+#
+#     if aggl_name == 'fancyOverseg_sizeReg00_firstHalfDaataB_blockwise':
+#         seeds_2 = import_segmentations(project_folder, 'fancyOverseg_sizeReg00_secondHalfDaataB_blockwise',
+#                                              keys_to_return=['finalSegm_seeds'])
+#         seeds = np.concatenate((seeds, seeds_2[12:]), axis=0)
+#         print(seeds.shape)
+#
+#     print("Loaded segm: ", aggl_name)
+#
+#     padded_seeds = np.pad(seeds, pad_width=((3,3), (50,50), (50,50)), mode='constant')
+#     print(padded_seeds.shape)
+#
+#     file_path = os.path.join(project_folder, "postprocess/{}/pred_segm.h5".format(aggl_name))
+#     vigra.writeHDF5(padded_seeds, file_path, 'finalSegm_seeds_padded', compression='gzip')
+#     print("Done!")

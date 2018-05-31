@@ -26,8 +26,10 @@ slicing_config:
 #data_slice_not_padded: ':, 63:111, 150:950, 150:950'
 
 # THE FULL THING:
-  data_slice: ':, :, 270:1198, 158:786'  # 114
-data_slice_not_padded: ':, 3:-3, 320:1148, 208:736'
+  data_slice: ':, 60:, :, :'  # 114
+data_slice_not_padded: ':, 63:-3, 50:-50, 50:-50'
+#  data_slice: ':, :30, 400:900, 300:800'  # 114
+#data_slice_not_padded: ':, 3:27, 450:850, 350:750'
 
 #slice(270,1198),slice(158,786)
 

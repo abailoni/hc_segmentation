@@ -1,3 +1,5 @@
+
+import time
 import sys
 sys.path.append("/net/hciserver03/storage/abailoni/pyCharm_projects/hc_segmentation/")
 import vigra
@@ -6,7 +8,7 @@ import os
 import numpy as np
 from inferno.utils.io_utils import yaml2dict
 
-from utils_func import import_datasets, import_segmentation
+from long_range_hc.postprocessing.data_utils import import_dataset, import_segmentations
 
 from long_range_hc.criteria.learned_HC.utils.segm_utils import accumulate_segment_features_vigra
 
@@ -16,13 +18,16 @@ from long_range_hc.postprocessing.segmentation_pipelines.agglomeration.fixation_
 
 
 project_folder = '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities'
-aggl_name = 'fancyOverseg_sizeReg00_secondHalfDaataB_blockwise'
+aggl_name = 'fancyOverseg_szRg00_fullB_thresh093_blckws_2'
 
 def agglomerate_blocks(project_folder, aggl_name):
-    raw, gt, affinities = import_datasets(project_folder, aggl_name, import_affs=True)
+    print("Loading segm {}...".format(aggl_name))
+    affinities, gt = import_dataset(project_folder, aggl_name,
+                                data_to_import=['affinities', 'gt'])
 
-
-    finalSegm, blocks = import_segmentation(project_folder, aggl_name,return_blocks=True)
+    finalSegm = import_segmentations(project_folder, aggl_name,
+                                     keys_to_return=['finalSegm_blocks_WS'])
+    # finalSegm, blocks = import_segmentation(project_folder, aggl_name,return_blocks=True)
 
     # Set up final agglomerater:
 
@@ -43,10 +48,18 @@ def agglomerate_blocks(project_folder, aggl_name):
         # 'update_rule_not_merge': 'mean'})
         )
 
-    finalSegm = final_agglomerater(affinities, blocks)
+    crop_slice_affs = (slice(None), slice(None), slice(None), slice(None))
+    # crop_slice_affs = (slice(None), slice(0,45), slice(0,500), slice(0,500))
 
+    crop_slice_segm = crop_slice_affs[1:]
+    tick = time.time()
+    print("Computing agglomeration...")
+    finalSegm_aggl = final_agglomerater(affinities[crop_slice_affs], finalSegm[crop_slice_segm])
+    print("TIME: ", time.time() - tick)
+
+    print("Writing...")
     file_path = os.path.join(project_folder, "postprocess/{}/pred_segm.h5".format(aggl_name))
-    vigra.writeHDF5(finalSegm, file_path, 'finalSegm', compression='gzip')
+    vigra.writeHDF5(finalSegm_aggl, file_path, 'finalSegm_proveAggl', compression='gzip')
 
     # ------------- WSDT ------------------
     # from copy import deepcopy
@@ -75,7 +88,8 @@ def agglomerate_blocks(project_folder, aggl_name):
 
     # crop_slice = (slice(None),slice(270,1198),slice(158,1230))
     #
-    # evals = cremi_score(gt[crop_slice], finalSegm[crop_slice], border_threshold=None, return_all_scores=True)
-    # print(evals)
+    print("Computing score...")
+    evals = cremi_score(gt, finalSegm_aggl, border_threshold=None, return_all_scores=True)
+    print(evals)
 
 agglomerate_blocks(project_folder,aggl_name)

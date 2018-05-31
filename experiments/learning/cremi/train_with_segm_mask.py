@@ -74,8 +74,8 @@ def set_up_training(project_directory,
                     data_config,
                     load_pretrained_model,
                     pretrain=False):
-    VALIDATE_EVERY = (150, 'iterations') if pretrain else (1, 'iterations')
-    SAVE_EVERY = (500, 'iterations') if pretrain else (300, 'iterations')
+    VALIDATE_EVERY = ('never') if pretrain else (1, 'iterations')
+    SAVE_EVERY = (150, 'iterations') if pretrain else (300, 'iterations')
     # TODO: move these plots to tensorboard...?
     PLOT_EVERY = 10 if pretrain else 1 # This is only used by the struct. training
 
