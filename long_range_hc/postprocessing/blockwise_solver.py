@@ -71,9 +71,9 @@ class BlockWise(object):
         else:
             output_segm = self.segmentation_pipeline(input_.volume)
             if self.return_fragments:
-                return output_segm[1][final_crop], output_segm[0][final_crop]
+                return output_segm[1], output_segm[0]
             else:
-                return output_segm[final_crop]
+                return output_segm
 
 class BlockWiseSegmentationPipelineSolver(object):
     def __init__(self,

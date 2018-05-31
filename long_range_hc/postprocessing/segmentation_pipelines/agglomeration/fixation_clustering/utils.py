@@ -29,12 +29,12 @@ def build_pixel_lifted_graph_from_offsets(image_shape,
     # TODO: change name offsets_probabilities
     print("Actually building graph...")
     tick = time.time()
-    graph = nifty.graph.undirectedLongRangeGridGraph(image_shape, offsets,
+    graph = nifty.graph.undirectedLongRangeGridGraph(image_shape, offsets, is_local_offset,
                         offsets_probabilities=offsets_probabilities,
-                        labels=label_image,
-                        is_local_offset=is_local_offset)
+                        labels=label_image)
     nb_nodes = graph.numberOfNodes
     if label_image is None:
+        print("Getting edge index...")
         offset_index = graph.edgeOffsetIndex()
         is_local_edge = offset_index.astype('int32')
         w = np.where(offset_index < nb_local_offsets)
@@ -59,7 +59,7 @@ def build_pixel_lifted_graph_from_offsets(image_shape,
         else:
             assert all([w<=1.0 for w in offsets_weights]) and all([w>=0.0 for w in offsets_weights])
 
-
+        print("Edge weights...")
         edge_weights = offsets_weights[offset_index.astype('int32')]
 
 

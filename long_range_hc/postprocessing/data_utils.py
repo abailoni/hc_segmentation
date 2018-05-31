@@ -11,13 +11,15 @@ import json
 
 def import_dataset(proj_dir, aggl_name,
         data_to_import=None,
-        dataset_folder = '/export/home/abailoni/datasets/cremi/SOA_affinities/'
+        dataset_folder = '/export/home/abailoni/datasets/cremi/SOA_affinities/',
+        crop_slice=None
                     ):
     """
     :param proj_dir:
     :param aggl_name:
     :param data_to_import:
     :param dataset_folder: This should contain files like 'sample%s_train.h5'.
+    :param crop_slice:
     :return:
     """
     # TODO: generalize file_names in the dataset folder!
@@ -32,10 +34,15 @@ def import_dataset(proj_dir, aggl_name,
     config_file = yaml2dict(os.path.join(proj_dir, "postprocess/{}/aff_loader_config.yml".format(aggl_name)))
     sample = config_file['sample']
     dataset_path = os.path.join(dataset_folder,'sample%s_train.h5' % (sample))
-    slc = tuple(parse_data_slice(config_file['slicing_config']['data_slice']))
+    slc = parse_data_slice(config_file['slicing_config']['data_slice'])
 
-    bb_affs = np.s_[slc]
-    bb = np.s_[slc[1:]]
+    if crop_slice is not None:
+        pass
+
+
+
+    bb_affs = np.s_[tuple(slc)]
+    bb = np.s_[tuple(slc[1:])]
     outputs = []
     for data_key in data_to_import:
         if data_key == 'raw':

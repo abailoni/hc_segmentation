@@ -320,7 +320,6 @@ class FixationAgglomerater(FixationAgglomeraterBase):
         print("Number of nodes in graph", graph.numberOfNodes)
 
         # Build policy:
-        print(edge_sizes)
         # edge_sizes = np.ones(graph.numberOfEdges, dtype='float32')
         node_sizes = np.ones(graph.numberOfNodes, dtype='float32')
         merge_prio = graph.edgeValues(np.rollaxis(affinities,0,4))
