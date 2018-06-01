@@ -105,6 +105,7 @@ cdef np.ndarray[long, ndim=1] find_best_agglomeration_CY(np.ndarray[long, ndim=3
     best_labels = np.argmax(inter_matrix, axis=1)
     if undersegm_threshold != 0:
         segm_mask = inter_matrix >= undersegm_threshold
+        segm_mask[:, ignore_label] = False
         best_labels[np.sum(segm_mask, axis=1) > 1] = ignore_label
     return best_labels
 
