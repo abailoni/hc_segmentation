@@ -52,11 +52,11 @@ class FindBestAgglFromOversegmAndGT(Transform):
             init_segm = np.array(
                 vigra.analysis.labelMultiArray((init_segm * GT_border).astype(np.uint32)))
         else:
-            init_segm, _, _ = vigra.analysis.relabelConsecutive(init_segm)
+            init_segm, _, _ = vigra.analysis.relabelConsecutive(init_segm.astype('uint32'))
 
         if self.ignore_label == 0:
             # This keeps the zero label:
-            GT_labels, _, _ = vigra.analysis.relabelConsecutive(GT_labels)
+            GT_labels, _, _ = vigra.analysis.relabelConsecutive(GT_labels.astype('uint32'))
         else:
             raise NotImplementedError()
 

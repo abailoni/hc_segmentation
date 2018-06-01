@@ -77,7 +77,9 @@ class FixationAgglomeraterBase(object):
                  invert_affinities=False,
                  offsets_weights=None,
                  extra_aggl_kwargs=None,
-                 extra_runAggl_kwargs=None):
+                 extra_runAggl_kwargs=None,
+                 debug=False,
+                 ):
         """
                 Starts from pixels.
 
@@ -106,6 +108,7 @@ class FixationAgglomeraterBase(object):
         assert isinstance(n_threads, int)
 
         self.offsets = offsets
+        self.debug = debug
         self.zeroInit = zero_init
         self.n_threads = n_threads
         self.invert_affinities = invert_affinities
@@ -178,13 +181,16 @@ class FixationAgglomeraterFromSuperpixels(FixationAgglomeraterBase):
             affinities = 1. - affinities
 
         # Build rag and compute node sizes:
-        print("Computing rag...")
-        tick = time.time()
+        if self.debug:
+            print("Computing rag...")
+            tick = time.time()
         rag = nrag.gridRag(segmentation.astype(np.uint32))
-        print("Took {} s!".format(time.time() - tick))
 
-        print("Building graph...")
-        tick = time.time()
+        if self.debug:
+            print("Took {} s!".format(time.time() - tick))
+            print("Building graph...")
+            tick = time.time()
+
         # Build lifted graph:
         lifted_graph, is_local_edge = build_lifted_graph_from_rag(
             rag,
@@ -202,9 +208,11 @@ class FixationAgglomeraterFromSuperpixels(FixationAgglomeraterBase):
         #     GT_label_image=None
         # )
 
-        print("Took {} s!".format(time.time() - tick))
-        print("Computing edge_features...")
-        tick = time.time()
+        if self.debug:
+            print("Took {} s!".format(time.time() - tick))
+            print("Computing edge_features...")
+            tick = time.time()
+
         # Compute edge sizes and accumulate average/max:
         edge_indicators, edge_sizes = \
             accumulate_affinities_on_graph_edges(
@@ -219,9 +227,10 @@ class FixationAgglomeraterFromSuperpixels(FixationAgglomeraterBase):
         merge_prio = edge_indicators
         not_merge_prio = 1. - edge_indicators
 
-        print("Took {} s!".format(time.time() - tick))
-        print("Computing node_features...")
-        tick = time.time()
+        if self.debug:
+            print("Took {} s!".format(time.time() - tick))
+            print("Computing node_features...")
+            tick = time.time()
 
         node_sizes = np.squeeze(segm_utils.accumulate_segment_features_vigra(segmentation,
                                                                   segmentation, statistics=["Count"],
@@ -245,15 +254,17 @@ class FixationAgglomeraterFromSuperpixels(FixationAgglomeraterBase):
         # Run agglomerative clustering:
         agglomerativeClustering = nagglo.agglomerativeClustering(cluster_policy)
 
-        print("Took {} s!".format(time.time() - tick))
-        print("Running clustering...")
-        tick = time.time()
+        if self.debug:
+            print("Took {} s!".format(time.time() - tick))
+            print("Running clustering...")
+            tick = time.time()
 
         agglomerativeClustering.run(**self.extra_runAggl_kwargs) # (True, 10000)
         node_labels = agglomerativeClustering.result()
 
-        print("Took {} s!".format(time.time() - tick))
-        print("Getting final segm...")
+        if self.debug:
+            print("Took {} s!".format(time.time() - tick))
+            print("Getting final segm...")
 
         final_segm = segm_utils.map_features_to_label_array(
             segmentation,

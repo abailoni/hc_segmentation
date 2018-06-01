@@ -24,7 +24,8 @@ import torch
 from torch.autograd import Variable
 from torch import from_numpy
 
-
+from long_range_hc.postprocessing.segmentation_pipelines.agglomeration.fixation_clustering import \
+    FixationAgglomeraterFromSuperpixels
 
 from torch.nn.modules.loss import BCELoss
 
@@ -105,18 +106,18 @@ class HierarchicalClusteringTrainer(Trainer):
         self.options = trainer_kwargs
 
         if self.pre_train:
-            # FIXME: change to use updted long-range clustering
-            self.postprocessing = None
-            # self.postprocessing = self.get_postprocessing(trainer_kwargs)
+            self.postprocessing = self.get_postprocessing(trainer_kwargs)
 
     def get_postprocessing(self, options):
-        affinity_offsets = options['HC_config']['offsets']
-        init_segm_opts = options['HC_config']['init_segm']
-        return fixation_agglomerative_clustering_from_wsdt2d(
-            affinity_offsets,
-            **init_segm_opts['wsdt_kwargs'],
-            **init_segm_opts['prob_map_kwargs'],
-            n_threads=options['HC_config']['nb_threads'])
+        postproc_config = options['HC_config']
+        affinity_offsets = postproc_config['offsets']
+        nb_threads = postproc_config['nb_threads']
+        return FixationAgglomeraterFromSuperpixels(
+                    affinity_offsets,
+                    n_threads=nb_threads,
+                    invert_affinities=postproc_config.get('invert_affinities', False),
+                     **postproc_config['agglomeration_kwargs']
+        )
 
     def __getstate__(self):
         state_dict = dict(self.__dict__)
@@ -207,22 +208,29 @@ class HierarchicalClusteringTrainer(Trainer):
                                       "target":target})
             else:
                 pass
-                # # Compute segmentation:
-                # GT_labels = target.cpu().data.numpy()[:, 0]
-                # pred_numpy = out_prediction.cpu().data.numpy()
-                # segmentations = [self.postprocessing(pred) for pred in pred_numpy]
-                # validation_scores = [cremi_score(gt, segm, return_all_scores=True) for gt, segm in
-                #                      zip(GT_labels, segmentations)]
-                # self.criterion.validation_score = np.array(validation_scores).mean(axis=0)
-                # print(self.criterion.validation_score)
-                #
-                # var_segm = Variable(from_numpy(np.stack(segmentations)))
-                # self.plot_pretrain_batch({"raw": inputs[0][:, 0],
-                #                       "stat_prediction": static_prediction[0],
-                #                       "target": target,
-                #                       "segmentation": var_segm,
-                #                       "GT_labels": target[:,0]},
-                #                          validation=True)
+                # Compute segmentation:
+                GT_labels = target.cpu().data.numpy()[:, 0]
+                pred_numpy = out_prediction.cpu().data.numpy()
+                init_segm_numpy = init_segm_labels.cpu().data.numpy()
+                segmentations = [self.postprocessing(pred,initSegm) for pred, initSegm in zip(pred_numpy, init_segm_numpy)]
+                try:
+                    validation_scores = [cremi_score(gt, segm, return_all_scores=True) for gt, segm in
+                                         zip(GT_labels, segmentations)]
+                    validation_scores = [ [score[key] for key in score] for score in validation_scores]
+                    print(validation_scores)
+                except ZeroDivisionError:
+                    print("Error in computing scores...")
+                    validation_scores = [ [0. , 0., 0., 0. ] for _ in pred_numpy]
+                self.criterion.validation_score = np.array(validation_scores).mean(axis=0)
+
+                var_segm = Variable(from_numpy(np.stack(segmentations)))
+                self.plot_pretrain_batch({"raw": raw,
+                                      "stat_prediction": static_prediction[0],
+                                      "init_segm": init_segm_labels,
+                                      "target": target,
+                                      "final_segm": var_segm,
+                                      "GT_labels": target[:,0]},
+                                         validation=True)
 
 
 

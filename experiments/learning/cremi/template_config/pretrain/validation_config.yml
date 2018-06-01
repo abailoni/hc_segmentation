@@ -90,29 +90,28 @@ volume_config:
   # Membranes
   init_segmentation:
     path:
-      A: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/fancyOverseg_sizeRg00_fullA_blockwise/pred_segm.h5'
-      B: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/fancyOverseg_sizeReg00_firstHalfDaataB_blockwise/pred_segm.h5'
-      C: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/fancyOverseg_sizeRg00_fullC_blockwise/pred_segm.h5'
+      A: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/fancyOverseg_betterWeights_fullA_thresh093_blckws/pred_segm.h5'
+      B: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/fancyOverseg_betterWeights_fullB_thresh093_blckws_1/pred_segm.h5'
+      C: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/fancyOverseg_betterWeights_fullC_thresh093_blckws/pred_segm.h5'
     # CREMI default is '/volumes/labels/neuron_ids'
     path_in_h5_dataset:
-      A: 'finalSegm_seeds_padded'
-      B: 'finalSegm_seeds_padded'
-      C: 'finalSegm_seeds_padded'
+      A: 'finalSegm_WS'
+      B: 'finalSegm_WS_full'
+      C: 'finalSegm_WS'
   GT:
     path:
-      A: '/export/home/abailoni/datasets/cremi/SOA_affinities/sampleA_train.h5'
-      B: '/export/home/abailoni/datasets/cremi/SOA_affinities/sampleB_train.h5'
-      C: '/export/home/abailoni/datasets/cremi/SOA_affinities/sampleC_train.h5'
+      A: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/fancyOverseg_betterWeights_fullA_thresh093_blckws/pred_segm.h5'
+      B: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/fancyOverseg_betterWeights_fullB_thresh093_blckws_1/pred_segm.h5'
+      C: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/fancyOverseg_betterWeights_fullC_thresh093_blckws/pred_segm.h5'
     # CREMI default is '/volumes/labels/neuron_ids'
     path_in_h5_dataset:
-      A: 'segmentations/groundtruth_fixed'
-      B: 'segmentations/groundtruth_fixed'
-      C: 'segmentations/groundtruth_fixed'
+      A: 'finalSegm_WS_best_GT'
+      B: 'finalSegm_WS_best_GT_full'
+      C: 'finalSegm_WS_best_GT'
     # Specify training precision
     dtype: float32
     affinity_offsets: [[-1, 0, 0], [0, -1, 0], [0, 0, -1], [-2, 0, 0], [0, -3, 0], [0, 0, -3], [-3, 0, 0],
-                    [0, -9, 0], [0, 0, -9], [-4, 0, 0], [0, -27, 0], [0, 0, -27]]
-
+                    [0, -9, 0], [0, 0, -9], [-4, 0, 0], [0, -27, 0], [0, 0, -27]]    # Specify training precision
 
 # Configuration for the master dataset.
 master_config:

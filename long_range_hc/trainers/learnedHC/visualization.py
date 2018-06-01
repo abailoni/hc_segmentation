@@ -30,6 +30,7 @@ DEF_INTERP = 'none'
 segm_plot_kwargs = {'vmax': 10000, 'vmin':0}
 
 from long_range_hc.criteria.learned_HC.utils.rag_utils import compute_mask_boundaries
+from long_range_hc.datasets.segm_transform import FindBestAgglFromOversegmAndGT
 from skunkworks.postprocessing.util import from_affinities_to_hmap
 
 
@@ -260,22 +261,23 @@ def plot_segm_results(img_data, targets, z_slice):
                            img_data['pred_segm'], z_slice,
                            background=img_data['prob_map'])
 
+def plot_3_classes(target, segm, z_slice=0, background=None, mask_value=None, highlight_boundaries=True):
+    """Shape of expected background: (z,x,y)"""
+    if background is not None:
+        target.matshow(background[z_slice], cmap='gray', interpolation=DEF_INTERP)
+
+    if mask_value is not None:
+        segm = mask_the_mask(segm, value_to_mask=mask_value)
+    target.matshow(mask_the_mask(segm[z_slice]==1., value_to_mask=0.), cmap='summer', interpolation=DEF_INTERP, alpha=1., **segm_plot_kwargs)
+    target.matshow(mask_the_mask(segm[z_slice]==2., value_to_mask=0.), cmap='autumn', interpolation=DEF_INTERP, **segm_plot_kwargs)
+    target.matshow(mask_the_mask(segm[z_slice]==3., value_to_mask=0.), cmap='winter', interpolation=DEF_INTERP, alpha=0.4, **segm_plot_kwargs)
+    masked_bound = get_masked_boundary_mask(segm)
+    # if highlight_boundaries:
+    #     target.matshow(masked_bound[z_slice], cmap='gray', alpha=0.6, interpolation=DEF_INTERP)
+    return masked_bound
 
 def plot_dyn_predictions(img_data, targets, z_slice, milestep):
-    def plot_3_classes(target, segm, z_slice=0, background=None, mask_value=None, highlight_boundaries=True):
-        """Shape of expected background: (z,x,y)"""
-        if background is not None:
-            target.matshow(background[z_slice], cmap='gray', interpolation=DEF_INTERP)
 
-        if mask_value is not None:
-            segm = mask_the_mask(segm, value_to_mask=mask_value)
-        target.matshow(mask_the_mask(segm[z_slice]==1., value_to_mask=0.), cmap='summer', interpolation=DEF_INTERP, alpha=1., **segm_plot_kwargs)
-        target.matshow(mask_the_mask(segm[z_slice]==2., value_to_mask=0.), cmap='autumn', interpolation=DEF_INTERP, **segm_plot_kwargs)
-        target.matshow(mask_the_mask(segm[z_slice]==3., value_to_mask=0.), cmap='winter', interpolation=DEF_INTERP, alpha=0.4, **segm_plot_kwargs)
-        masked_bound = get_masked_boundary_mask(segm)
-        # if highlight_boundaries:
-        #     target.matshow(masked_bound[z_slice], cmap='gray', alpha=0.6, interpolation=DEF_INTERP)
-        return masked_bound
 
     plot_offset = 0 if z_slice==1 else 3
     for i, offset in enumerate([0,7,8,9,15,16]):
@@ -290,9 +292,38 @@ def plot_dyn_predictions(img_data, targets, z_slice, milestep):
 
 
 def plot_pretrain_predictions(img_data, targets, z_slice):
-    plot_segm(targets[0, z_slice], img_data['init_segm'], z_slice,
+    if 'final_segm' in img_data:
+        # Plot 1:
+        target1 = targets[0, z_slice]
+        finalSegm = img_data['final_segm']
+        gt = img_data['target'][0]
+        plot_segm(target1, finalSegm, z_slice,
                   background=img_data['raw'])
-    plot_segm(targets[1, z_slice], img_data['target'][0], z_slice,
+        target1.matshow(get_masked_boundary_mask(img_data['init_segm'])[z_slice], cmap='gray', alpha=0.7,
+                        interpolation=DEF_INTERP)
+        target1.matshow(get_masked_boundary_mask(gt)[z_slice], cmap='Set1', alpha=0.9, interpolation=DEF_INTERP)
+
+
+
+        # plot_segm(targets[0, z_slice], img_data['final_segm'], z_slice, mask_value=0,
+        #           background=img_data['raw'])
+        # plot_segm(targets[1, z_slice], img_data['target'][0], z_slice, mask_value=0,
+        #           background=img_data['raw'])
+
+        # Plot 2:
+        find_best = FindBestAgglFromOversegmAndGT(border_thickness=2,
+                                                  number_of_threads=8,
+                                                  break_oversegm_on_GT_borders=True,
+                                                  undersegm_threshold=6000)
+
+        undersegm_mask = np.logical_and(find_best(finalSegm, gt) == 0, gt != 0)
+        oversegm_mask = np.logical_and(find_best(gt, finalSegm) == 0, gt != 0)
+        masks = undersegm_mask + oversegm_mask*2
+        plot_3_classes(targets[1, z_slice], masks, z_slice=z_slice, background=img_data['raw'],mask_value=0.)
+    else:
+        plot_segm(targets[0, z_slice], img_data['init_segm'], z_slice, mask_value=0,
+                  background=img_data['raw'])
+        plot_segm(targets[1, z_slice], img_data['target'][0], z_slice, mask_value=0,
                   background=img_data['raw'])
 
     plotted_offsets = [1,5,7,10,0] if img_data['stat_prediction'].shape[0] > 3 else [0,1,2]

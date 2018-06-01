@@ -74,10 +74,10 @@ def set_up_training(project_directory,
                     data_config,
                     load_pretrained_model,
                     pretrain=False):
-    VALIDATE_EVERY = ('never') if pretrain else (1, 'iterations')
-    SAVE_EVERY = (150, 'iterations') if pretrain else (300, 'iterations')
+    VALIDATE_EVERY = (150, 'iterations') if pretrain else (1, 'iterations')
+    SAVE_EVERY = (400, 'iterations') if pretrain else (300, 'iterations')
     # TODO: move these plots to tensorboard...?
-    PLOT_EVERY = 10 if pretrain else 1 # This is only used by the struct. training
+    PLOT_EVERY = 20 if pretrain else 1 # This is only used by the struct. training
 
     # Get model
     if load_pretrained_model:
@@ -383,4 +383,5 @@ def main():
 
 
 if __name__ == '__main__':
+    print("Prova")
     main()
