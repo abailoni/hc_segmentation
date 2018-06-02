@@ -18,7 +18,8 @@ from long_range_hc.postprocessing.segmentation_pipelines.agglomeration.fixation_
 
 
 project_folder = '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities'
-aggl_name = 'fancyOverseg_szRg00_fullB_thresh093_blckws_2'
+# aggl_name = 'fancyOverseg_szRg00_fullB_thresh093_blckws_2'
+
 
 def agglomerate_blocks(project_folder, aggl_name):
     print("Loading segm {}...".format(aggl_name))
@@ -37,11 +38,16 @@ def agglomerate_blocks(project_folder, aggl_name):
     n_threads = post_proc_config['nb_threads']
     offsets = aff_loader_config['offsets']
 
+    HC_config = post_proc_config['generalized_HC_kwargs']['final_agglomeration_kwargs']
+    HC_config['extra_aggl_kwargs']['threshold'] = 0.9
+    # extra_aggl_kwargs: {postponeThresholding: false, sizeRegularizer: 0.0, sizeThresMax: 120.0,
+    #                     sizeThreshMin: 0.0, threshold: 0.93}
+
     final_agglomerater = FixationAgglomeraterFromSuperpixels(
                         offsets,
                         n_threads=n_threads,
                         invert_affinities=post_proc_config.get('invert_affinities', False),
-                         **post_proc_config['generalized_HC_kwargs']['final_agglomeration_kwargs']
+                         **HC_config
             #{ 'zero_init': False,
         # 'max_distance_lifted_edges': 5,
         # 'update_rule_merge': 'mean',
@@ -59,7 +65,7 @@ def agglomerate_blocks(project_folder, aggl_name):
 
     print("Writing...")
     file_path = os.path.join(project_folder, "postprocess/{}/pred_segm.h5".format(aggl_name))
-    vigra.writeHDF5(finalSegm_aggl, file_path, 'finalSegm_proveAggl', compression='gzip')
+    vigra.writeHDF5(finalSegm_aggl, file_path, 'finalSegm_agglWS', compression='gzip')
 
     # ------------- WSDT ------------------
     # from copy import deepcopy
@@ -92,4 +98,11 @@ def agglomerate_blocks(project_folder, aggl_name):
     evals = cremi_score(gt, finalSegm_aggl, border_threshold=None, return_all_scores=True)
     print(evals)
 
-agglomerate_blocks(project_folder,aggl_name)
+
+for aggl_name in [
+    'fancyOverseg_betterWeights_fullA_thresh093_blckws',
+                  'fancyOverseg_betterWeights_fullC_thresh093_blckws',
+                  'fancyOverseg_betterWeights_fullB_thresh093_blckws_1',
+    'fancyOverseg_szRg00_LREbetterWeights_fullB_thresh093_blckws_2',
+]:
+    agglomerate_blocks(project_folder,aggl_name)
