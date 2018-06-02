@@ -73,9 +73,10 @@ def set_up_training(project_directory,
                     config,
                     data_config,
                     load_pretrained_model,
-                    pretrain=False):
+                    pretrain=False,
+                    from_checkpoint=False):
     VALIDATE_EVERY = (150, 'iterations') if pretrain else (1, 'iterations')
-    SAVE_EVERY = (400, 'iterations') if pretrain else (300, 'iterations')
+    SAVE_EVERY = (500, 'iterations') if pretrain else (300, 'iterations')
     # TODO: move these plots to tensorboard...?
     PLOT_EVERY = 20 if pretrain else 1 # This is only used by the struct. training
 
@@ -125,9 +126,9 @@ def set_up_training(project_directory,
     #                     transforms=GetMaskAndRemoveSegmentation(affinity_offsets))
 
     unstructured_loss = LossWrapper(criterion=SorensenDiceLoss(),
-                       transforms=Compose(MaskTransitionToIgnoreLabel(affinity_offsets),
-                                          RemoveSegmentationFromTarget(),
-                                          InvertTarget()))
+                                    transforms=Compose(MaskTransitionToIgnoreLabel(affinity_offsets),
+                                                       RemoveSegmentationFromTarget(),
+                                                       InvertTarget()))
 
     # Build trainer and validation metric
     logger.info("Building trainer.")
@@ -146,7 +147,7 @@ def set_up_training(project_directory,
     trainer.evaluate_metric_every('never')
     trainer.validate_every(VALIDATE_EVERY, for_num_iterations=1)
     trainer.register_callback(SaveAtBestValidationScore(smoothness=smoothness, verbose=True))
-    trainer.register_callback(AutoLR(factor=0.98,
+    trainer.register_callback(AutoLR(factor=0.97,
                                   patience='100 iterations',
                                   monitor_while='validating',
                                   monitor_momentum=smoothness,
@@ -199,9 +200,11 @@ def set_up_training(project_directory,
     return trainer
 
 
-def load_checkpoint(project_directory):
+def load_checkpoint(project_directory, config, pretrain):
     logger.info("Trainer from checkpoint")
-    trainer = Trainer().load(from_directory=os.path.join(project_directory, "Weights"))
+    trainer = HierarchicalClusteringTrainer(model=None,
+                                            pre_train=pretrain,
+                                            **config).load(from_directory=os.path.join(project_directory, "Weights"))
     return trainer
 
 
@@ -227,7 +230,7 @@ def training(project_directory,
     # load network and training progress from checkpoint
     if from_checkpoint:
         logger.info("Loading trainer from checkpoint...")
-        trainer = load_checkpoint(project_directory)
+        trainer = load_checkpoint(project_directory, config, pretrain)
     else:
         trainer = set_up_training(project_directory,
                                   config,
@@ -357,7 +360,7 @@ def main():
     os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(map(str, gpus))
     gpus = list(range(len(gpus)))
 
-    load_model = eval(args.load_model)
+    load_model = eval(args.load_model) or eval(args.from_checkpoint)
 
 
     train_config = os.path.join(project_directory, 'train_config.yml')
@@ -383,5 +386,4 @@ def main():
 
 
 if __name__ == '__main__':
-    print("Prova")
     main()

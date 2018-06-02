@@ -121,6 +121,9 @@ class VisualizationCallback(Callback):
         config.update({'vis': None})
         return config
 
+    def set_config(self, config_dict):
+        config_dict['vis'] = Visualizer()
+        return super(VisualizationCallback, self).set_config(config_dict)
 
 class Visualizer(object):
     def __init__(self):
@@ -268,8 +271,8 @@ def plot_3_classes(target, segm, z_slice=0, background=None, mask_value=None, hi
 
     if mask_value is not None:
         segm = mask_the_mask(segm, value_to_mask=mask_value)
-    target.matshow(mask_the_mask(segm[z_slice]==1., value_to_mask=0.), cmap='summer', interpolation=DEF_INTERP, alpha=1., **segm_plot_kwargs)
-    target.matshow(mask_the_mask(segm[z_slice]==2., value_to_mask=0.), cmap='autumn', interpolation=DEF_INTERP, **segm_plot_kwargs)
+    target.matshow(mask_the_mask(segm[z_slice]==1., value_to_mask=0.), cmap='summer', interpolation=DEF_INTERP, alpha=0.4, **segm_plot_kwargs)
+    target.matshow(mask_the_mask(segm[z_slice]==2., value_to_mask=0.), cmap='autumn', interpolation=DEF_INTERP, alpha=0.4, **segm_plot_kwargs)
     target.matshow(mask_the_mask(segm[z_slice]==3., value_to_mask=0.), cmap='winter', interpolation=DEF_INTERP, alpha=0.4, **segm_plot_kwargs)
     masked_bound = get_masked_boundary_mask(segm)
     # if highlight_boundaries:
@@ -320,13 +323,14 @@ def plot_pretrain_predictions(img_data, targets, z_slice):
         oversegm_mask = np.logical_and(find_best(gt, finalSegm) == 0, gt != 0)
         masks = undersegm_mask + oversegm_mask*2
         plot_3_classes(targets[1, z_slice], masks, z_slice=z_slice, background=img_data['raw'],mask_value=0.)
+        targets[1, z_slice].matshow(get_masked_boundary_mask(finalSegm)[z_slice], cmap='Set1', alpha=0.9, interpolation=DEF_INTERP)
     else:
         plot_segm(targets[0, z_slice], img_data['init_segm'], z_slice, mask_value=0,
                   background=img_data['raw'])
         plot_segm(targets[1, z_slice], img_data['target'][0], z_slice, mask_value=0,
                   background=img_data['raw'])
 
-    plotted_offsets = [1,5,7,10,0] if img_data['stat_prediction'].shape[0] > 3 else [0,1,2]
+    plotted_offsets = [4,5,8,11,0] if img_data['stat_prediction'].shape[0] > 3 else [0,1,2]
     for i, offset in enumerate(plotted_offsets):
         targets[i+2, z_slice].matshow(img_data['stat_prediction'][offset,z_slice], cmap='gray', interpolation=DEF_INTERP)
         # targets[i+1, z_slice].matshow(img_data['target'][offset+1, z_slice], cmap='gray', interpolation=DEF_INTERP)

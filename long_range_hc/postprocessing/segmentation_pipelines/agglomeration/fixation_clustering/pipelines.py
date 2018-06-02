@@ -139,8 +139,12 @@ class FixationAgglomeraterBase(object):
         return state_dict
 
     def __setstate__(self, state_dict):
-        # if 'passed_rules' in state_dict:
-        #     state_dict['update_rules'] = [self.parse_update_rule(rule) for rule in state_dict['passed_rules']]
+        if 'passed_rules' in state_dict:
+            state_dict['update_rules'] = [self.parse_update_rule(rule) for rule in state_dict['passed_rules']]
+        else:
+            print (key for key in state_dict)
+            raise DeprecationWarning()
+
         self.__dict__.update(state_dict)
 
 
