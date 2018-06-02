@@ -105,32 +105,51 @@ class FromSegmToEmbeddingSpace(Transform):
         self.set_random_variable('embedding_vectors',
                 np.random.uniform(size=(num_segments, self.dim_embedding_space)))
 
-    def tensor_function(self, tensor):
+    def tensor_function(self, tensor_):
         """
-        Expected shape: (1 , z, x, y)
+        Expected shape: (z, x, y) or (channels , z, x, y)
 
         Label 0 represents ignore-label (often boundary between segments).
         """
-        tensor = tensor.astype(np.uint32)
+        def convert_tensor(tensor, max_label = None):
+            tensor = tensor.astype(np.uint32)
 
-        # This keep the 0-label intact and starts from 1:
-        tensor, max_label, _ = vigra.analysis.relabelConsecutive(tensor)
+            if max_label is None:
+                max_label = tensor.max()
 
-        self.build_random_variables(num_segments=max_label+1)
-        embedding_vectors = self.get_random_variable('embedding_vectors')
+            self.build_random_variables(num_segments=max_label+1)
+            embedding_vectors = self.get_random_variable('embedding_vectors')
 
-        embedded_tensor = map_features_to_label_array(tensor,embedding_vectors,
-                                    ignore_label=0,
-                                    fill_value=0.,
-                                    number_of_threads=self.number_of_threads)
+            embedded_tensor = map_features_to_label_array(tensor,embedding_vectors,
+                                        ignore_label=0,
+                                        fill_value=0.,
+                                        number_of_threads=self.number_of_threads)
 
-        # Normalize values:
-        embedded_tensor = (embedded_tensor - embedded_tensor.mean()) / embedded_tensor.std()
-        embedded_tensor = np.rollaxis(embedded_tensor, axis=-1, start=0)
+            # Normalize values:
+            embedded_tensor = (embedded_tensor - embedded_tensor.mean()) / embedded_tensor.std()
 
-        if self.keep_segm:
-                embedded_tensor = np.concatenate((np.expand_dims(tensor, axis=0),
-                                                  embedded_tensor))
+            # TODO: improve!
+            if tensor.ndim == 3:
+                embedded_tensor = np.rollaxis(embedded_tensor, axis=-1, start=0)
 
-        # Expand dimension:
-        return embedded_tensor
+                if self.keep_segm:
+                        embedded_tensor = np.concatenate((np.expand_dims(tensor, axis=0),
+                                                          embedded_tensor))
+            elif tensor.ndim == 4:
+                embedded_tensor = embedded_tensor[...,0]
+
+            # Expand dimension:
+            return embedded_tensor
+
+        if tensor_.ndim == 3:
+            # This keep the 0-label intact and starts from 1:
+            tensor_continuous, max_label, _ = vigra.analysis.relabelConsecutive(tensor_.astype('uint32'))
+
+            return convert_tensor(tensor_continuous, max_label)
+        elif tensor_.ndim == 4:
+            labels = tensor_[0]
+            labels_continuous, max_label, _ = vigra.analysis.relabelConsecutive(labels.astype('uint32'))
+            vectors = convert_tensor(labels_continuous, max_label)
+            return np.concatenate((vectors, tensor_[1:]), axis=0)
+        else:
+            raise NotImplementedError()

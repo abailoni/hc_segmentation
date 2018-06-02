@@ -171,24 +171,38 @@ class HierarchicalClusteringTrainer(Trainer):
                         - following channels are affinities labels
 
         """
+        target = target.cuda()
         # print(inputs[0][:,0].cpu().data.numpy().shape)
         validation = not backward
         # Check because for some reason it does not expect batch axis...?
 
         # Combine raw and oversegmentation:
-        assert len(inputs) == 2
-        raw = inputs[0][:,0]
-        init_segm_labels = inputs[1][:,0]
-        init_segm_vectors = inputs[1][:, 1:]
-        inputs = torch.cat([inputs[0], init_segm_vectors], dim=1)
+        assert len(inputs) == 2 or len(inputs) == 3
+        raw = inputs[0][:, 0]
+        init_segm_labels = inputs[1][:, 0]
+        nb_offsets = target.size()[1] - 1
+        init_emb_vectors = inputs[1][:, 1:-nb_offsets]
+
+        if len(inputs) == 3:
+            # init_boundary_labels = inputs[1][:, 0]
+            init_emb_vectors = torch.cat([init_emb_vectors, inputs[2]], dim=1)
+        inputs_model = torch.cat([inputs[0], init_emb_vectors], dim=1)
+
+
+        # Modify targets to predict only where we should merge on bound:
+        init_segm_affs = inputs[1][:, -nb_offsets:]
+        target_affs = Variable(target[:, 1:].data.clone(),
+                               requires_grad=True)
+        new_targ_affs = 1. - (- init_segm_affs + target_affs) * (init_segm_affs == 0.).float()
+        target[:, 1:] = new_targ_affs
 
         if self.pre_train:
             self.model.set_pre_train_mode(True)
-            static_prediction = self.apply_model(inputs)
+            static_prediction = self.apply_model(inputs_model)
         else:
             raise DeprecationWarning()
             self.model.set_static_prediction(True)
-            static_prediction = self.apply_model(*inputs)
+            static_prediction = self.apply_model(*inputs_model)
 
         out_prediction = static_prediction[0]
 
