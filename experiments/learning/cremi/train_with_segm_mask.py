@@ -280,7 +280,7 @@ def make_data_config(data_config_file, offsets, n_batches, max_nb_workers, pretr
     if not reload_model:
         template_path = './template_config/data_config.yml' if not pretrain else './template_config/pretrain/data_config.yml'
         template = get_template_config_file(template_path, data_config_file)
-        template['volume_config']['GT']['affinity_offsets'] = offsets
+        template['offsets'] = offsets
     else:
         # Reload previous settings:
         template = yaml2dict(data_config_file)
@@ -302,7 +302,7 @@ def make_validation_config(validation_config_file, offsets, n_batches, max_nb_wo
     if not reload_model:
         template_path = './template_config/validation_config.yml' if not pretrain else './template_config/pretrain/data_config.yml'
         template = get_template_config_file(template_path, validation_config_file)
-        template['volume_config']['GT']['affinity_offsets'] = offsets
+        template['offsets'] = offsets
     else:
         # Reload previous settings:
         template = yaml2dict(validation_config_file)

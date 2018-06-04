@@ -157,8 +157,7 @@ volume_config:
       C: 'finalSegm_WS_best_GT'
     # Specify training precision
     dtype: float32
-    affinity_offsets: [[-1, 0, 0], [0, -1, 0], [0, 0, -1], [-2, 0, 0], [0, -3, 0], [0, 0, -3], [-3, 0, 0],
-                    [0, -9, 0], [0, 0, -9], [-4, 0, 0], [0, -27, 0], [0, 0, -27]]    # Specify training precision
+
 
 # Configuration for the master dataset.
 master_config:
@@ -175,6 +174,8 @@ master_config:
   random_slides: False
 #  shape_after_slide: [424, 424]
 
+offsets: [[-1, 0, 0], [0, -1, 0], [0, 0, -1], [-2, 0, 0], [0, -3, 0], [0, 0, -3], [-3, 0, 0],
+                    [0, -9, 0], [0, 0, -9], [-4, 0, 0], [0, -27, 0], [0, 0, -27]]
     
 # Specify configuration for the loader
 loader_config:

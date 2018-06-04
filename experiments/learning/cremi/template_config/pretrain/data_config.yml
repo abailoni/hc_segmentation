@@ -153,8 +153,6 @@ volume_config:
       C: 'finalSegm_WS_best_GT'
     # Specify training precision
     dtype: float32
-    affinity_offsets: [[-1, 0, 0], [0, -1, 0], [0, 0, -1], [-2, 0, 0], [0, -3, 0], [0, 0, -3], [-3, 0, 0],
-                    [0, -9, 0], [0, 0, -9], [-4, 0, 0], [0, -27, 0], [0, 0, -27]]
 #  GT:
 #    path:
 #      A: '/export/home/abailoni/datasets/cremi/SOA_affinities/sampleA_train.h5'
@@ -166,9 +164,12 @@ volume_config:
 #      B: 'segmentations/groundtruth_fixed'
 #      C: 'segmentations/groundtruth_fixed'
 
+offsets: [[-1, 0, 0], [0, -1, 0], [0, 0, -1], [-2, 0, 0], [0, -3, 0], [0, 0, -3], [-3, 0, 0],
+                    [0, -9, 0], [0, 0, -9], [-4, 0, 0], [0, -27, 0], [0, 0, -27]]
 
 # Configuration for the master dataset.
 master_config:
+  rejection_threshold: 0.5
   # We might need order 0 interpolation if we have segmentation in there somewhere.
   elastic_transform:
     alpha: 2000.

@@ -2,6 +2,7 @@ import os
 import socket
 import getpass
 from inferno.utils.io_utils import yaml2dict
+import json
 
 
 original_trainvol_path = "/groups/saalfeld/home/papec/Work/neurodata_hdd/cremi"
@@ -33,3 +34,10 @@ def get_template_config_file(template_path, output_path):
         os.system(cmd_string)
         template = yaml2dict(output_path)
     return template
+
+
+def parse_offsets(offset_file):
+    assert os.path.exists(offset_file)
+    with open(offset_file, 'r') as f:
+        offsets = json.load(f)
+    return offsets
