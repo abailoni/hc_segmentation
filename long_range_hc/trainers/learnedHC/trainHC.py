@@ -171,45 +171,32 @@ class HierarchicalClusteringTrainer(Trainer):
                         - following channels are affinities labels
 
         """
-        target = target.cuda()
         # print(inputs[0][:,0].cpu().data.numpy().shape)
         validation = not backward
         # Check because for some reason it does not expect batch axis...?
 
         # Combine raw and oversegmentation:
-        assert len(inputs) == 2 or len(inputs) == 3
-        raw = inputs[0][:, 0]
-        init_segm_labels = inputs[1][:, 0]
-        nb_offsets = target.size()[1] - 1
-        init_emb_vectors = inputs[1][:, 1:-nb_offsets]
+        assert len(inputs) == 2
+        raw = inputs[0][:,0]
+        init_segm_labels = inputs[1][:,0]
+        init_segm_vectors = inputs[1][:, 1:]
+        inputs = torch.cat([inputs[0], init_segm_vectors], dim=1)
 
-        if len(inputs) == 3:
-            # init_boundary_labels = inputs[1][:, 0]
-            init_emb_vectors = torch.cat([init_emb_vectors, inputs[2]], dim=1)
-        inputs_model = torch.cat([inputs[0], init_emb_vectors], dim=1)
-
-
-        # Modify targets to predict only where we should merge on bound:
-        init_segm_affs = inputs[1][:, -nb_offsets:]
-        target_affs = Variable(target[:, 1:].data.clone(),
-                               requires_grad=True)
-        new_targ_affs = 1. - (- init_segm_affs + target_affs) * (init_segm_affs == 0.).float()
-        target[:, 1:] = new_targ_affs
 
         if self.pre_train:
             self.model.set_pre_train_mode(True)
-            static_prediction = self.apply_model(inputs_model)
+            static_prediction = self.apply_model(inputs)
         else:
             raise DeprecationWarning()
             self.model.set_static_prediction(True)
-            static_prediction = self.apply_model(*inputs_model)
+            static_prediction = self.apply_model(*inputs)
 
         out_prediction = static_prediction[0]
 
 
         # TODO: check if is a tuple and this works...
         if isinstance(static_prediction, tuple):
-            is_cuda = static_prediction[0].is_cuda
+            is_cuda = out_prediction.is_cuda
         else:
             is_cuda = static_prediction.is_cuda
         if self.pre_train:
@@ -218,7 +205,7 @@ class HierarchicalClusteringTrainer(Trainer):
                 # TODO: update plots!
                 self.plot_pretrain_batch({"raw":raw,
                                           "init_segm":init_segm_labels,
-                                      "stat_prediction":static_prediction[0],
+                                      "stat_prediction":out_prediction,
                                       "target":target})
             else:
                 pass
@@ -239,7 +226,7 @@ class HierarchicalClusteringTrainer(Trainer):
 
                 var_segm = Variable(from_numpy(np.stack(segmentations)))
                 self.plot_pretrain_batch({"raw": raw,
-                                      "stat_prediction": static_prediction[0],
+                                      "stat_prediction": out_prediction,
                                       "init_segm": init_segm_labels,
                                       "target": target,
                                       "final_segm": var_segm,
@@ -249,9 +236,9 @@ class HierarchicalClusteringTrainer(Trainer):
 
 
 
-        # static_prediction = static_prediction[0]
+        # static_prediction = out_prediction
 
-        loss = self.get_loss_static_prediction(static_prediction[0], target=target,
+        loss = self.get_loss_static_prediction(out_prediction, target=target,
                                                validation=validation)
 
 
@@ -260,7 +247,7 @@ class HierarchicalClusteringTrainer(Trainer):
         if not self.pre_train:
             raise DeprecationWarning()
             # # Keep only largest prediction and invert (we want affinities):
-            # static_prediction = 1. - static_prediction[0]
+            # static_prediction = 1. - out_prediction
             # # tick0 = time.time()
             #
             # self.model.set_static_prediction(False)

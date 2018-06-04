@@ -330,7 +330,8 @@ def plot_pretrain_predictions(img_data, targets, z_slice):
         plot_segm(targets[1, z_slice], img_data['target'][0], z_slice, mask_value=0,
                   background=img_data['raw'])
 
-    plotted_offsets = [4,5,8,11,0] if img_data['stat_prediction'].shape[0] > 3 else [0,1,2]
+    plotted_offsets = [3, 5, 14, 25, 0] if img_data['stat_prediction'].shape[0] > 3 else [0, 1, 2]
+    # plotted_offsets = [4,5,8,11,0] if img_data['stat_prediction'].shape[0] > 3 else [0,1,2]
     for i, offset in enumerate(plotted_offsets):
         targets[i+2, z_slice].matshow(img_data['stat_prediction'][offset,z_slice], cmap='gray', interpolation=DEF_INTERP)
         # targets[i+1, z_slice].matshow(img_data['target'][offset+1, z_slice], cmap='gray', interpolation=DEF_INTERP)
