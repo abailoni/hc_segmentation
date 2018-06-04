@@ -74,15 +74,16 @@ def set_up_training(project_directory,
                     data_config,
                     load_pretrained_model,
                     pretrain=False,
-                    from_checkpoint=False):
+                    dir_loaded_model=None):
     VALIDATE_EVERY = (150, 'iterations') if pretrain else (1, 'iterations')
     SAVE_EVERY = (500, 'iterations') if pretrain else (300, 'iterations')
     # TODO: move these plots to tensorboard...?
-    PLOT_EVERY = 20 if pretrain else 1 # This is only used by the struct. training
+    PLOT_EVERY = 40 if pretrain else 1 # This is only used by the struct. training
 
     # Get model
     if load_pretrained_model:
-        model = Trainer().load(from_directory=project_directory,
+        load_dir = project_directory if dir_loaded_model is None else dir_loaded_model
+        model = Trainer().load(from_directory=load_dir,
                                filename='Weights/checkpoint.pytorch').model
     else:
         if pretrain:
@@ -215,6 +216,7 @@ def training(project_directory,
              max_training_iters=int(1e5),
              from_checkpoint=False,
              load_pretrained_model=False,
+             dir_loaded_model=None,
              pretrain=False):
 
     logger.info("Loading config from {}.".format(train_configuration_file))
@@ -236,7 +238,9 @@ def training(project_directory,
                                   config,
                                   data_config,
                                   load_pretrained_model,
-                                  pretrain)
+                                  pretrain,
+                                  dir_loaded_model=dir_loaded_model
+                                  )
 
     trainer.set_max_num_iterations(max_training_iters)
 
@@ -326,6 +330,7 @@ def main():
     # parser.add_argument('--pretrain', default='False')
     parser.add_argument('--nb_threads', default=int(8), type=int)
     parser.add_argument('--load_model', default='False')
+    parser.add_argument('--dir_loaded_model', type=str)
     parser.add_argument('--z_window_size_training', default=int(10), type=int)
     parser.add_argument('--from_checkpoint', default='False')
 
@@ -361,6 +366,7 @@ def main():
     gpus = list(range(len(gpus)))
 
     load_model = eval(args.load_model) or eval(args.from_checkpoint)
+    dir_loaded_model = args.dir_loaded_model
 
 
     train_config = os.path.join(project_directory, 'train_config.yml')
@@ -382,7 +388,8 @@ def main():
              max_training_iters=args.max_train_iters,
              from_checkpoint=eval(args.from_checkpoint),
              pretrain=pretrain,
-             load_pretrained_model=load_model)
+             load_pretrained_model=load_model,
+             dir_loaded_model=dir_loaded_model)
 
 
 if __name__ == '__main__':

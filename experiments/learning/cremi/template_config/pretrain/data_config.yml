@@ -13,11 +13,17 @@ slicing_config:
     A: [25, 444, 444]
     B: [25, 444, 444]
     C: [25, 444, 444]
+#    A: [25, 848, 848]
+#    B: [25, 848, 848]
+#    C: [25, 848, 848]
   # Sliding window stride
   stride:
     A: [1, 222, 222]
     B: [1, 222, 222]
     C: [1, 222, 222]
+#    A: [1, 444, 444]
+#    B: [1, 444, 444]
+#    C: [1, 444, 444]
   # Sliding window downsampling ratio. The actual image size along a
   # dimension is the window_size divided by the downsampling ratio.
   # Example:
@@ -37,11 +43,42 @@ slicing_config:
     A: '0:65, :, :'
     B: '0:65, :, :'
     C: '0:65, :, :'
+
+  slicing_config_affs:
+    # Sliding window size
+    window_size:
+      A: [3, 25, 848, 848]
+      B: [3, 25, 848, 848]
+      C: [3, 25, 848, 848]
+    # Sliding window stride
+    stride:
+      A: [3, 1, 444, 444]
+      B: [3, 1, 444, 444]
+      C: [3, 1, 444, 444]
+    # Sliding window downsampling ratio. The actual image size along a
+    # dimension is the window_size divided by the downsampling ratio.
+    # Example:
+    #   window_size = [1, 512, 512], downsampling_ratio = [1, 2, 2] ==>
+    #   slice shape = [1, 256, 256]
+    downsampling_ratio:
+      A: [1, 1, 2, 2]
+      B: [1, 1, 2, 2]
+      C: [1, 1, 2, 2]
+    # Reflect padding on the loaded volume. Follows numpy.pad semantics.
+    padding:
+      A: [[0,0], [5, 0], [50, 50], [50, 50]]
+      B: [[0,0], [5, 0], [50, 50], [50, 50]]
+      C: [[0,0], [5, 0], [50, 50], [50, 50]]
+    # Data slice to iterate over.
+    data_slice:
+      A: ':, 0:65, :, :'
+      B: ':, 0:65, :, :'
+      C: ':, 0:65, :, :'
     
 defect_augmentation_config:
     p_missing_slice: 0.03
     p_low_contrast: 0.03
-    p_deformed_slice: 0.03
+    p_deformed_slice: 0.0
     p_artifact_source: 0
     deformation_mode: 'compress'
     deformation_strenght: 20
@@ -49,7 +86,7 @@ defect_augmentation_config:
 #        min_masking_ratio: .5
 #        slicing_config:
 #          window_size: [1, 444, 444]
-#          stride: [1, 222, 222]
+#          stride: [1, 444, 444]
 #          downsampling_ratio: [1, 1, 1]
 #        volume_config:
 #          artifacts:
@@ -94,6 +131,16 @@ volume_config:
       A: 'finalSegm_WS'
       B: 'finalSegm_WS_full'
       C: 'finalSegm_WS'
+#  init_boundaries:
+#    path:
+#      A: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/fancyOverseg_betterWeights_fullA_thresh093_blckws/pred_segm.h5'
+#      B: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/fancyOverseg_betterWeights_fullB_thresh093_blckws_1/pred_segm.h5'
+#      C: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/fancyOverseg_betterWeights_fullC_thresh093_blckws/pred_segm.h5'
+#    # CREMI default is '/volumes/labels/neuron_ids'
+#    path_in_h5_dataset:
+#      A: 'boundary_IDs'
+#      B: 'boundary_IDs'
+#      C: 'boundary_IDs'
   GT:
     path:
       A: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/fancyOverseg_betterWeights_fullA_thresh093_blckws/pred_segm.h5'
