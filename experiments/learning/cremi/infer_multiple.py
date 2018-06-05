@@ -40,13 +40,17 @@ from long_range_hc.trainers.learnedHC.trainHC import HierarchicalClusteringTrain
 def predict(project_folder,
             sample,
             offsets,
-            data_slice,
-            only_nn_channels=False
+            data_slice=None,
+            only_nn_channels=False,
+            ds=None
             ): #Only 3 nearest neighbor channels
 
     gpu = 0
     checkpoint = os.path.join(project_folder, 'Weights')
-    data_config_template_path = './template_config/inference/infer_config.yml'
+    if ds == 1:
+        data_config_template_path = './template_config/inference/infer_config.yml'
+    elif ds == 2:
+        data_config_template_path = './template_config/inference/infer_config_DS2.yml'
 
     data_config_path = os.path.join(project_folder, 'infer_data_config_sample%s.yml' % sample)
     data_config = get_template_config_file(data_config_template_path, data_config_path)
@@ -93,32 +97,60 @@ def predict(project_folder,
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('project_directory', type=str)
-    parser.add_argument('offset_file', type=str)
+    # parser.add_argument('project_directory', type=str)
+    # parser.add_argument('offset_file', type=str)
     parser.add_argument('--gpus', type=int)
-    parser.add_argument('--data_slice', default='85:,:,:')
+    # parser.add_argument('--data_slice',  default='85:,:,:')
     parser.add_argument('--nb_threads', default=1, type=int)
-    parser.add_argument('--name_aggl', default=None)
+    # parser.add_argument('--name_aggl', default=None)
 
     args = parser.parse_args()
 
-    project_directory = args.project_directory
-    gpu = args.gpus
+    proj_dir = '/net/hciserver03/storage/abailoni/learnedHC/input_segm/'
+    offs_dir = '/net/hciserver03/storage/abailoni/pyCharm_projects/hc_segmentation/experiments/postprocessing/cremi/offsets/'
 
-    offset_file = args.offset_file
-    offsets = parse_offsets(offset_file)
-    data_slice = args.data_slice
-    n_threads = args.nb_threads
-    name_aggl = args.name_aggl
+    offsets_dir = [
+        # 'dense_offsets.json',
+        # 'dense_offsets.json',
+        # 'SOA_offsets.json'
+        'SOA_offsets.json'
+    ]
+
+    projs = [
+        # 'smart_oversegm_DS2_denseOffs',
+        # 'smart_oversegm_DS1_denseOffs',
+        # 'smart_oversegm',
+        'smart_oversegm_DS2'
+    ]
+
+    DS = [
+        # 2,
+        # 1,
+        # 1,
+        2
+    ]
+
+    for pr_dr, offs, ds  in zip(projs, offsets_dir, DS):
 
 
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu)
+        project_directory = proj_dir + pr_dr
+        gpu = args.gpus
 
-    samples = (
-        # 'A',
-        # 'B',
-        'C'
-    )
+        offset_file = offs_dir + offs
+        offsets = parse_offsets(offset_file)
+        data_slice = None
+        n_threads = args.nb_threads
+        name_aggl = None
 
-    for sample in samples:
-        predict(project_directory, sample, offsets,data_slice, only_nn_channels=False)
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu)
+
+        samples = (
+            # 'A',
+            # 'B',
+            'C'
+        )
+
+        for sample in samples:
+            predict(project_directory, sample, offsets, data_slice,
+                    only_nn_channels=False,
+                    ds=ds)

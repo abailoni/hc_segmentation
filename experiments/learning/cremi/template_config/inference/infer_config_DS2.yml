@@ -6,37 +6,37 @@ dataset_name: B
 slicing_config:
   # Sliding window size
   window_size:
-    A: [25, 516, 516]
-    B: [25, 516, 516]
-    C: [25, 516, 516]
-#    A: [25, 1032, 1032]
-#    B: [25, 1032, 1032]
-#    C: [25, 1032, 1032]
+#    A: [25, 516, 516]
+#    B: [25, 516, 516]
+#    C: [25, 516, 516]
+    A: [25, 1032, 1032]
+    B: [25, 1032, 1032]
+    C: [25, 1032, 1032]
   # Sliding window stride
   stride:
-    A: [15, 300, 300]
-    B: [15, 300, 300]
-    C: [15, 300, 300]
-#    A: [15, 600, 600]
-#    B: [15, 600, 600]
-#    C: [15, 600, 600]
+#    A: [15, 300, 300]
+#    B: [15, 300, 300]
+#    C: [15, 300, 300]
+    A: [15, 600, 600]
+    B: [15, 600, 600]
+    C: [15, 600, 600]
   # Sliding window downsampling ratio. The actual image size along a
   # dimension is the window_size divided by the downsampling ratio.
   # Example:
   #   window_size = [1, 512, 512], downsampling_ratio = [1, 2, 2] ==>
   #   slice shape = [1, 256, 256]
   downsampling_ratio:
-    A: [1, 1, 1]
-    B: [1, 1, 1]
-    C: [1, 1, 1]
+    A: [1, 2, 2]
+    B: [1, 2, 2]
+    C: [1, 2, 2]
   # Reflect padding on the loaded volume. Follows numpy.pad semantics.
   padding:
-    A: [[4, 4], [50, 50], [50, 50]]
-    B: [[4, 4], [50, 50], [50, 50]]
-    C: [[4, 4], [50, 50], [50, 50]]
-#    A: [[4, 4], [100, 100], [100, 100]]
-#    B: [[4, 4], [100, 100], [100, 100]]
-#    C: [[4, 4], [100, 100], [100, 100]]
+#    A: [[4, 4], [50, 50], [50, 50]]
+#    B: [[4, 4], [50, 50], [50, 50]]
+#    C: [[4, 4], [50, 50], [50, 50]]
+    A: [[4, 4], [100, 100], [100, 100]]
+    B: [[4, 4], [100, 100], [100, 100]]
+    C: [[4, 4], [100, 100], [100, 100]]
   # Data slice to iterate over.
   data_slice:
     A: ':, :, :'
@@ -91,7 +91,7 @@ loader_config:
 
 infer_config:
   augmentation_config: null
-  blending_config: {dim: 3, ramp_size: [5, 35, 35]}
+  blending_config: {dim: 3, ramp_size: [5, 40, 40]}
   crop_padding: False
   gpu: 0
   num_workers: 3

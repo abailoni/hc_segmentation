@@ -500,8 +500,10 @@ class HierarchicalClusteringTrainer(Trainer):
         # crop away the padding (we treat global as local padding) if specified
         # this is generally not necessary if we use blending
         if self.crop_padding:
+            raise DeprecationWarning('Update for downscaling option!')
             # slicing w.r.t the current output
-            local_slicing = tuple(slice(pad[0], shape[i] - pad[1])
+            local_slicing = tuple(slice(pad[0],
+                                        shape[i] - pad[1])
                                   for i, pad in enumerate(padding))
             # slicing w.r.t the global output
             global_slicing = tuple(slice(slicing[i].start + pad[0],
@@ -509,7 +511,7 @@ class HierarchicalClusteringTrainer(Trainer):
                                    for i, pad in enumerate(padding))
         # otherwise do not crop
         else:
-            local_slicing = tuple(slice(None)
+            local_slicing = tuple(slice(None, None)
                                   for i, pad in enumerate(padding))
             global_slicing = slicing
         return local_slicing, global_slicing
@@ -560,6 +562,7 @@ class HierarchicalClusteringTrainer(Trainer):
 
         # build the output volume
         shape = dataset_raw.volume.shape
+
         print("Whole shape to predict: {}".format(shape))
         output = np.zeros((self.out_channels,) + shape, dtype='float32')
         # loader
@@ -602,7 +605,12 @@ class HierarchicalClusteringTrainer(Trainer):
 
         # # crop padding from the outputs
         # # This is only used to crop the dataset in the end
-        crop = tuple(slice(pad[0], shape[i] - pad[1]) for i, pad in enumerate(dataset_raw.padding))
+        ds_ratio = dataset_raw.downsampling_ratio
+
+        crop = tuple(slice(pad[0],
+                           shape[i] - pad[1],
+                           ds_ratio[i]) for i, pad in enumerate(
+            dataset_raw.padding))
         out_crop = (slice(None),) + crop
         output = output[out_crop]
         mask = mask[crop]
