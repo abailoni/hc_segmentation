@@ -131,6 +131,7 @@ volume_config:
       A: 'finalSegm_WS'
       B: 'finalSegm_WS_full'
       C: 'finalSegm_WS'
+    dtype: uint32
 #  init_boundaries:
 #    path:
 #      A: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/fancyOverseg_betterWeights_fullA_thresh093_blckws/pred_segm.h5'
@@ -152,7 +153,7 @@ volume_config:
       B: 'finalSegm_WS_best_GT_full'
       C: 'finalSegm_WS_best_GT'
     # Specify training precision
-    dtype: float32
+    dtype: uint32
 #  GT:
 #    path:
 #      A: '/export/home/abailoni/datasets/cremi/SOA_affinities/sampleA_train.h5'

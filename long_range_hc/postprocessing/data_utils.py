@@ -9,6 +9,57 @@ import json
 # TODO: Find a better place
 # This at the moment loads segmentations from the usual saved format
 
+def import_postproc_data(proj_dir, aggl_name,
+        data_to_import=None,
+        crop_slice=None
+                    ):
+    """
+    :param proj_dir:
+    :param aggl_name:
+    :param data_to_import:
+    :param dataset_folder: This should contain files like 'sample%s_train.h5'.
+    :param crop_slice: string!
+    :return:
+    """
+    # TODO: generalize file_names in the dataset folder!
+    config_file = yaml2dict(os.path.join(proj_dir, "postprocess/{}/aff_loader_config.yml".format(aggl_name)))
+    sample = config_file['sample']
+    volumes = config_file['volumes']
+
+    if data_to_import is None:
+        data_to_import = ['raw', 'GT', 'affinities']
+    else:
+        for data_key in data_to_import:
+            if data_key not in volumes:
+                raise ValueError('Import key not recognised: {}. Available: {}'.format(data_key, volumes))
+
+    if crop_slice is not None:
+        if isinstance(crop_slice, str):
+            slc = tuple(parse_data_slice(crop_slice))
+        else:
+            assert isinstance(crop_slice, tuple)
+            slc = crop_slice
+        assert len(slc) == 4
+    else:
+        slc = tuple(parse_data_slice(config_file['data_slice'][sample]))
+
+
+    bb_affs = np.s_[slc]
+    bb = np.s_[slc[1:]]
+    outputs = []
+    for data_key in data_to_import:
+        with h5py.File(volumes[data_key]['path'][sample], 'r') as f:
+            bb_vol = bb_affs if data_key == 'affinities' else bb
+            dtype = 'float32' if 'dtype' not in volumes[data_key] else volumes[data_key]['dtype']
+            vol = f[volumes[data_key]['path_in_h5_dataset'][sample]][bb_vol].astype(dtype)
+            if data_key == 'raw':
+                vol /= 255.
+            outputs.append(vol)
+    if len(outputs) == 1:
+        return  outputs[0]
+    else:
+        return tuple(outputs)
+
 def import_dataset(proj_dir, aggl_name,
         data_to_import=None,
         dataset_folder = '/export/home/abailoni/datasets/cremi/SOA_affinities/',
