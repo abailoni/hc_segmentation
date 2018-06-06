@@ -197,7 +197,7 @@ class HierarchicalClusteringTrainer(Trainer):
 
         if self.pre_train:
             self.model.set_pre_train_mode(True)
-            out_prediction = self.apply_model(inputs)
+            out_prediction = self.apply_model(*inputs)
         else:
             raise DeprecationWarning()
             # self.model.set_static_prediction(True)
