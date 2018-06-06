@@ -72,9 +72,9 @@ slicing_config:
       C: [[0,0], [5, 0], [50, 50], [50, 50]]
     # Data slice to iterate over.
     data_slice:
-      A: ':, 0:65, :, :'
-      B: ':, 0:65, :, :'
-      C: ':, 0:65, :, :'
+      A: ':, 65:100, :, :'
+      B: ':, 65:100, :, :'
+      C: ':, 65:100, :, :'
     
 defect_augmentation_config:
     p_missing_slice: 0.025

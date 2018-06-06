@@ -7,9 +7,9 @@ import os
 import numpy as np
 import argparse
 import vigra
-import h5py
+import yaml
 
-
+from inferno.utils.io_utils import yaml2dict
 
 from inferno.io.volumetric.volumetric_utils import parse_data_slice
 from long_range_hc.datasets.cremi.loaders.cremi_realigned import CREMIDatasetRealigned
@@ -44,20 +44,31 @@ def predict(project_folder,
             only_nn_channels=False,
             ds=None
             ): #Only 3 nearest neighbor channels
+    data_config_path = os.path.join(project_folder,
+                                    'data_config.yml')
+    data_config = yaml2dict(data_config_path)
+
 
     gpu = 0
     checkpoint = os.path.join(project_folder, 'Weights')
     if ds == 1:
-        data_config_template_path = './template_config/inference/infer_config.yml'
+        infer_config_template_path = './template_config/inference/infer_config.yml'
     elif ds == 2:
-        data_config_template_path = './template_config/inference/infer_config_DS2.yml'
+        infer_config_template_path = './template_config/inference/infer_config_DS2.yml'
+    else:
+        raise NotImplementedError()
 
-    data_config_path = os.path.join(project_folder, 'infer_data_config_sample%s.yml' % sample)
-    data_config = get_template_config_file(data_config_template_path, data_config_path)
+    infer_config_path = os.path.join(project_folder, 'infer_data_config_sample%s.yml' % sample)
+    infer_config = get_template_config_file(infer_config_template_path, infer_config_path)
     # TODO: update config file with dataset name! Update the saved version
-    data_config['dataset_name'] = sample
-    data_config['offsets'] = offsets
+    infer_config['dataset_name'] = sample
+    infer_config['offsets'] = offsets
 
+    infer_config['volume_config'] = data_config['volume_config']
+
+    # Dump config files:
+    with open(infer_config_path, 'w') as f:
+        yaml.dump(infer_config, f)
 
 
 
@@ -68,7 +79,8 @@ def predict(project_folder,
                                                                          data_config_path))
 
     # Load CREMI sample
-    cremi = CREMIDatasetRealigned.from_config(data_config, inference_mode=True)
+
+    cremi = CREMIDatasetRealigned.from_config(infer_config, inference_mode=True)
 
     # Load model
     print("[*] Loading CNN model...")
@@ -76,7 +88,7 @@ def predict(project_folder,
                                                                  best=False).cuda([gpu])
     # model = trainer.model
 
-    infer_config = data_config['infer_config']
+    infer_config = infer_config['infer_config']
     infer_config['offsets'] = offsets
     trainer.build_infer_engine(infer_config)
     output = trainer.infer(cremi)
@@ -112,22 +124,22 @@ if __name__ == '__main__':
     offsets_dir = [
         # 'dense_offsets.json',
         # 'dense_offsets.json',
-        # 'SOA_offsets.json'
         'SOA_offsets.json'
+        # 'SOA_offsets.json'
     ]
 
     projs = [
         # 'smart_oversegm_DS2_denseOffs',
         # 'smart_oversegm_DS1_denseOffs',
-        # 'smart_oversegm',
-        'smart_oversegm_DS2'
+        'WSDT_DS1',
+        # 'smart_oversegm_DS2'
     ]
 
     DS = [
         # 2,
         # 1,
-        # 1,
-        2
+        1,
+        # 2
     ]
 
     for pr_dr, offs, ds  in zip(projs, offsets_dir, DS):
@@ -145,9 +157,9 @@ if __name__ == '__main__':
         os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu)
 
         samples = (
-            # 'A',
             # 'B',
-            'C'
+            'C',
+            'A',
         )
 
         for sample in samples:

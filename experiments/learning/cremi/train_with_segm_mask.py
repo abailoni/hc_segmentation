@@ -300,7 +300,7 @@ def make_data_config(data_config_file, offsets, n_batches, max_nb_workers, pretr
 
 def make_validation_config(validation_config_file, offsets, n_batches, max_nb_workers, pretrain, reload_model=False):
     if not reload_model:
-        template_path = './template_config/validation_config.yml' if not pretrain else './template_config/pretrain/data_config.yml'
+        template_path = './template_config/validation_config.yml' if not pretrain else './template_config/pretrain/validation_config.yml'
         template = get_template_config_file(template_path, validation_config_file)
         template['offsets'] = offsets
     else:
