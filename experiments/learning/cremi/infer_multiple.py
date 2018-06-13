@@ -91,6 +91,9 @@ def predict(project_folder,
     infer_config = infer_config['infer_config']
     infer_config['offsets'] = offsets
     trainer.build_infer_engine(infer_config)
+
+    # return None
+
     output = trainer.infer(cremi)
 
     print("[*] Output has shape {}".format(str(output.shape)))
@@ -123,22 +126,22 @@ if __name__ == '__main__':
 
     offsets_dir = [
         # 'dense_offsets.json',
-        # 'dense_offsets.json',
-        'SOA_offsets.json'
+        'dense_offsets.json',
+        # 'SOA_offsets.json'
         # 'SOA_offsets.json'
     ]
 
     projs = [
         # 'smart_oversegm_DS2_denseOffs',
-        # 'smart_oversegm_DS1_denseOffs',
-        'WSDT_DS1',
+        'WSDT_DS1_denseOffs',
+        # 'WSDT_DS1',
         # 'smart_oversegm_DS2'
     ]
 
     DS = [
         # 2,
-        # 1,
         1,
+        # 1,
         # 2
     ]
 
@@ -157,7 +160,7 @@ if __name__ == '__main__':
         os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu)
 
         samples = (
-            # 'B',
+            'B',
             'C',
             'A',
         )

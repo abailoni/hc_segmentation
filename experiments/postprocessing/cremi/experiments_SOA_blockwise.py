@@ -35,6 +35,8 @@ def evaluate(project_folder, sample, offsets,
                              'Predictions',
                              'prediction_sample%s.h5' % sample)
 
+    name_aggl = "{}_{}".format(name_aggl, sample)
+
     # TODO: save config files associated to this prediction!
     aff_loader_config = './template_config_HC/post_proc/aff_loader_config.yml'
     aff_loader_config = yaml2dict(aff_loader_config)
@@ -149,7 +151,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('project_directory', type=str)
     parser.add_argument('offset_file', type=str)
-    parser.add_argument('--sample', default='B')
+    parser.add_argument('--samples', nargs='+', default=['A', 'B', 'C'], type=str)
     # parser.add_argument('--data_slice', default='85:,:,:')
     parser.add_argument('--n_threads', default=1, type=int)
     parser.add_argument('--name_aggl', default=None)
@@ -162,6 +164,7 @@ if __name__ == '__main__':
     offsets = parse_offsets(offset_file)
     n_threads = args.n_threads
     name_aggl = args.name_aggl
-    sample = args.sample
+    samples = args.samples
 
-    evaluate(project_directory, sample, offsets, n_threads, name_aggl)
+    for sample in samples:
+        evaluate(project_directory, sample, offsets, n_threads, name_aggl)

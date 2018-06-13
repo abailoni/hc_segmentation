@@ -22,7 +22,7 @@ project_folder = '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities
 
 
 def agglomerate_blocks(project_folder, aggl_name):
-    print("Loading segm {}...".format(aggl_name))
+    print("Loading affinities and init. segmentation...")
     affinities, gt = import_dataset(project_folder, aggl_name,
                                 data_to_import=['affinities', 'gt'])
 
@@ -100,9 +100,9 @@ def agglomerate_blocks(project_folder, aggl_name):
 
 
 for aggl_name in [
-    'fancyOverseg_betterWeights_fullA_thresh093_blckws',
-                  'fancyOverseg_betterWeights_fullC_thresh093_blckws',
-                  'fancyOverseg_betterWeights_fullB_thresh093_blckws_1',
-    'fancyOverseg_szRg00_LREbetterWeights_fullB_thresh093_blckws_2',
+    'trueOversegm_thrsh098_sampleB_part2',
+                  # 'fancyOverseg_betterWeights_fullC_thresh093_blckws',
+                  # 'fancyOverseg_betterWeights_fullB_thresh093_blckws_1',
+    # 'fancyOverseg_szRg00_LREbetterWeights_fullB_thresh093_blckws_2',
 ]:
     agglomerate_blocks(project_folder,aggl_name)

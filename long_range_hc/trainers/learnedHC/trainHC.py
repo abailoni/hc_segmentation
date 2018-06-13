@@ -566,7 +566,8 @@ class HierarchicalClusteringTrainer(Trainer):
         print("Whole shape to predict: {}".format(shape))
         output = np.zeros((self.out_channels,) + shape, dtype='float32')
         # loader
-        loader = SimpleParallelLoader(dataset, num_workers=self.num_workers)
+        loader = SimpleParallelLoader(dataset, num_workers=self.num_workers,
+                                      maxsize_queue=3)
         # mask to count the number of times a pixel was infered
         mask = np.zeros(shape)
 

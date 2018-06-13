@@ -29,8 +29,14 @@ generalized_HC_kwargs:
     update_rule_merge: 'mean'
     update_rule_not_merge: 'mean'
 #    offsets_weights: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-    offsets_weights: [1., 1., 1., 2., 3, 3, 3, 9, 9, 4, 27, 27]
+#    offsets_weights: [1., 1., 1., 2., 3, 3, 3, 9, 9, 4, 27, 27]
 #    offsets_weights: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3, 3]
+    offsets_weights: [1., 1., 1.,
+                      3., 3., 3., 3.,
+                      5., 5., 5., 5.,
+                      2., 3.,
+                      9., 9., 9., 9., 9., 9., 9., 9., 9., 9.,
+                      20., 20., 20., 20.]
 #    used_offsets: [0,1,2]
     # update_rule_merge={'name': 'rank', 'q':0.5, 'numberOfBins':200},
     # update_rule_not_merge={'name': 'rank', 'q':0.5, 'numberOfBins':200},
@@ -41,7 +47,7 @@ generalized_HC_kwargs:
       sizeThreshMin: 0.
       sizeThresMax: 120.
       postponeThresholding: False
-      threshold: 0.5 # Merge all: 0.0; split all: 1.0
+      threshold: 0.50 # Merge all: 0.0; split all: 1.0
     extra_runAggl_kwargs:
       verbose: True
       printNth: 5000
