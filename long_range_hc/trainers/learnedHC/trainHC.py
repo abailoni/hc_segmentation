@@ -27,6 +27,11 @@ from torch import from_numpy
 from long_range_hc.postprocessing.segmentation_pipelines.agglomeration.fixation_clustering import \
     FixationAgglomeraterFromSuperpixels
 
+from neurofire.criteria.loss_wrapper import LossWrapper
+from neurofire.criteria.loss_transforms import InvertTarget, MaskTransitionToIgnoreLabel
+from long_range_hc.criteria.loss_transforms import ApplyMaskToBatch
+from inferno.io.transform.base import Compose
+
 from torch.nn.modules.loss import BCELoss
 
 from skunkworks.inference.test_time_augmentation import TestTimeAugmenter
@@ -93,7 +98,15 @@ class HierarchicalClusteringTrainer(Trainer):
         self.pre_train = pre_train
         self.options = trainer_kwargs
 
+
+
         if trainer_kwargs:
+            # LOOK-AHEAD criterion:
+            self.lookahead_loss = SorensenDiceLoss()
+            self.applyMask = ApplyMaskToBatch(targets_are_inverted=False)
+            self.maskIgnoreLabel = MaskTransitionToIgnoreLabel(trainer_kwargs['HC_config']['offsets'],
+                                                               targets_are_inverted=True)
+
             # SETUP STRUCTURED CRITERION:
             # self._structured_criterion = SorensenDiceLossPixelWeights(channelwise=True)
             scaling_factor = trainer_kwargs['model_kwargs']['scale_factor']
@@ -164,13 +177,19 @@ class HierarchicalClusteringTrainer(Trainer):
 
 
     def apply_model(self, *inputs):
-        assert len(inputs) == 2
-        init_segm_vectors = inputs[1][:, 1:]
-        model_inputs = torch.cat([inputs[0], init_segm_vectors], dim=1)
+        if len(inputs) == 2:
+            init_segm_vectors = inputs[1][:, 1:]
+            model_inputs = torch.cat([inputs[0], init_segm_vectors], dim=1)
+        elif len(inputs) == 4:
+            offsets = self.options['HC_config']['offsets']
+            initSegm_vectors = inputs[1][:,1:]
+            finalSegm_vectors = inputs[2][:, 1:-len(offsets)]
+            underSegm_vectors = inputs[3][:, 1:-len(offsets)]
+            model_inputs = torch.cat([inputs[0], initSegm_vectors, finalSegm_vectors, underSegm_vectors], dim=1)
+        else:
+            raise NotImplementedError()
         output = super(HierarchicalClusteringTrainer, self).apply_model(model_inputs)
         return output[0]
-
-
 
     def apply_model_and_loss(self, inputs, target, backward=True):
         """
@@ -183,16 +202,26 @@ class HierarchicalClusteringTrainer(Trainer):
                         - first channel is label image
                         - following channels are affinities labels
 
+        Affinities computed during the pre-processing are REAL affinities (1 = merge, 0 = split)
+
         """
         assert self.pre_train, "Structured training is deprecated!"
 
         # print(inputs[0][:,0].cpu().data.numpy().shape)
         validation = not backward
         # Check because for some reason it does not expect batch axis...?
+        # inputs = [inputs[0], inputs[1]]
+
 
         # Combine raw and oversegmentation:
         raw = inputs[0][:,0]
-        init_segm_labels = inputs[1][:,0]
+        init_segm_labels = inputs[1][:, 0]
+        if len(inputs) == 2:
+            pass
+        elif len(inputs) == 4:
+            init_segm_labels = inputs[1][:, 0]
+        else:
+            raise NotImplementedError()
 
 
         if self.pre_train:
@@ -252,6 +281,54 @@ class HierarchicalClusteringTrainer(Trainer):
         loss = self.get_loss_static_prediction(out_prediction, target=target,
                                                validation=validation)
 
+
+
+
+        if len(inputs) == 4:
+            # Compute look-ahead additional loss:
+            offsets = self.options['HC_config']['offsets']
+
+            target = target.cuda()
+
+            finalSegm_affs = 1 - inputs[2][:, -len(offsets):]
+
+            finalSegm_affs_masked, target_masked = self.maskIgnoreLabel(finalSegm_affs, target)
+            target_affs_masked = 1 - target_masked[:,1:]
+            mask = target_affs_masked != finalSegm_affs_masked
+
+
+            out_prediction_masked, target_affs_masked = self.applyMask(out_prediction, target_affs_masked, mask)
+            loss += 3 * self.lookahead_loss(out_prediction_masked, target_affs_masked)
+
+            # from matplotlib import pyplot as plt
+            # DEF_INTERP = 'none'
+            # f, ax = plt.subplots(ncols=2, nrows=2,
+            #                      figsize=(2, 2))
+            # ax[0, 0].matshow(target_affs_masked[0,4,2].cpu().data.numpy(), cmap='gray', alpha=1., interpolation=DEF_INTERP)
+            # ax[1, 0].matshow(finalSegm_affs_masked[0,4,2].cpu().data.numpy(), cmap='Reds', alpha=1., interpolation=DEF_INTERP)
+            # ax[1, 1].matshow(mask[0,4,2].cpu().data.numpy(), cmap='Greens', alpha=1., interpolation=DEF_INTERP)
+            # plt.subplots_adjust(wspace=0, hspace=0)
+            # f.savefig('/net/hciserver03/storage/abailoni/learnedHC/input_segm/debug_test/debug_plots.pdf', format='pdf')
+            # plt.clf()
+            # plt.close('all')
+
+            underSegm_affs = 1 - inputs[3][:, -len(offsets):]
+
+            underSegm_affs_masked, target_masked = self.maskIgnoreLabel(underSegm_affs, target)
+            target_affs_masked = 1 - target_masked[:, 1:]
+            mask = target_affs_masked != underSegm_affs_masked
+
+            out_prediction_masked, target_affs_masked = self.applyMask(out_prediction, target_affs_masked, mask)
+            loss += 2 * self.lookahead_loss(out_prediction_masked, target_affs_masked)
+
+            # mask = target_affs != underSegm_affs
+            # out_prediction_masked, target_affs_masked = self.applyMask(out_prediction, target_affs, mask)
+            # loss += 2 * self.lookahead_loss(out_prediction_masked, target_affs_masked)
+
+
+
+
+        # print("Loss: {}".format(loss.data.cpu().numpy()))
 
 
 

@@ -110,6 +110,10 @@ class FromSegmToEmbeddingSpace(Transform):
         Expected shape: (z, x, y) or (channels , z, x, y)
 
         Label 0 represents ignore-label (often boundary between segments).
+
+        If channels are passed, at the moment:
+            - labels are expected as fist channel
+            - it returns labels-EmbeddingVectors-previouslyPassedChannels
         """
         def convert_tensor(tensor, max_label = None):
             tensor = tensor.astype(np.uint32)

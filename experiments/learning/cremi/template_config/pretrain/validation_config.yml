@@ -125,39 +125,63 @@ volume_config:
     # Optionally, we specify training precision
     dtype: float32
   # Membranes
-  init_segmentation:
-    dtype: uint32
-    path:
-      A: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/fancyOverseg_betterWeights_fullA_thresh093_blckws/pred_segm.h5'
-      B: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/fancyOverseg_betterWeights_fullB_thresh093_blckws_1/pred_segm.h5'
-      C: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/fancyOverseg_betterWeights_fullC_thresh093_blckws/pred_segm.h5'
-    # CREMI default is '/volumes/labels/neuron_ids'
-    path_in_h5_dataset:
-      A: 'finalSegm_WS'
-      B: 'finalSegm_WS_full'
-      C: 'finalSegm_WS'
-#  init_boundaries:
+#  segmFinal:
 #    path:
 #      A: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/fancyOverseg_betterWeights_fullA_thresh093_blckws/pred_segm.h5'
 #      B: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/fancyOverseg_betterWeights_fullB_thresh093_blckws_1/pred_segm.h5'
 #      C: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/fancyOverseg_betterWeights_fullC_thresh093_blckws/pred_segm.h5'
 #    # CREMI default is '/volumes/labels/neuron_ids'
 #    path_in_h5_dataset:
-#      A: 'boundary_IDs'
-#      B: 'boundary_IDs'
-#      C: 'boundary_IDs'
-  GT:
+#      A: 'finalSegm_WS'
+#      B: 'finalSegm_WS_full'
+#      C: 'finalSegm_WS'
+#    dtype: float32
+#  underSegm:
+#    path:
+#      A: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/fancyOverseg_betterWeights_fullA_thresh093_blckws/pred_segm.h5'
+#      B: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/fancyOverseg_betterWeights_fullB_thresh093_blckws_1/pred_segm.h5'
+#      C: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/fancyOverseg_betterWeights_fullC_thresh093_blckws/pred_segm.h5'
+#    # CREMI default is '/volumes/labels/neuron_ids'
+#    path_in_h5_dataset:
+#      A: 'finalSegm_WS'
+#      B: 'finalSegm_WS_full'
+#      C: 'finalSegm_WS'
+#    dtype: float32
+  segmFinal:
     path:
-      A: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/fancyOverseg_betterWeights_fullA_thresh093_blckws/pred_segm.h5'
-      B: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/fancyOverseg_betterWeights_fullB_thresh093_blckws_1/pred_segm.h5'
-      C: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/fancyOverseg_betterWeights_fullC_thresh093_blckws/pred_segm.h5'
-    # CREMI default is '/volumes/labels/neuron_ids'
+      A: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/full_thrsh050_A/pred_segm.h5'
+      B: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/full_thrsh050_B/pred_segm.h5'
+      C: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/full_thrsh050_C/pred_segm.h5'
     path_in_h5_dataset:
-      A: 'finalSegm_WS_best_GT'
-      B: 'finalSegm_WS_best_GT_full'
-      C: 'finalSegm_WS_best_GT'
-    # Specify training precision
-    dtype: uint32
+      A: 'finalSegm'
+      B: 'finalSegm'
+      C: 'finalSegm'
+    dtype: float32
+  underSegm:
+    path:
+      A: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/full_thrsh020_A/pred_segm.h5'
+      B: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/full_thrsh020_B/pred_segm.h5'
+      C: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/full_thrsh020_C/pred_segm.h5'
+    path_in_h5_dataset:
+      A: 'finalSegm'
+      B: 'finalSegm'
+      C: 'finalSegm'
+    dtype: float32
+  GT:
+    dtype: float32
+    path:
+      A: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/WSDTplusHC_thrsh090_sampleA/pred_segm.h5'
+      B: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/WSDTplusHC_thrsh090_sampleB/pred_segm.h5'
+      C: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/WSDTplusHC_thrsh090_sampleC/pred_segm.h5'
+    path_in_h5_dataset: {A: 'finalSegm_best_GT', B: 'finalSegm_best_GT', C: 'finalSegm_best_GT'}
+  init_segmentation:
+    dtype: float32
+    path:
+      A: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/WSDTplusHC_thrsh090_sampleA/pred_segm.h5'
+      B: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/WSDTplusHC_thrsh090_sampleB/pred_segm.h5'
+      C: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/WSDTplusHC_thrsh090_sampleC/pred_segm.h5'
+    path_in_h5_dataset: {A: 'finalSegm', B: 'finalSegm', C: 'finalSegm'}
+
 
 
 # Configuration for the master dataset.

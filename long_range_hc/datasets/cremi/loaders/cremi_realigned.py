@@ -103,16 +103,20 @@ class CREMIDatasetRealigned(Zip):
 
         self.init_segm_volume = None
         self.init_boundaries_volume = None
-        if 'init_segmentation' in volume_config:
-            self.init_segm_volume = \
-                get_multiple_datasets('init_segmentation',
+
+        for key in [ky for ky in ['init_segmentation', 'segmFinal', 'underSegm'] if ky in volume_config]:
+            segm = \
+                get_multiple_datasets(key,
                                       'SegmentationVolume',
                                       volume_config,
                                       slicing_config,
                                       name=name)
-            list_of_datasets.append(self.init_segm_volume)
-            # self.apply_SegmToAff_to.append(len(list_of_datasets)-1)
+            list_of_datasets.append(segm)
+            if key != 'init_segmentation':
+                self.apply_SegmToAff_to.append(len(list_of_datasets)-1)
             self.apply_FromSegmToEmbeddingSpace_to.append(len(list_of_datasets) - 1)
+            if key == 'init_segmentation':
+                self.init_segm_volume = segm
 
         # if 'init_boundaries' in volume_config:
         #     assert slicing_config_affs is not None
@@ -224,11 +228,12 @@ class CREMIDatasetRealigned(Zip):
 
 
 class CREMIDatasetsRealigned(Concatenate):
-    def __init__(self, names, volume_config, slicing_config,
+    def __init__(self, names, volume_config, slicing_config, affinity_offsets,
                  defect_augmentation_config,
                  master_config=None):
         # Make datasets and concatenate
         datasets = [CREMIDatasetRealigned(name=name,
+                                          affinity_offsets=affinity_offsets,
                                           volume_config=volume_config,
                                           slicing_config=slicing_config,
                                           defect_augmentation_config=defect_augmentation_config,
@@ -247,10 +252,12 @@ class CREMIDatasetsRealigned(Concatenate):
         config = yaml2dict(config)
         names = config.get('dataset_names')
         volume_config = config.get('volume_config')
+        offsets = config['offsets']
         slicing_config = config.get('slicing_config')
         master_config = config.get('master_config')
         defect_augmentation_config = config.get('defect_augmentation_config')
         return cls(names=names, volume_config=volume_config,
+                   affinity_offsets=offsets,
                    defect_augmentation_config=defect_augmentation_config,
                    slicing_config=slicing_config, master_config=master_config)
 

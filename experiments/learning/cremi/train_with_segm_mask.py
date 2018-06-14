@@ -39,7 +39,7 @@ from skunkworks.postprocessing.watershed import DamWatershed
 # Do we implement this in neurofire again ???
 # from skunkworks.datasets.cremi.criteria import Euclidean, AsSegmentationCriterion
 
-from skunkworks.datasets.cremi.loaders import get_cremi_loaders_realigned
+from long_range_hc.datasets.cremi.loaders import get_cremi_loaders_realigned
 
 # Import the different creiterions, we support.
 # TODO generalized sorensen dice and tversky loss
@@ -78,7 +78,7 @@ def set_up_training(project_directory,
     VALIDATE_EVERY = (150, 'iterations') if pretrain else (1, 'iterations')
     SAVE_EVERY = (500, 'iterations') if pretrain else (300, 'iterations')
     # TODO: move these plots to tensorboard...?
-    PLOT_EVERY = 40 if pretrain else 1 # This is only used by the struct. training
+    PLOT_EVERY = 100 if pretrain else 1 # This is only used by the struct. training
 
     # Get model
     if load_pretrained_model:
@@ -95,7 +95,7 @@ def set_up_training(project_directory,
         model = getattr(models, model_name)(**model_kwargs)
 
     # Unstructed loss:
-    affinity_offsets = data_config['volume_config']['GT']['affinity_offsets']
+    affinity_offsets = data_config['offsets']
 
     # # unstructured_loss = MultiScaleLossMaxPool(affinity_offsets,
     # #                                           config['pretrained_model_kwargs']['scale_factor'],
@@ -307,8 +307,9 @@ def make_validation_config(validation_config_file, offsets, n_batches, max_nb_wo
         # Reload previous settings:
         template = yaml2dict(validation_config_file)
     template['loader_config']['batch_size'] = n_batches
-    num_workers = NUM_WORKERS_PER_BATCH * n_batches
-    template['loader_config']['num_workers'] = num_workers if num_workers < max_nb_workers else max_nb_workers
+    # num_workers = NUM_WORKERS_PER_BATCH * n_batches
+    # template['loader_config']['num_workers'] = num_workers if num_workers < max_nb_workers else max_nb_workers
+    template['loader_config']['num_workers'] = 3
     with open(validation_config_file, 'w') as f:
         yaml.dump(template, f)
 
