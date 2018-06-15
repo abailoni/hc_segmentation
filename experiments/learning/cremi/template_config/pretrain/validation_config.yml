@@ -156,7 +156,7 @@ volume_config:
       A: 'finalSegm'
       B: 'finalSegm'
       C: 'finalSegm'
-    dtype: float32
+    dtype: int32
   underSegm:
     path:
       A: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/full_thrsh020_A/pred_segm.h5'
@@ -166,7 +166,7 @@ volume_config:
       A: 'finalSegm'
       B: 'finalSegm'
       C: 'finalSegm'
-    dtype: float32
+    dtype: int32
   GT:
     dtype: float32
     path:
@@ -175,7 +175,7 @@ volume_config:
       C: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/WSDTplusHC_thrsh090_sampleC/pred_segm.h5'
     path_in_h5_dataset: {A: 'finalSegm_best_GT', B: 'finalSegm_best_GT', C: 'finalSegm_best_GT'}
   init_segmentation:
-    dtype: float32
+    dtype: int32
     path:
       A: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/WSDTplusHC_thrsh090_sampleA/pred_segm.h5'
       B: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/WSDTplusHC_thrsh090_sampleB/pred_segm.h5'

@@ -121,27 +121,28 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    proj_dir = '/net/hciserver03/storage/abailoni/learnedHC/input_segm/'
+    proj_dir = '/net/hciserver03/storage/abailoni/learnedHC/'
     offs_dir = '/net/hciserver03/storage/abailoni/pyCharm_projects/hc_segmentation/experiments/postprocessing/cremi/offsets/'
 
     offsets_dir = [
         # 'dense_offsets.json',
-        'dense_offsets.json',
-        # 'SOA_offsets.json'
-        # 'SOA_offsets.json'
+        # 'dense_offsets.json',
+        'SOA_offsets.json',
+        'SOA_offsets.json'
     ]
 
     projs = [
         # 'smart_oversegm_DS2_denseOffs',
-        'WSDT_DS1_denseOffs',
-        # 'WSDT_DS1',
-        # 'smart_oversegm_DS2'
+        # 'WSDT_DS1_denseOffs',
+        'input_segm/WSDT_DS1',
+        'look_ahead/WSDT_DS1',
     ]
 
     DS = [
         # 2,
-        1,
         # 1,
+        1,
+        1,
         # 2
     ]
 
@@ -160,7 +161,7 @@ if __name__ == '__main__':
         os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu)
 
         samples = (
-            'B',
+            # 'B',
             'C',
             'A',
         )

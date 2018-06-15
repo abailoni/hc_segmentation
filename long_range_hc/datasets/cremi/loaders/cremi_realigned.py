@@ -112,8 +112,8 @@ class CREMIDatasetRealigned(Zip):
                                       slicing_config,
                                       name=name)
             list_of_datasets.append(segm)
-            if key != 'init_segmentation':
-                self.apply_SegmToAff_to.append(len(list_of_datasets)-1)
+            # if key != 'init_segmentation':
+            #     self.apply_SegmToAff_to.append(len(list_of_datasets)-1)
             self.apply_FromSegmToEmbeddingSpace_to.append(len(list_of_datasets) - 1)
             if key == 'init_segmentation':
                 self.init_segm_volume = segm
@@ -136,7 +136,7 @@ class CREMIDatasetRealigned(Zip):
                                                    slicing_config,
                                                    name=name)
             list_of_datasets.append(self.GT_volume)
-            self.apply_SegmToAff_to.append(len(list_of_datasets) - 1)
+            # self.apply_SegmToAff_to.append(len(list_of_datasets) - 1)
 
 
 

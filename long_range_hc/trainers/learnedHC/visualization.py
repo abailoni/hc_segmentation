@@ -327,6 +327,10 @@ def plot_pretrain_predictions(img_data, targets, z_slice):
     else:
         plot_segm(targets[0, z_slice], img_data['init_segm'], z_slice, mask_value=0,
                   background=img_data['raw'])
+        targets[0, z_slice].matshow(get_masked_boundary_mask(img_data['lookAhead1'])[z_slice], cmap='summer', alpha=0.9,
+                                    interpolation=DEF_INTERP)
+        targets[0, z_slice].matshow(get_masked_boundary_mask(img_data['lookAhead2'])[z_slice], cmap='Set1', alpha=1., interpolation=DEF_INTERP)
+
         plot_segm(targets[1, z_slice], img_data['target'][0], z_slice, mask_value=0,
                   background=img_data['raw'])
 
@@ -344,8 +348,14 @@ def plot_pretrain_predictions(img_data, targets, z_slice):
         targets[i+2, z_slice].matshow(img_data['stat_prediction'][offset,z_slice], cmap='gray', interpolation=DEF_INTERP)
         # targets[i+1, z_slice].matshow(img_data['target'][offset+1, z_slice], cmap='gray', interpolation=DEF_INTERP)
         targets[i+2, z_slice].matshow(mask_the_mask(img_data['target'][offset+1, z_slice], value_to_mask=1.0), cmap='Set1',
-                                alpha=0.3, interpolation=DEF_INTERP)
+                                      alpha=0.3, interpolation=DEF_INTERP)
 
+    # Validation plot:
+    if 'final_segm' in img_data:
+        targets[2, z_slice].matshow(get_masked_boundary_mask(img_data['lookAhead1'])[z_slice], cmap='summer', alpha=1.,
+                                    interpolation=DEF_INTERP)
+        targets[3, z_slice].matshow(get_masked_boundary_mask(img_data['lookAhead2'])[z_slice], cmap='summer', alpha=1.,
+                                    interpolation=DEF_INTERP)
 
 
 

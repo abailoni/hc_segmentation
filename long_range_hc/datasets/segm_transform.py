@@ -143,17 +143,18 @@ class FromSegmToEmbeddingSpace(Transform):
                 embedded_tensor = embedded_tensor[...,0]
 
             # Expand dimension:
-            return embedded_tensor
+            return embedded_tensor.astype('int32')
 
         if tensor_.ndim == 3:
             # This keep the 0-label intact and starts from 1:
             tensor_continuous, max_label, _ = vigra.analysis.relabelConsecutive(tensor_.astype('uint32'))
-
-            return convert_tensor(tensor_continuous, max_label)
+            out =  convert_tensor(tensor_continuous, max_label)
+            return out
         elif tensor_.ndim == 4:
             labels = tensor_[0]
             labels_continuous, max_label, _ = vigra.analysis.relabelConsecutive(labels.astype('uint32'))
             vectors = convert_tensor(labels_continuous, max_label)
-            return np.concatenate((vectors, tensor_[1:]), axis=0)
+            out = np.concatenate((vectors, tensor_[1:]), axis=0)
+            return out
         else:
             raise NotImplementedError()

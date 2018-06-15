@@ -6,17 +6,17 @@ dataset_name: B
 slicing_config:
   # Sliding window size
   window_size:
-    A: [25, 516, 516]
-    B: [25, 516, 516]
-    C: [25, 516, 516]
+    A: [23, 516, 516]
+    B: [23, 516, 516]
+    C: [23, 516, 516]
 #    A: [25, 1032, 1032]
 #    B: [25, 1032, 1032]
 #    C: [25, 1032, 1032]
   # Sliding window stride
   stride:
-    A: [15, 300, 300]
-    B: [15, 300, 300]
-    C: [15, 300, 300]
+    A: [13, 356, 356]
+    B: [13, 356, 356]
+    C: [13, 356, 356]
 #    A: [15, 600, 600]
 #    B: [15, 600, 600]
 #    C: [15, 600, 600]
@@ -31,9 +31,9 @@ slicing_config:
     C: [1, 1, 1]
   # Reflect padding on the loaded volume. Follows numpy.pad semantics.
   padding:
-    A: [[4, 4], [50, 50], [50, 50]]
-    B: [[4, 4], [50, 50], [50, 50]]
-    C: [[4, 4], [50, 50], [50, 50]]
+    A: [[5, 5], [80, 80], [80, 80]]
+    B: [[5, 5], [80, 80], [80, 80]]
+    C: [[5, 5], [80, 80], [80, 80]]
 #    A: [[4, 4], [100, 100], [100, 100]]
 #    B: [[4, 4], [100, 100], [100, 100]]
 #    C: [[4, 4], [100, 100], [100, 100]]
@@ -91,7 +91,7 @@ loader_config:
 
 infer_config:
   augmentation_config: null
-  blending_config: {dim: 3, ramp_size: [5, 35, 35]}
-  crop_padding: False
+#  blending_config: {dim: 3, ramp_size: [4, 50, 50]}
+  crop_padding: True
   gpu: 0
-  num_workers: 3
+  num_workers: 5

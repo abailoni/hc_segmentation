@@ -34,6 +34,8 @@ from inferno.io.transform.base import Compose
 
 from torch.nn.modules.loss import BCELoss
 
+from neurofire.transform.segmentation import Segmentation2AffinitiesFromOffsets
+
 from skunkworks.inference.test_time_augmentation import TestTimeAugmenter
 from skunkworks.inference.blending import Blending
 from inferno.utils.io_utils import yaml2dict
@@ -107,6 +109,7 @@ class HierarchicalClusteringTrainer(Trainer):
             self.maskIgnoreLabel = MaskTransitionToIgnoreLabel(trainer_kwargs['HC_config']['offsets'],
                                                                targets_are_inverted=True)
 
+
             # SETUP STRUCTURED CRITERION:
             # self._structured_criterion = SorensenDiceLossPixelWeights(channelwise=True)
             scaling_factor = trainer_kwargs['model_kwargs']['scale_factor']
@@ -128,6 +131,30 @@ class HierarchicalClusteringTrainer(Trainer):
 
             if self.pre_train:
                 self.postprocessing = self.get_postprocessing(trainer_kwargs)
+
+    def computeSegmToAffsCUDA(self, segm_tensor, retain_segmentation = True):
+        """
+        :param segm: [batch_size, z, x, y]
+        """
+        if not hasattr(self, 'segmToAffs'):
+            self.segmToAffs = Segmentation2AffinitiesFromOffsets(dim=3,
+                                               offsets=self.options['HC_config']['offsets'],
+                                               add_singleton_channel_dimension = True,
+                                               retain_segmentation = True,
+                                               use_gpu=True
+            )
+
+        is_var = True if isinstance(segm_tensor, torch.autograd.variable.Variable) else False
+        segm_tensor = segm_tensor.data if is_var else segm_tensor
+
+        affinities = []
+        for b in range(segm_tensor.size()[0]):
+            affinities.append(self.segmToAffs(segm_tensor[b])[None, ...])
+        affinities = torch.cat(affinities, dim=0)
+        if not retain_segmentation:
+            affinities = affinities[:, 1:]
+        affinities = Variable(affinities) if is_var else affinities
+        return affinities
 
     def get_postprocessing(self, options):
         postproc_config = options['HC_config']
@@ -178,13 +205,13 @@ class HierarchicalClusteringTrainer(Trainer):
 
     def apply_model(self, *inputs):
         if len(inputs) == 2:
-            init_segm_vectors = inputs[1][:, 1:]
+            init_segm_vectors = inputs[1][:, 1:].float()
             model_inputs = torch.cat([inputs[0], init_segm_vectors], dim=1)
         elif len(inputs) == 4:
-            offsets = self.options['HC_config']['offsets']
-            initSegm_vectors = inputs[1][:,1:]
-            finalSegm_vectors = inputs[2][:, 1:-len(offsets)]
-            underSegm_vectors = inputs[3][:, 1:-len(offsets)]
+            # offsets = self.options['HC_config']['offsets']
+            initSegm_vectors = inputs[1][:,1:].float()
+            finalSegm_vectors = inputs[2][:, 1:].float()
+            underSegm_vectors = inputs[3][:, 1:].float()
             model_inputs = torch.cat([inputs[0], initSegm_vectors, finalSegm_vectors, underSegm_vectors], dim=1)
         else:
             raise NotImplementedError()
@@ -212,16 +239,18 @@ class HierarchicalClusteringTrainer(Trainer):
         # Check because for some reason it does not expect batch axis...?
         # inputs = [inputs[0], inputs[1]]
 
+        # Compute target affinities on GPU:
+        target = self.computeSegmToAffsCUDA(target[:,0].cuda())
 
         # Combine raw and oversegmentation:
         raw = inputs[0][:,0]
         init_segm_labels = inputs[1][:, 0]
-        if len(inputs) == 2:
-            pass
-        elif len(inputs) == 4:
-            init_segm_labels = inputs[1][:, 0]
-        else:
-            raise NotImplementedError()
+        # if len(inputs) == 2:
+        #     pass
+        # elif len(inputs) == 4:
+        #     init_segm_labels = inputs[1][:, 0]
+        # else:
+        #     raise NotImplementedError()
 
 
         if self.pre_train:
@@ -244,7 +273,9 @@ class HierarchicalClusteringTrainer(Trainer):
                 pass
                 # TODO: update plots!
                 self.plot_pretrain_batch({"raw":raw,
-                                          "init_segm":init_segm_labels,
+                                          "init_segm": inputs[1][:, 0],
+                                          "lookAhead1": inputs[2][:, 0],
+                                          "lookAhead2": inputs[3][:, 0],
                                           "stat_prediction":out_prediction,
                                           "target":target})
             else:
@@ -268,6 +299,8 @@ class HierarchicalClusteringTrainer(Trainer):
                 self.plot_pretrain_batch({"raw": raw,
                                           "stat_prediction": out_prediction,
                                           "init_segm": init_segm_labels,
+                                          "lookAhead1": inputs[2][:, 0],
+                                          "lookAhead2": inputs[3][:, 0],
                                           "target": target,
                                           "final_segm": var_segm,
                                           "GT_labels": target[:,0]},
@@ -284,46 +317,40 @@ class HierarchicalClusteringTrainer(Trainer):
 
 
 
-        if len(inputs) == 4:
-            # Compute look-ahead additional loss:
-            offsets = self.options['HC_config']['offsets']
-
-            target = target.cuda()
-
-            finalSegm_affs = 1 - inputs[2][:, -len(offsets):]
-
-            finalSegm_affs_masked, target_masked = self.maskIgnoreLabel(finalSegm_affs, target)
-            target_affs_masked = 1 - target_masked[:,1:]
-            mask = target_affs_masked != finalSegm_affs_masked
-
-
-            out_prediction_masked, target_affs_masked = self.applyMask(out_prediction, target_affs_masked, mask)
-            loss += 3 * self.lookahead_loss(out_prediction_masked, target_affs_masked)
-
-            # from matplotlib import pyplot as plt
-            # DEF_INTERP = 'none'
-            # f, ax = plt.subplots(ncols=2, nrows=2,
-            #                      figsize=(2, 2))
-            # ax[0, 0].matshow(target_affs_masked[0,4,2].cpu().data.numpy(), cmap='gray', alpha=1., interpolation=DEF_INTERP)
-            # ax[1, 0].matshow(finalSegm_affs_masked[0,4,2].cpu().data.numpy(), cmap='Reds', alpha=1., interpolation=DEF_INTERP)
-            # ax[1, 1].matshow(mask[0,4,2].cpu().data.numpy(), cmap='Greens', alpha=1., interpolation=DEF_INTERP)
-            # plt.subplots_adjust(wspace=0, hspace=0)
-            # f.savefig('/net/hciserver03/storage/abailoni/learnedHC/input_segm/debug_test/debug_plots.pdf', format='pdf')
-            # plt.clf()
-            # plt.close('all')
-
-            underSegm_affs = 1 - inputs[3][:, -len(offsets):]
-
-            underSegm_affs_masked, target_masked = self.maskIgnoreLabel(underSegm_affs, target)
-            target_affs_masked = 1 - target_masked[:, 1:]
-            mask = target_affs_masked != underSegm_affs_masked
-
-            out_prediction_masked, target_affs_masked = self.applyMask(out_prediction, target_affs_masked, mask)
-            loss += 2 * self.lookahead_loss(out_prediction_masked, target_affs_masked)
-
-            # mask = target_affs != underSegm_affs
-            # out_prediction_masked, target_affs_masked = self.applyMask(out_prediction, target_affs, mask)
-            # loss += 2 * self.lookahead_loss(out_prediction_masked, target_affs_masked)
+        # if len(inputs) == 4:
+        #     # Compute look-ahead additional loss:
+        #
+        #     finalSegm_affs = 1 - self.computeSegmToAffsCUDA(inputs[2][:, 0].cuda(), retain_segmentation=False)
+        #
+        #     finalSegm_affs_masked, target_masked = self.maskIgnoreLabel(finalSegm_affs, target)
+        #     target_affs_masked = 1 - target_masked[:,1:]
+        #     mask = target_affs_masked != finalSegm_affs_masked
+        #
+        #
+        #     out_prediction_masked, target_affs_masked = self.applyMask(out_prediction, target_affs_masked, mask)
+        #     loss += 3 * self.lookahead_loss(out_prediction_masked, target_affs_masked)
+        #
+        #     underSegm_affs = 1 - self.computeSegmToAffsCUDA(inputs[3][:, 0].cuda(), retain_segmentation=False)
+        #
+        #     underSegm_affs_masked, target_masked = self.maskIgnoreLabel(underSegm_affs, target)
+        #     target_affs_masked = 1 - target_masked[:, 1:]
+        #     mask = target_affs_masked != underSegm_affs_masked
+        #
+        #     out_prediction_masked, target_affs_masked = self.applyMask(out_prediction, target_affs_masked, mask)
+        #     loss += 2 * self.lookahead_loss(out_prediction_masked, target_affs_masked)
+        #
+        #     # from matplotlib import pyplot as plt
+        #     # DEF_INTERP = 'none'
+        #     # f, ax = plt.subplots(ncols=2, nrows=2,
+        #     #                      figsize=(2, 2))
+        #     # ax[0, 0].matshow(target_affs_masked[0,4,2].cpu().data.numpy(), cmap='gray', alpha=1., interpolation=DEF_INTERP)
+        #     # ax[1, 0].matshow(finalSegm_affs_masked[0,4,2].cpu().data.numpy(), cmap='Reds', alpha=1., interpolation=DEF_INTERP)
+        #     # ax[1, 1].matshow(mask[0,4,2].cpu().data.numpy(), cmap='Greens', alpha=1., interpolation=DEF_INTERP)
+        #     # plt.subplots_adjust(wspace=0, hspace=0)
+        #     # f.savefig('/net/hciserver03/storage/abailoni/learnedHC/input_segm/debug_test/debug_plots.pdf', format='pdf')
+        #     # plt.clf()
+        #     # plt.close('all')
+        #     #
 
 
 
@@ -577,7 +604,7 @@ class HierarchicalClusteringTrainer(Trainer):
         # crop away the padding (we treat global as local padding) if specified
         # this is generally not necessary if we use blending
         if self.crop_padding:
-            raise DeprecationWarning('Update for downscaling option!')
+            assert  all([slicing[i].step == 1 for i in range(len(padding))]), "Downscaling option not implemented yet!"
             # slicing w.r.t the current output
             local_slicing = tuple(slice(pad[0],
                                         shape[i] - pad[1])

@@ -47,7 +47,7 @@ generalized_HC_kwargs:
       sizeThreshMin: 0.
       sizeThresMax: 120.
       postponeThresholding: False
-      threshold: 0.55 # Merge all: 0.0; split all: 1.0
+      threshold: 0.5 # Merge all: 0.0; split all: 1.0
     extra_runAggl_kwargs:
       verbose: True
       printNth: 5000
