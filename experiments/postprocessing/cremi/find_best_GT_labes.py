@@ -6,30 +6,33 @@ import os
 from long_range_hc.datasets.segm_transform import FindBestAgglFromOversegmAndGT
 import numpy as np
 
-from long_range_hc.postprocessing.data_utils import import_dataset, import_segmentations
+from long_range_hc.postprocessing.data_utils import import_dataset, import_segmentations, import_SOA_datasets
 
 from skunkworks.metrics.cremi_score import cremi_score
 
-project_folder = '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities'
+project_folder = '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1'
+
 
 
 for aggl_name in [
-    # 'fancyOverseg_betterWeights_fullA_thresh093_blckws',
-                  'WSDTplusHC_LRE3_thrsh080_sampleB',
+    'WSDTplusHC_thrsh090_sampleA',
+    #               'thrsh050_cropped_B',
+    #               'thrsh050_cropped_A',
+                  'thrsh050_cropped_C',
                   # 'fancyOverseg_betterWeights_fullB_thresh093_blckws_1',
     # 'fancyOverseg_szRg00_LREbetterWeights_fullB_thresh093_blckws_2',
 ]:
     print("Loading segm {}...".format(aggl_name))
-    gt = import_dataset(project_folder, aggl_name,
+    gt = import_SOA_datasets(proj_dir=project_folder, aggl_name=aggl_name,
                                          data_to_import=['gt'])
 
     WS_segm = import_segmentations(project_folder, aggl_name,
                                              keys_to_return=['finalSegm'])
 
-    find_best = FindBestAgglFromOversegmAndGT(border_thickness=3,
+    find_best = FindBestAgglFromOversegmAndGT(border_thickness=2,
                                   number_of_threads=8,
                                               break_oversegm_on_GT_borders=True,
-                                              undersegm_threshold=10000)
+                                              undersegm_rel_threshold=0.85)
 
     # crop_slice = (slice(40,55), slice(500,1000), slice(500,1000))
     crop_slice = (slice(None), slice(None), slice(None))

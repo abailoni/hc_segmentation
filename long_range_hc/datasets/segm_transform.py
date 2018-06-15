@@ -17,7 +17,7 @@ class FindBestAgglFromOversegmAndGT(Transform):
                  number_of_threads=8,
                  break_oversegm_on_GT_borders=False,
                  return_node_labels_array=False,
-                 undersegm_threshold=None,
+                 undersegm_rel_threshold=None,
                  **super_kwargs):
         """
         :param ignore_label:
@@ -25,13 +25,17 @@ class FindBestAgglFromOversegmAndGT(Transform):
         :param break_oversegm_on_GT_borders:
                 Break oversegm segments on transitions to GT ignore labels (avoid to have huge segments that
                 are labelled with the ignore label in the best_agglomeration)
+        :param undersegm_rel_threshold:
+                The best matching GT label should cover at least this relative percentage of the segment, otherwise
+                we consider it undersegmentated and we label it with the ignore label.
+                E.g. 0.7 means: the best matching GT label should be at least 70% of the segment.
         """
         self.ignore_label = ignore_label
         self.border_thickness = border_thickness
         self.number_of_threads = number_of_threads
         self.break_oversegm_on_GT_borders = break_oversegm_on_GT_borders
         self.return_node_labels_array = return_node_labels_array
-        self.undersegm_threshold = undersegm_threshold
+        self.undersegm_rel_threshold = undersegm_rel_threshold
         super(FindBestAgglFromOversegmAndGT, self).__init__(**super_kwargs)
 
         self.offsets = None
@@ -74,7 +78,7 @@ class FindBestAgglFromOversegmAndGT(Transform):
                 GT_labels[border_mask==0] = self.ignore_label
 
         GT_labels_nodes = find_best_agglomeration(init_segm, GT_labels,
-                                                  undersegm_threshold=self.undersegm_threshold,
+                                                  undersegm_rel_threshold=self.undersegm_rel_threshold,
                                                   ignore_label=self.ignore_label)
         if self.return_node_labels_array:
             return GT_labels_nodes

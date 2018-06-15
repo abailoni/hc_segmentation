@@ -87,7 +87,7 @@ def map_features_to_label_array(label_image, feature_array, ignore_label=None, f
 
 
 cdef np.ndarray[long, ndim=1] find_best_agglomeration_CY(np.ndarray[long, ndim=3] segm, np.ndarray[long, ndim=3] GT_segm,
-                                                         long undersegm_threshold,
+                                                         double undersegm_threshold,
                                                          long ignore_label):
     shape = segm.shape
     max_segm, max_GT  = (segm.max()+1).astype(np.uint64), (GT_segm.max()+1).astype(np.uint64)
@@ -103,23 +103,31 @@ cdef np.ndarray[long, ndim=1] find_best_agglomeration_CY(np.ndarray[long, ndim=3
         inter_matrix_c[flat_segm_c[i], flat_GT_c[i]] += 1
 
     best_labels = np.argmax(inter_matrix, axis=1)
-    if undersegm_threshold != 0:
-        segm_mask = inter_matrix >= undersegm_threshold
-        segm_mask[:, ignore_label] = False
-        best_labels[np.sum(segm_mask, axis=1) > 1] = ignore_label
+    # Relative threshold:
+    if undersegm_threshold > 0.:
+        # Superpixel size in initial segm: (avoid problems with zero-sized segments (only ignore label))
+        inter_matrix[:, ignore_label] = 0
+        segm_SP_sizes = inter_matrix.sum(axis=1) + 1
+        assert segm_SP_sizes.shape[0] == inter_matrix.shape[0]
+
+        ignore_mask = inter_matrix[np.arange(inter_matrix.shape[0]), best_labels] / segm_SP_sizes <= undersegm_threshold
+        print("NB undersegmeted segments: ", ignore_mask.sum())
+        best_labels[ignore_mask] = ignore_label
     return best_labels
 
 
 
-def find_best_agglomeration(segm, GT_segm, undersegm_threshold=None, ignore_label=None):
+def find_best_agglomeration(segm, GT_segm, undersegm_rel_threshold=None, ignore_label=None):
     assert segm.ndim == 3, "Only 3D at the moment"
     assert segm.shape == GT_segm.shape
     assert segm.min() >= 0 and GT_segm.min() >= 0, "Only positive labels are expected"
 
-    if undersegm_threshold is None:
-        undersegm_threshold = 0
+    if undersegm_rel_threshold is None:
+        undersegm_rel_threshold = 0
+    else:
+        assert (undersegm_rel_threshold >= 0.) and (undersegm_rel_threshold <= 1.)
     if ignore_label is None:
         ignore_label = 0
 
     return find_best_agglomeration_CY(segm.astype(np.int64), GT_segm.astype(np.int64),
-                                      undersegm_threshold, ignore_label)
+                                      undersegm_rel_threshold, ignore_label)

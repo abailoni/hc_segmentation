@@ -60,12 +60,75 @@ def import_postproc_data(proj_dir, aggl_name,
     else:
         return tuple(outputs)
 
+def import_SOA_datasets(
+        data_to_import=None,
+        proj_dir=None,
+        aggl_name=None,
+        crop_slice=None,
+        sample=None,
+):
+    """
+    :param data_to_import: list with ['raw', 'gt', 'affinities']
+    :param proj_dir: Only used if we want to load a specific dataset/slice from config
+    :param aggl_name: Only used if we want to load a specific dataset/slice from config
+    :param dataset_folder: This should contain files like 'sample%s_train.h5'.
+    :param crop_slice: This includes the affinity channel!
+    :return:
+    """
+    dataset_folder = '/export/home/abailoni/datasets/cremi/SOA_affinities/'
+    # TODO: generalize file_names in the dataset folder!
+    if data_to_import is None:
+        data_to_import = ['raw', 'gt', 'affinities']
+    else:
+        for data_key in data_to_import:
+            if data_key not in ['raw', 'gt', 'affinities']:
+                raise ValueError('Import key not recognised: {}. Available: {}'.format(data_key, ['raw', 'gt', 'affinities']))
+
+    if proj_dir is not None:
+        assert aggl_name is not None
+        config_file = yaml2dict(os.path.join(proj_dir, "postprocess/{}/aff_loader_config.yml".format(aggl_name)))
+        sample = config_file['sample']
+        if 'slicing_config' in config_file:
+            # Legacy:
+            crop_slice = config_file['slicing_config']['data_slice']
+        else:
+            crop_slice = config_file['data_slice'][sample]
+    else:
+        assert sample is not None
+        crop_slice = ":,:,:,:" if crop_slice is None else crop_slice
+
+
+    slc = parse_data_slice(crop_slice)
+    dataset_path = os.path.join(dataset_folder,'sample%s_train.h5' % (sample))
+
+
+    bb_affs = np.s_[tuple(slc)]
+    bb = np.s_[tuple(slc[1:])]
+    outputs = []
+    for data_key in data_to_import:
+        if data_key == 'raw':
+            with h5py.File(dataset_path, 'r') as f:
+                outputs.append(f['raw'][bb].astype(np.float32) / 255.)
+        if 'gt' == data_key:
+            with h5py.File(dataset_path, 'r') as f:
+                outputs.append(f['segmentations/groundtruth_fixed'][bb])
+        if 'affinities' == data_key:
+            with h5py.File(config_file['path'], 'r') as f:
+                outputs.append(f[config_file['path_in_h5_dataset']][bb_affs].astype(np.float32))
+    if len(outputs) == 1:
+        return  outputs[0]
+    else:
+        return tuple(outputs)
+
+
 def import_dataset(proj_dir, aggl_name,
         data_to_import=None,
         dataset_folder = '/export/home/abailoni/datasets/cremi/SOA_affinities/',
         crop_slice=None
                     ):
     """
+    SOON DEPRECATED
+
     :param proj_dir:
     :param aggl_name:
     :param data_to_import:
@@ -109,6 +172,8 @@ def import_dataset(proj_dir, aggl_name,
         return  outputs[0]
     else:
         return tuple(outputs)
+
+
 
 
 def import_segmentations(proj_dir, aggl_name, keys_to_return=None):
