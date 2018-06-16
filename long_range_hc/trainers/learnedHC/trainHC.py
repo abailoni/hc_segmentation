@@ -28,7 +28,7 @@ from long_range_hc.postprocessing.segmentation_pipelines.agglomeration.fixation_
     FixationAgglomeraterFromSuperpixels
 
 from neurofire.criteria.loss_wrapper import LossWrapper
-from neurofire.criteria.loss_transforms import InvertTarget, MaskTransitionToIgnoreLabel
+from neurofire.criteria.loss_transforms import InvertTarget, MaskTransitionToIgnoreLabel, RemoveSegmentationFromTarget
 from long_range_hc.criteria.loss_transforms import ApplyMaskToBatch
 from inferno.io.transform.base import Compose
 
@@ -108,6 +108,10 @@ class HierarchicalClusteringTrainer(Trainer):
             self.applyMask = ApplyMaskToBatch(targets_are_inverted=False)
             self.maskIgnoreLabel = MaskTransitionToIgnoreLabel(trainer_kwargs['HC_config']['offsets'],
                                                                targets_are_inverted=True)
+
+            # self.splitCNN_criterion = LossWrapper(criterion=SorensenDiceLoss(),
+            #                                 transforms=Compose(RemoveSegmentationFromTarget(),
+            #                                                    InvertTarget()))
 
 
             # SETUP STRUCTURED CRITERION:
@@ -213,6 +217,11 @@ class HierarchicalClusteringTrainer(Trainer):
             finalSegm_vectors = inputs[2][:, 1:].float()
             underSegm_vectors = inputs[3][:, 1:].float()
             model_inputs = torch.cat([inputs[0], initSegm_vectors, finalSegm_vectors, underSegm_vectors], dim=1)
+        elif len(inputs) == 3:
+            # offsets = self.options['HC_config']['offsets']
+            initSegm_vectors = inputs[1][:,1:].float()
+            finalSegm_vectors = inputs[2][:, 1:].float()
+            model_inputs = torch.cat([inputs[0], initSegm_vectors, finalSegm_vectors], dim=1)
         else:
             raise NotImplementedError()
         output = super(HierarchicalClusteringTrainer, self).apply_model(model_inputs)
@@ -241,6 +250,18 @@ class HierarchicalClusteringTrainer(Trainer):
 
         # Compute target affinities on GPU:
         target = self.computeSegmToAffsCUDA(target[:,0].cuda())
+
+        if len(inputs) == 3:
+            # Targets for split-CNN:
+            split_targets_segm = target[:,[0]].data
+            finalSegmTensor = inputs[2][:, 0].data.clone()
+            finalSegmTensor[target[:, 0].data.long() == 0] = 0
+
+            finalSegm_affs = self.computeSegmToAffsCUDA(finalSegmTensor)
+
+            # Only when I have boundary on GT (0) and not on the segmentation (1)
+            split_targets_affs = 1 - ((finalSegm_affs[:, 1:] == 1) * (target[:, 1:].data == 0))
+            target = Variable(torch.cat([split_targets_segm, split_targets_affs.float()],dim=1))
 
         # Combine raw and oversegmentation:
         raw = inputs[0][:,0]
@@ -275,11 +296,10 @@ class HierarchicalClusteringTrainer(Trainer):
                 self.plot_pretrain_batch({"raw":raw,
                                           "init_segm": inputs[1][:, 0],
                                           "lookAhead1": inputs[2][:, 0],
-                                          "lookAhead2": inputs[3][:, 0],
+                                          # "lookAhead2": inputs[3][:, 0],
                                           "stat_prediction":out_prediction,
                                           "target":target})
             else:
-                pass
                 # Compute segmentation:
                 GT_labels = target.cpu().data.numpy()[:, 0]
                 pred_numpy = out_prediction.cpu().data.numpy()
@@ -311,46 +331,51 @@ class HierarchicalClusteringTrainer(Trainer):
 
         # static_prediction = out_prediction
 
+        # if len(inputs) == 3:
+        #     loss = self.splitCNN_criterion(out_prediction, target)
+        #
+        #
+        # else:
         loss = self.get_loss_static_prediction(out_prediction, target=target,
                                                validation=validation)
 
 
 
 
-        # if len(inputs) == 4:
-        #     # Compute look-ahead additional loss:
-        #
-        #     finalSegm_affs = 1 - self.computeSegmToAffsCUDA(inputs[2][:, 0].cuda(), retain_segmentation=False)
-        #
-        #     finalSegm_affs_masked, target_masked = self.maskIgnoreLabel(finalSegm_affs, target)
-        #     target_affs_masked = 1 - target_masked[:,1:]
-        #     mask = target_affs_masked != finalSegm_affs_masked
-        #
-        #
-        #     out_prediction_masked, target_affs_masked = self.applyMask(out_prediction, target_affs_masked, mask)
-        #     loss += 3 * self.lookahead_loss(out_prediction_masked, target_affs_masked)
-        #
-        #     underSegm_affs = 1 - self.computeSegmToAffsCUDA(inputs[3][:, 0].cuda(), retain_segmentation=False)
-        #
-        #     underSegm_affs_masked, target_masked = self.maskIgnoreLabel(underSegm_affs, target)
-        #     target_affs_masked = 1 - target_masked[:, 1:]
-        #     mask = target_affs_masked != underSegm_affs_masked
-        #
-        #     out_prediction_masked, target_affs_masked = self.applyMask(out_prediction, target_affs_masked, mask)
-        #     loss += 2 * self.lookahead_loss(out_prediction_masked, target_affs_masked)
-        #
-        #     # from matplotlib import pyplot as plt
-        #     # DEF_INTERP = 'none'
-        #     # f, ax = plt.subplots(ncols=2, nrows=2,
-        #     #                      figsize=(2, 2))
-        #     # ax[0, 0].matshow(target_affs_masked[0,4,2].cpu().data.numpy(), cmap='gray', alpha=1., interpolation=DEF_INTERP)
-        #     # ax[1, 0].matshow(finalSegm_affs_masked[0,4,2].cpu().data.numpy(), cmap='Reds', alpha=1., interpolation=DEF_INTERP)
-        #     # ax[1, 1].matshow(mask[0,4,2].cpu().data.numpy(), cmap='Greens', alpha=1., interpolation=DEF_INTERP)
-        #     # plt.subplots_adjust(wspace=0, hspace=0)
-        #     # f.savefig('/net/hciserver03/storage/abailoni/learnedHC/input_segm/debug_test/debug_plots.pdf', format='pdf')
-        #     # plt.clf()
-        #     # plt.close('all')
-        #     #
+            # if len(inputs) == 4:
+            #     # Compute look-ahead additional loss:
+            #
+            #     finalSegm_affs = 1 - self.computeSegmToAffsCUDA(inputs[2][:, 0].cuda(), retain_segmentation=False)
+            #
+            #     finalSegm_affs_masked, target_masked = self.maskIgnoreLabel(finalSegm_affs, target)
+            #     target_affs_masked = 1 - target_masked[:,1:]
+            #     mask = target_affs_masked != finalSegm_affs_masked
+            #
+            #
+            #     out_prediction_masked, target_affs_masked = self.applyMask(out_prediction, target_affs_masked, mask)
+            #     loss += 3 * self.lookahead_loss(out_prediction_masked, target_affs_masked)
+            #
+            #     underSegm_affs = 1 - self.computeSegmToAffsCUDA(inputs[3][:, 0].cuda(), retain_segmentation=False)
+            #
+            #     underSegm_affs_masked, target_masked = self.maskIgnoreLabel(underSegm_affs, target)
+            #     target_affs_masked = 1 - target_masked[:, 1:]
+            #     mask = target_affs_masked != underSegm_affs_masked
+            #
+            #     out_prediction_masked, target_affs_masked = self.applyMask(out_prediction, target_affs_masked, mask)
+            #     loss += 2 * self.lookahead_loss(out_prediction_masked, target_affs_masked)
+            #
+            #     # from matplotlib import pyplot as plt
+            #     # DEF_INTERP = 'none'
+            #     # f, ax = plt.subplots(ncols=2, nrows=2,
+            #     #                      figsize=(2, 2))
+            #     # ax[0, 0].matshow(target_affs_masked[0,4,2].cpu().data.numpy(), cmap='gray', alpha=1., interpolation=DEF_INTERP)
+            #     # ax[1, 0].matshow(finalSegm_affs_masked[0,4,2].cpu().data.numpy(), cmap='Reds', alpha=1., interpolation=DEF_INTERP)
+            #     # ax[1, 1].matshow(mask[0,4,2].cpu().data.numpy(), cmap='Greens', alpha=1., interpolation=DEF_INTERP)
+            #     # plt.subplots_adjust(wspace=0, hspace=0)
+            #     # f.savefig('/net/hciserver03/storage/abailoni/learnedHC/input_segm/debug_test/debug_plots.pdf', format='pdf')
+            #     # plt.clf()
+            #     # plt.close('all')
+            #     #
 
 
 

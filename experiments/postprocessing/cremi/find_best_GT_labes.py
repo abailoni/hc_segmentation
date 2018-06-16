@@ -10,15 +10,18 @@ from long_range_hc.postprocessing.data_utils import import_dataset, import_segme
 
 from skunkworks.metrics.cremi_score import cremi_score
 
-project_folder = '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1'
+# project_folder = '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1'
+project_folder = '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities'
 
 
 
 for aggl_name in [
     'WSDTplusHC_thrsh090_sampleA',
+    'WSDTplusHC_thrsh090_sampleB',
+    # 'WSDTplusHC_thrsh090_sampleC',
     #               'thrsh050_cropped_B',
     #               'thrsh050_cropped_A',
-                  'thrsh050_cropped_C',
+    #               'thrsh050_cropped_C',
                   # 'fancyOverseg_betterWeights_fullB_thresh093_blckws_1',
     # 'fancyOverseg_szRg00_LREbetterWeights_fullB_thresh093_blckws_2',
 ]:
@@ -32,7 +35,7 @@ for aggl_name in [
     find_best = FindBestAgglFromOversegmAndGT(border_thickness=2,
                                   number_of_threads=8,
                                               break_oversegm_on_GT_borders=True,
-                                              undersegm_rel_threshold=0.85)
+                                              undersegm_rel_threshold=0.90)
 
     # crop_slice = (slice(40,55), slice(500,1000), slice(500,1000))
     crop_slice = (slice(None), slice(None), slice(None))

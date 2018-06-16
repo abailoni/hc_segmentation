@@ -12,17 +12,20 @@ dataset_names:
 slicing_config:
   # Sliding window size
   window_size:
-    A: [22, 424, 424]
-    B: [22, 424, 424]
-    C: [22, 424, 424]
-#    A: [22, 848, 848]
-#    B: [22, 848, 848]
-#    C: [22, 848, 848]
+#    A: [25, 478, 478]
+#    B: [25, 478, 478]
+#    C: [25, 478, 478]
+    A: [25, 956, 956]
+    B: [25, 956, 956]
+    C: [25, 956, 956]
   # Sliding window stride
   stride:
-    A: [1, 222, 222]
-    B: [1, 222, 222]
-    C: [1, 222, 222]
+#    A: [1, 222, 222]
+#    B: [1, 222, 222]
+#    C: [1, 222, 222]
+    A: [1, 430, 430]
+    B: [1, 430, 430]
+    C: [1, 430, 430]
 #    A: [1, 444, 444]
 #    B: [1, 444, 444]
 #    C: [1, 444, 444]
@@ -30,9 +33,9 @@ slicing_config:
   #   window_size = [1, 512, 512], downsampling_ratio = [1, 2, 2] ==>
   #   slice shape = [1, 256, 256]
   downsampling_ratio:
-    A: [1, 1, 1]
-    B: [1, 1, 1]
-    C: [1, 1, 1]
+    A: [1, 2, 2]
+    B: [1, 2, 2]
+    C: [1, 2, 2]
   # Reflect padding on the loaded volume. Follows numpy.pad semantics.
   # IMPORTANT no reflect padding along z !
   padding:
@@ -41,40 +44,40 @@ slicing_config:
     C: [[5, 0], [50, 50], [50, 50]]
   # Data slice to iterate over.
   data_slice:
-    A: '65:100, :, :'
-    B: '65:100, :, :'
-    C: '65:100, :, :'
+    A: '85:, :, :'
+    B: '85:, :, :'
+    C: '85:, :, :'
 
-    slicing_config_affs:
-    # Sliding window size
-    window_size:
-      A: [3, 25, 444, 444]
-      B: [3, 25, 444, 444]
-      C: [3, 25, 444, 444]
-    # Sliding window stride
-    stride:
-      A: [3, 1, 444, 444]
-      B: [3, 1, 444, 444]
-      C: [3, 1, 444, 444]
-    # Sliding window downsampling ratio. The actual image size along a
-    # dimension is the window_size divided by the downsampling ratio.
-    # Example:
-    #   window_size = [1, 512, 512], downsampling_ratio = [1, 2, 2] ==>
-    #   slice shape = [1, 256, 256]
-    downsampling_ratio:
-      A: [1, 1, 2, 2]
-      B: [1, 1, 2, 2]
-      C: [1, 1, 2, 2]
-    # Reflect padding on the loaded volume. Follows numpy.pad semantics.
-    padding:
-      A: [[0,0], [5, 0], [50, 50], [50, 50]]
-      B: [[0,0], [5, 0], [50, 50], [50, 50]]
-      C: [[0,0], [5, 0], [50, 50], [50, 50]]
-    # Data slice to iterate over.
-    data_slice:
-      A: ':, 65:100, :, :'
-      B: ':, 65:100, :, :'
-      C: ':, 65:100, :, :'
+#    slicing_config_affs:
+#    # Sliding window size
+#    window_size:
+#      A: [3, 25, 444, 444]
+#      B: [3, 25, 444, 444]
+#      C: [3, 25, 444, 444]
+#    # Sliding window stride
+#    stride:
+#      A: [3, 1, 444, 444]
+#      B: [3, 1, 444, 444]
+#      C: [3, 1, 444, 444]
+#    # Sliding window downsampling ratio. The actual image size along a
+#    # dimension is the window_size divided by the downsampling ratio.
+#    # Example:
+#    #   window_size = [1, 512, 512], downsampling_ratio = [1, 2, 2] ==>
+#    #   slice shape = [1, 256, 256]
+#    downsampling_ratio:
+#      A: [1, 1, 2, 2]
+#      B: [1, 1, 2, 2]
+#      C: [1, 1, 2, 2]
+#    # Reflect padding on the loaded volume. Follows numpy.pad semantics.
+#    padding:
+#      A: [[0,0], [5, 0], [50, 50], [50, 50]]
+#      B: [[0,0], [5, 0], [50, 50], [50, 50]]
+#      C: [[0,0], [5, 0], [50, 50], [50, 50]]
+#    # Data slice to iterate over.
+#    data_slice:
+#      A: ':, 85:, :, :'
+#      B: ':, 85:, :, :'
+#      C: ':, 85:, :, :'
     
 defect_augmentation_config:
     p_missing_slice: 0.025
@@ -89,7 +92,7 @@ defect_augmentation_config:
 #    artifact_source:
 #        min_masking_ratio: .5
 #        slicing_config:
-#          window_size: [1, 424, 424]
+#          window_size: [1, 478, 478]
 #          stride: [1, 222, 222]
 #        volume_config:
 #          artifacts:
@@ -149,31 +152,31 @@ volume_config:
 #    dtype: float32
   segmFinal:
     path:
-      A: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/full_thrsh050_A/pred_segm.h5'
-      B: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/full_thrsh050_B/pred_segm.h5'
-      C: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/full_thrsh050_C/pred_segm.h5'
+      A: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/thrsh050_A/pred_segm.h5'
+      B: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/thrsh050_B/pred_segm.h5'
+      C: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/thrsh050_C/pred_segm.h5'
     path_in_h5_dataset:
       A: 'finalSegm'
       B: 'finalSegm'
       C: 'finalSegm'
     dtype: int32
-  underSegm:
-    path:
-      A: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/full_thrsh020_A/pred_segm.h5'
-      B: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/full_thrsh020_B/pred_segm.h5'
-      C: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/full_thrsh020_C/pred_segm.h5'
-    path_in_h5_dataset:
-      A: 'finalSegm'
-      B: 'finalSegm'
-      C: 'finalSegm'
-    dtype: int32
+#  underSegm:
+#    path:
+#      A: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/full_thrsh020_A/pred_segm.h5'
+#      B: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/full_thrsh020_B/pred_segm.h5'
+#      C: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/full_thrsh020_C/pred_segm.h5'
+#    path_in_h5_dataset:
+#      A: 'finalSegm'
+#      B: 'finalSegm'
+#      C: 'finalSegm'
+#    dtype: int32
   GT:
     dtype: float32
     path:
-      A: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/WSDTplusHC_thrsh090_sampleA/pred_segm.h5'
-      B: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/WSDTplusHC_thrsh090_sampleB/pred_segm.h5'
-      C: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/WSDTplusHC_thrsh090_sampleC/pred_segm.h5'
-    path_in_h5_dataset: {A: 'finalSegm_best_GT', B: 'finalSegm_best_GT', C: 'finalSegm_best_GT'}
+      A: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/thrsh050_A/pred_segm.h5'
+      B: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/thrsh050_B/pred_segm.h5'
+      C: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/thrsh050_C/pred_segm.h5'
+    path_in_h5_dataset: {A: 'finalSegm_split_GT', B: 'finalSegm_split_GT', C: 'finalSegm_split_GT'}
   init_segmentation:
     dtype: int32
     path:
@@ -197,7 +200,7 @@ master_config:
     crop_left: [5, 50, 50]
     crop_right: [0, 50, 50]
   random_slides: False
-#  shape_after_slide: [424, 424]
+#  shape_after_slide: [478, 478]
 
 offsets: [[-1, 0, 0], [0, -1, 0], [0, 0, -1], [-2, 0, 0], [0, -3, 0], [0, 0, -3], [-3, 0, 0],
                     [0, -9, 0], [0, 0, -9], [-4, 0, 0], [0, -27, 0], [0, 0, -27]]

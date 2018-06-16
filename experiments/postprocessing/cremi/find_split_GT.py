@@ -14,14 +14,21 @@ project_folder = '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1'
 
 
 
-for aggl_name in [
+for aggl_name, sample in zip([
     # 'WSDTplusHC_thrsh090_sampleA',
     #               'thrsh050_cropped_B',
     #               'thrsh050_cropped_A',
-                  'thrsh050_cropped_C',
+    #               'thrsh050',
+                  'thrsh050',
+                  'thrsh050',
                   # 'fancyOverseg_betterWeights_fullB_thresh093_blckws_1',
     # 'fancyOverseg_szRg00_LREbetterWeights_fullB_thresh093_blckws_2',
-]:
+],
+    [
+        # 'A',
+     'B',
+     'C']):
+    aggl_name = aggl_name + "_{}".format(sample)
     print("Loading segm {}...".format(aggl_name))
 
     finalSegm = import_segmentations(project_folder, aggl_name,
@@ -29,11 +36,11 @@ for aggl_name in [
 
     SOA_proj_dir = '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities'
 
-    best_GT = import_segmentations(SOA_proj_dir, 'WSDTplusHC_thrsh090_sampleC',
+    best_GT = import_segmentations(SOA_proj_dir, 'WSDTplusHC_thrsh090_sample{}'.format(sample),
                                      keys_to_return=['finalSegm_best_GT'])
 
-    initial_crop_slice = (slice(5,120), slice(50,-50), slice(50,-50))
-    best_GT = best_GT[initial_crop_slice]
+    # initial_crop_slice = (slice(5,120), slice(50,-50), slice(50,-50))
+    # best_GT = best_GT[initial_crop_slice]
 
     # find_best = FindBestAgglFromOversegmAndGT(border_thickness=2,
     #                               number_of_threads=8,
@@ -44,7 +51,7 @@ for aggl_name in [
 
     # crop_slice = (slice(40,55), slice(500,1000), slice(500,1000))
     crop_slice = (slice(None), slice(None), slice(None))
-    split_GT = find_split_GT(finalSegm[crop_slice], best_GT[crop_slice], size_small_segments_rel=0.08)
+    split_GT = find_split_GT(finalSegm[crop_slice], best_GT[crop_slice], size_small_segments_rel=0.02)
 
 
 
