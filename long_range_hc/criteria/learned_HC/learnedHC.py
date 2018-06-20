@@ -13,7 +13,6 @@ from copy import deepcopy
 import vigra
 # FIXME imports!!
 from ...postprocessing.segmentation_pipelines.agglomeration.fixation_clustering import constrained_fixation_policy
-from ...postprocessing.segmentation_pipelines.agglomeration.fixation_clustering import utils
 from ...postprocessing.segmentation_pipelines import features
 
 import skunkworks.postprocessing.util

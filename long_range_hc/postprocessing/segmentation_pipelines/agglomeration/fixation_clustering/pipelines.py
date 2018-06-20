@@ -4,10 +4,11 @@ import numpy as np
 
 # TODO: check if everything is in nifty plmc branch
 
-from .utils import build_pixel_lifted_graph_from_offsets, build_lifted_graph_from_rag
+from long_range_hc.postprocessing.segmentation_pipelines.features import build_pixel_lifted_graph_from_offsets, FeaturerLongRangeAffs
 from skunkworks.postprocessing.segmentation_pipelines.base import SegmentationPipeline
 from ...features import accumulate_affinities_on_graph_edges
 from .....criteria.learned_HC.utils import segm_utils as segm_utils
+
 
 import time
 
@@ -36,6 +37,7 @@ class FixationAgglomerativeClustering(SegmentationPipeline):
           - it expects REAL affinities (1.0 = merge, 0. = not merge).
             If the opposite is passed, use `invert_affinities`
         """
+        # TODO: add option to pass directly a segmentation (not only affinities)
         if fragmenter is not None:
             agglomerater = FixationAgglomeraterFromSuperpixels(
                 offsets,
@@ -149,7 +151,6 @@ class FixationAgglomeraterBase(object):
 
 
 
-
 class FixationAgglomeraterFromSuperpixels(FixationAgglomeraterBase):
     def __init__(self, *super_args, max_distance_lifted_edges=3,
                  **super_kwargs):
@@ -158,75 +159,30 @@ class FixationAgglomeraterFromSuperpixels(FixationAgglomeraterBase):
         by an average!
         """
         super(FixationAgglomeraterFromSuperpixels, self).__init__(*super_args, **super_kwargs)
-
         assert isinstance(max_distance_lifted_edges, int)
         self.max_distance_lifted_edges = max_distance_lifted_edges
+
+        self.featurer = FeaturerLongRangeAffs(self.offsets,
+                                              self.offsets_weights,
+                                              self.used_offsets,
+                                              self.debug,
+                                              self.n_threads,
+                                              self.invert_affinities,
+                                              max_distance_lifted_edges=self.max_distance_lifted_edges)
+
+
 
     def __call__(self, affinities, segmentation):
         """
         Here we expect real affinities (1: merge, 0: split).
         If the opposite is passed, set option `invert_affinities == True`
         """
-        offsets = self.offsets
-        offsets_weights = self.offsets_weights
-        if self.used_offsets is not None:
-            assert len(self.used_offsets) < self.offsets.shape[0]
-            offsets = self.offsets[self.used_offsets]
-            affinities = affinities[self.used_offsets]
-            if isinstance(offsets_weights, (list, tuple)):
-                offsets_weights = np.array(offsets_weights)
-            offsets_weights = offsets_weights[self.used_offsets]
+        tick = time.time()
+        lifted_graph, edge_features = self.featurer(affinities, segmentation)
 
-        assert affinities.ndim == 4
-        # affinities = affinities[:3]
-        assert affinities.shape[0] == offsets.shape[0]
-
-        if self.invert_affinities:
-            affinities = 1. - affinities
-
-        # Build rag and compute node sizes:
-        if self.debug:
-            print("Computing rag...")
-            tick = time.time()
-        rag = nrag.gridRag(segmentation.astype(np.uint32))
-
-        if self.debug:
-            print("Took {} s!".format(time.time() - tick))
-            print("Building graph...")
-            tick = time.time()
-
-        # Build lifted graph:
-        lifted_graph, is_local_edge = build_lifted_graph_from_rag(
-            rag,
-            segmentation,
-            offsets,
-            max_lifted_distance=self.max_distance_lifted_edges,
-            number_of_threads=self.n_threads)
-
-        # lifted_graph, is_local_edge, _, edge_sizes = build_pixel_lifted_graph_from_offsets(
-        #     segmentation.shape,
-        #     offsets,
-        #     label_image=segmentation,
-        #     offsets_weights=None,
-        #     nb_local_offsets=3,
-        #     GT_label_image=None
-        # )
-
-        if self.debug:
-            print("Took {} s!".format(time.time() - tick))
-            print("Computing edge_features...")
-            tick = time.time()
-
-        # Compute edge sizes and accumulate average/max:
-        edge_indicators, edge_sizes = \
-            accumulate_affinities_on_graph_edges(
-                affinities, offsets,
-                graph=lifted_graph,
-                label_image=segmentation,
-                use_undirected_graph=True,
-                mode='mean',
-                offsets_weights=offsets_weights,
-                number_of_threads=self.n_threads)
+        edge_indicators = edge_features[0]
+        edge_sizes = edge_features[1]
+        is_local_edge = edge_features[2]
 
         merge_prio = edge_indicators
         not_merge_prio = 1. - edge_indicators

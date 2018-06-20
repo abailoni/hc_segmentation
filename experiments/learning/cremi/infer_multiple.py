@@ -42,7 +42,9 @@ def predict(project_folder,
             offsets,
             data_slice=None,
             only_nn_channels=False,
-            ds=None
+            ds=None,
+            name_inference=None,
+            path_init_segm=None
             ): #Only 3 nearest neighbor channels
     data_config_path = os.path.join(project_folder,
                                     'data_config.yml')
@@ -58,13 +60,34 @@ def predict(project_folder,
     else:
         raise NotImplementedError()
 
-    infer_config_path = os.path.join(project_folder, 'infer_data_config_sample%s.yml' % sample)
+    if name_inference is None:
+        name_inference = 'data'
+
+
+    infer_config_path = os.path.join(project_folder, 'infer_data_config_{}_{}.yml'.format(name_inference, sample))
     infer_config = get_template_config_file(infer_config_template_path, infer_config_path)
     # TODO: update config file with dataset name! Update the saved version
     infer_config['dataset_name'] = sample
     infer_config['offsets'] = offsets
 
     infer_config['volume_config'] = data_config['volume_config']
+
+    if path_init_segm is not None:
+        path_init_segm = os.path.join(path_init_segm+sample, 'pred_segm.h5')
+        infer_config['volume_config']['init_segmentation']['path'][sample] = path_init_segm
+
+    save_folder = os.path.join(project_folder, 'Predictions')
+    if not os.path.exists(save_folder):
+        os.mkdir(save_folder)
+    save_path = os.path.join(save_folder, 'prediction_sample%s.h5' % sample)
+
+    infer_config['volume_config']['affinities'] = {}
+    infer_config['volume_config']['affinities']['path_in_h5_dataset'] = {}
+    infer_config['volume_config']['affinities']['path_in_h5_dataset'][sample] = name_inference
+    infer_config['volume_config']['affinities']['path'] = {}
+    infer_config['volume_config']['affinities']['path'][sample] = save_path
+
+
 
     # Dump config files:
     with open(infer_config_path, 'w') as f:
@@ -97,16 +120,13 @@ def predict(project_folder,
     output = trainer.infer(cremi)
 
     print("[*] Output has shape {}".format(str(output.shape)))
-    save_folder = os.path.join(project_folder, 'Predictions')
-    if not os.path.exists(save_folder):
-        os.mkdir(save_folder)
-    save_path = os.path.join(save_folder, 'prediction_sample%s.h5' % sample)
+
 
     # if only_nn_channels:
     #     output = output[:3]
     #     save_path = save_path[:-3] + '_nnaffinities.h5'
 
-    toh5(output.astype('float32'), save_path, compression='lzf')
+    toh5(output.astype('float32'), save_path, datapath=name_inference, compression='lzf')
 
 
 
@@ -117,7 +137,10 @@ if __name__ == '__main__':
     parser.add_argument('--gpus', type=int)
     # parser.add_argument('--data_slice',  default='85:,:,:')
     parser.add_argument('--nb_threads', default=1, type=int)
-    # parser.add_argument('--name_aggl', default=None)
+    parser.add_argument('--name_inference', default=None)
+    parser.add_argument('--path_init_segm', default=None)
+    parser.add_argument('--samples', nargs='+', default=['A', 'B', 'C'], type=str)
+
 
     args = parser.parse_args()
 
@@ -128,21 +151,21 @@ if __name__ == '__main__':
         # 'dense_offsets.json',
         # 'dense_offsets.json',
         'SOA_offsets.json',
-        'SOA_offsets.json'
+        # 'SOA_offsets.json'
     ]
 
     projs = [
         # 'smart_oversegm_DS2_denseOffs',
         # 'WSDT_DS1_denseOffs',
         'input_segm/WSDT_DS1',
-        'look_ahead/WSDT_DS1',
+        # 'look_ahead/WSDT_DS1',
     ]
 
     DS = [
         # 2,
         # 1,
         1,
-        1,
+        # 1,
         # 2
     ]
 
@@ -156,17 +179,18 @@ if __name__ == '__main__':
         offsets = parse_offsets(offset_file)
         data_slice = None
         n_threads = args.nb_threads
+        name_inference = args.name_inference
+        path_init_segm = args.path_init_segm
         name_aggl = None
 
         os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu)
 
-        samples = (
-            # 'B',
-            'C',
-            'A',
-        )
+        samples = args.samples
 
         for sample in samples:
             predict(project_directory, sample, offsets, data_slice,
                     only_nn_channels=False,
-                    ds=ds)
+                    ds=ds,
+                    path_init_segm=path_init_segm,
+                    name_inference=name_inference
+                    )

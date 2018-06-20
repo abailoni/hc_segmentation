@@ -12,20 +12,20 @@ dataset_names:
 slicing_config:
   # Sliding window size
   window_size:
-#    A: [25, 478, 478]
-#    B: [25, 478, 478]
-#    C: [25, 478, 478]
-    A: [25, 956, 956]
-    B: [25, 956, 956]
-    C: [25, 956, 956]
+    A: [25, 478, 478]
+    B: [25, 478, 478]
+    C: [25, 478, 478]
+#    A: [25, 956, 956]
+#    B: [25, 956, 956]
+#    C: [25, 956, 956]
   # Sliding window stride
   stride:
-#    A: [1, 222, 222]
-#    B: [1, 222, 222]
-#    C: [1, 222, 222]
-    A: [1, 430, 430]
-    B: [1, 430, 430]
-    C: [1, 430, 430]
+    A: [1, 222, 222]
+    B: [1, 222, 222]
+    C: [1, 222, 222]
+#    A: [1, 430, 430]
+#    B: [1, 430, 430]
+#    C: [1, 430, 430]
 #    A: [1, 444, 444]
 #    B: [1, 444, 444]
 #    C: [1, 444, 444]
@@ -33,9 +33,9 @@ slicing_config:
   #   window_size = [1, 512, 512], downsampling_ratio = [1, 2, 2] ==>
   #   slice shape = [1, 256, 256]
   downsampling_ratio:
-    A: [1, 2, 2]
-    B: [1, 2, 2]
-    C: [1, 2, 2]
+    A: [1, 1, 1]
+    B: [1, 1, 1]
+    C: [1, 1, 1]
   # Reflect padding on the loaded volume. Follows numpy.pad semantics.
   # IMPORTANT no reflect padding along z !
   padding:
@@ -152,9 +152,9 @@ volume_config:
 #    dtype: float32
   segmFinal:
     path:
-      A: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/thrsh050_A/pred_segm.h5'
-      B: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/thrsh050_B/pred_segm.h5'
-      C: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/thrsh050_C/pred_segm.h5'
+      A: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/thrsh010_A/pred_segm.h5'
+      B: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/thrsh010_B/pred_segm.h5'
+      C: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/thrsh010_C/pred_segm.h5'
     path_in_h5_dataset:
       A: 'finalSegm'
       B: 'finalSegm'
@@ -173,10 +173,17 @@ volume_config:
   GT:
     dtype: float32
     path:
-      A: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/thrsh050_A/pred_segm.h5'
-      B: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/thrsh050_B/pred_segm.h5'
-      C: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/thrsh050_C/pred_segm.h5'
-    path_in_h5_dataset: {A: 'finalSegm_split_GT', B: 'finalSegm_split_GT', C: 'finalSegm_split_GT'}
+      A: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/thrsh010_A/pred_segm.h5'
+      B: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/thrsh010_B/pred_segm.h5'
+      C: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/thrsh010_C/pred_segm.h5'
+    path_in_h5_dataset: {A: 'finalSegm_split_realGT', B: 'finalSegm_split_realGT', C: 'finalSegm_split_realGT'}
+#  GT:
+#    dtype: float32
+#    path:
+#      A: '/export/home/abailoni/datasets/cremi/SOA_affinities/sampleA_train.h5'
+#      B: '/export/home/abailoni/datasets/cremi/SOA_affinities/sampleB_train.h5'
+#      C: '/export/home/abailoni/datasets/cremi/SOA_affinities/sampleC_train.h5'
+#    path_in_h5_dataset: {A: 'segmentations/groundtruth_fixed', B: 'segmentations/groundtruth_fixed', C: 'segmentations/groundtruth_fixed'}
   init_segmentation:
     dtype: int32
     path:

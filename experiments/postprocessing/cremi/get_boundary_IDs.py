@@ -12,7 +12,8 @@ project_folder = '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities
 import nifty.graph.rag as nrag
 import long_range_hc.criteria.learned_HC.utils.rag_utils as rag_utils
 
-from long_range_hc.postprocessing.segmentation_pipelines.agglomeration.fixation_clustering.utils import build_lifted_graph_from_rag
+from long_range_hc.postprocessing.segmentation_pipelines.features import build_lifted_graph_from_rag
+
 
 def get_boundary_IDs(aggl_name):
     print("Loading segm {}...".format(aggl_name))

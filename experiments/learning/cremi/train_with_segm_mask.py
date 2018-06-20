@@ -75,7 +75,7 @@ def set_up_training(project_directory,
                     load_pretrained_model,
                     pretrain=False,
                     dir_loaded_model=None):
-    VALIDATE_EVERY = ('never') if pretrain else (1, 'iterations')
+    VALIDATE_EVERY = (150, 'iterations') if pretrain else (1, 'iterations')
     SAVE_EVERY = (500, 'iterations') if pretrain else (300, 'iterations')
     # TODO: move these plots to tensorboard...?
     PLOT_EVERY = 80 if pretrain else 1 # This is only used by the struct. training
@@ -146,7 +146,7 @@ def set_up_training(project_directory,
     trainer.register_visualization_callback(VisualizationCallback(os.path.join(project_directory, 'Images'),plot_interval=PLOT_EVERY))
     trainer.build_optimizer(**config.get('training_optimizer_kwargs'))
     trainer.evaluate_metric_every('never')
-    trainer.validate_every(VALIDATE_EVERY, for_num_iterations=1)
+    trainer.validate_every(VALIDATE_EVERY, for_num_iterations=2)
     trainer.register_callback(SaveAtBestValidationScore(smoothness=smoothness, verbose=True))
     trainer.register_callback(AutoLR(factor=0.97,
                                   patience='100 iterations',

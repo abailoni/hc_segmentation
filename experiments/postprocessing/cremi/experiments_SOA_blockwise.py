@@ -62,28 +62,35 @@ def evaluate(project_folder, sample, offsets,
     with open(os.path.join(postproc_dir, 'aff_loader_config.yml'), 'w') as f:
         yaml.dump(aff_loader_config, f)
 
-    aff_loader_config.pop('data_slice_not_padded')
+    aff_loader_config.pop('data_slice_not_padded', None)
     parsed_slice = parse_data_slice(aff_loader_config['slicing_config']['data_slice'])
+
+    assert not post_proc_config.get('start_from_given_segm', False)
+
+
+
+    return_fragments = post_proc_config.pop('return_fragments', False)
+
+    post_proc_config.pop('nb_threads')
+    invert_affinities = post_proc_config.pop('invert_affinities', False)
+    segm_pipeline_type = post_proc_config.pop('segm_pipeline_type', 'gen_HC')
+
+    segmentation_pipeline = get_segmentation_pipeline(
+        segm_pipeline_type,
+        offsets,
+        nb_threads=n_threads,
+        invert_affinities=invert_affinities,
+        return_fragments=return_fragments,
+        **post_proc_config
+    )
 
     # TODO: it would be really nice to avoid the full loading of the dataset...
     affinities_dataset = AffinitiesVolumeLoader.from_config(aff_loader_config)
 
-    return_fragments = post_proc_config.get('return_fragments', False)
-
-    segmentation_pipeline = get_segmentation_pipeline(
-        post_proc_config.get('segm_pipeline_type', 'gen_HC'),
-        offsets,
-        nb_threads=n_threads,
-        invert_affinities=post_proc_config.get('invert_affinities', False),
-        return_fragments=return_fragments,
-        MWS_kwargs=post_proc_config.get('MWS_kwargs',{}),
-        generalized_HC_kwargs=post_proc_config.get('generalized_HC_kwargs',{})
-    )
-
     final_agglomerater = FixationAgglomeraterFromSuperpixels(
                     offsets,
                     n_threads=n_threads,
-                    invert_affinities=post_proc_config.get('invert_affinities', False),
+                    invert_affinities=invert_affinities,
                      **post_proc_config['generalized_HC_kwargs']['final_agglomeration_kwargs']
         #{ 'zero_init': False,
     # 'max_distance_lifted_edges': 5,
@@ -96,8 +103,8 @@ def evaluate(project_folder, sample, offsets,
               offsets=offsets,
                                  final_agglomerater=final_agglomerater,
               blockwise=post_proc_config.get('blockwise', False),
-              invert_affinities=post_proc_config.get('invert_affinities', False),
-              nb_threads=post_proc_config.get('nb_threads', False),
+              invert_affinities=invert_affinities,
+              nb_threads=n_threads,
               return_fragments=return_fragments,
               blockwise_config=post_proc_config.get('blockwise_kwargs', {}))
 

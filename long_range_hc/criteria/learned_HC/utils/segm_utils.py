@@ -18,6 +18,9 @@ def map_features_to_label_array(label_array, features, ignore_label=-1,
     :param fill_value: the fill value used in the mapped array to replace the ignore_label
     :return:
     """
+    if label_array.ndim != 3:
+        raise NotImplementedError("Bug in nifty function...!")
+
     if ignore_label is None:
         ignore_label = -1
     if number_of_threads==1:

@@ -5,7 +5,7 @@ pretrained_model_kwargs:
   add_residual_connections: true
   conv_type_key: conv_bn
   fmap_growth: 3
-  in_channels: 25
+  in_channels: 13
   initial_num_fmaps: 40
   out_channels: 17
   scale_factor:

@@ -9,8 +9,8 @@ slicing_config:
   - [3, 3]
   - [50, 50]
   - [50, 50]
-  stride: [12, 24, 400, 400]
-  window_size: [12, 30, 500, 500]
+  stride: [12, 10, 400, 400]
+  window_size: [12, 10, 500, 500]
 #  data_slice: ':, 57:125, 147:1400, 790:1850'
 #data_slice_not_padded: ':, 60:122, 197:1350, 840:1800'
 #  data_slice: ':, :46, :, :'
@@ -26,8 +26,10 @@ slicing_config:
 #data_slice_not_padded: ':, 63:111, 150:950, 150:950'
 
 # THE FULL THING:
-  data_slice: ':, 5:120, 50:-50, 50:-50'  # 114
-data_slice_not_padded: ':, 8:117, 100:-100, 100:-100'
+#  data_slice: ':, 5:120, 50:-50, 50:-50'  # 114
+#data_slice_not_padded: ':, 8:117, 100:-100, 100:-100'
+  data_slice: ':, :, :, :'  # 114
+#data_slice_not_padded: ':, 3:67, 50:-50, 50:-50'
 #  data_slice: ':, 60:, :, :'  # 114
 #data_slice_not_padded: ':, 63:-3, 50:-50, 50:-50'
 

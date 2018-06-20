@@ -33,7 +33,7 @@ from long_range_hc.postprocessing.pipelines import get_segmentation_pipeline
 
 
 def evaluate(project_folder, sample, offsets,
-             n_threads, name_aggl, crop_slice=None):
+             n_threads, name_aggl, name_infer, crop_slice=None):
     pred_path = os.path.join(project_folder,
                              'Predictions',
                              'prediction_sample%s.h5' % sample)
@@ -41,13 +41,21 @@ def evaluate(project_folder, sample, offsets,
     name_aggl = "{}_{}".format(name_aggl, sample)
 
     data_config_path = os.path.join(project_folder,
-                             'data_config.yml')
+                             'infer_data_config_{}_{}.yml'.format(name_infer, sample))
+    if not os.path.isfile(data_config_path):
+        data_config_path = os.path.join(project_folder,
+                                        'data_config.yml')
+        aff_path_in_h5file = 'data'
+    else:
+        aff_path_in_h5file = name_infer
+        name_aggl = 'inferName_{}_{}'.format(name_infer, name_aggl)
     data_config = yaml2dict(data_config_path)
 
     # TODO: save config files associated to this prediction!
     aff_loader_config = './template_config/post_proc/aff_loader_config.yml'
     aff_loader_config = yaml2dict(aff_loader_config)
     aff_loader_config['volumes']['affinities']['path'] = {sample: pred_path}
+    aff_loader_config['volumes']['affinities']['path_in_h5_dataset'] = {sample: aff_path_in_h5file}
     aff_loader_config['volumes']['init_segmentation'] = data_config['volume_config']['init_segmentation']
     aff_loader_config['volumes']['GT'] = data_config['volume_config']['GT']
     aff_loader_config['volumes']['raw'] = data_config['volume_config']['raw']
@@ -82,8 +90,8 @@ def evaluate(project_folder, sample, offsets,
 
     # TODO: it would be really nice to avoid the full loading of the dataset...
     print("Loading affinities and init. segmentation...")
-    best_gt, affinities, init_segm = import_postproc_data(project_folder, aggl_name=name_aggl,
-                         data_to_import=['GT', 'affinities', 'init_segmentation'])
+    affinities, init_segm = import_postproc_data(project_folder, aggl_name=name_aggl,
+                         data_to_import=['affinities', 'init_segmentation'])
 
     # TODO: improve this
     gt_path = '/export/home/abailoni/datasets/cremi/SOA_affinities/sample%s_train.h5' % (sample)
@@ -93,26 +101,25 @@ def evaluate(project_folder, sample, offsets,
     with h5py.File(gt_path, 'r') as f:
         gt = f['segmentations/groundtruth_fixed'][bb].astype('uint64')
 
-
-    # segmentation_pipeline = get_segmentation_pipeline(
-    #     post_proc_config.get('segm_pipeline_type', 'gen_HC'),
-    #     offsets,
-    #     nb_threads=n_threads,
-    #     invert_affinities=post_proc_config.get('invert_affinities', False),
-    #     return_fragments=return_fragments,
-    #     MWS_kwargs=post_proc_config.get('MWS_kwargs',{}),
-    #     generalized_HC_kwargs=post_proc_config.get('generalized_HC_kwargs',{})
-    # )
-
-    agglomerater = FixationAgglomeraterFromSuperpixels(
-                    offsets,
-                    n_threads=n_threads,
-                    invert_affinities=post_proc_config.get('invert_affinities', False),
-                     **post_proc_config['generalized_HC_kwargs']['agglomeration_kwargs']
+    agglomerater = get_segmentation_pipeline(
+        post_proc_config.get('segm_pipeline_type', 'gen_HC'),
+        offsets,
+        nb_threads=n_threads,
+        invert_affinities=post_proc_config.get('invert_affinities', False),
+        return_fragments=False,
+        **post_proc_config
     )
+
+    # agglomerater = FixationAgglomeraterFromSuperpixels(
+    #                 offsets,
+    #                 n_threads=n_threads,
+    #                 invert_affinities=post_proc_config.get('invert_affinities', False),
+    #                  **post_proc_config['generalized_HC_kwargs']['agglomeration_kwargs']
+    # )
 
     print("Starting prediction...")
     tick = time.time()
+    init_segm, _, _ = vigra.analysis.relabelConsecutive(init_segm.astype('uint32'))
     pred_segm = agglomerater(affinities, init_segm)
     print("Post-processing took {} s".format(time.time() - tick))
     print("Pred. sahpe: ", pred_segm.shape)
@@ -159,6 +166,7 @@ if __name__ == '__main__':
     parser.add_argument('--crop_slice', default=None)
     parser.add_argument('--n_threads', default=1, type=int)
     parser.add_argument('--name_aggl', default=None)
+    parser.add_argument('--name_infer', default=None)
 
     args = parser.parse_args()
 
@@ -168,9 +176,10 @@ if __name__ == '__main__':
     offsets = parse_offsets(offset_file)
     n_threads = args.n_threads
     name_aggl = args.name_aggl
+    name_infer = args.name_infer
     samples = args.samples
     crop_slice = args.crop_slice
 
     for sample in samples:
-        evaluate(project_directory, sample, offsets, n_threads, name_aggl,
+        evaluate(project_directory, sample, offsets, n_threads, name_aggl, name_infer,
                  crop_slice)
