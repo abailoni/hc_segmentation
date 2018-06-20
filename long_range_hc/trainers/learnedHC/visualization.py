@@ -343,8 +343,13 @@ def plot_pretrain_predictions(img_data, targets, z_slice):
             targets[0, z_slice].matshow(get_masked_boundary_mask(img_data['lookAhead1'])[z_slice], cmap='Set1',
                                         alpha=1., interpolation=DEF_INTERP)
 
-            plot_segm(targets[1, z_slice], img_data['target'][0], z_slice, mask_value=0,
-                      background=img_data['raw'])
+            plot_segm(targets[1, z_slice], img_data['target'][0], z_slice, mask_value=1,
+                      background=img_data['raw'], highlight_boundaries=True)
+            targets[1, z_slice].matshow(get_masked_boundary_mask(img_data['lookAhead1'])[z_slice], cmap='Set1',
+                                        alpha=1., interpolation=DEF_INTERP)
+            # targets[1, z_slice].matshow(get_masked_boundary_mask(img_data['target'][0])[z_slice], cmap='summer',
+            #                             alpha=1., interpolation=DEF_INTERP)
+
 
     nb_offs = img_data['stat_prediction'].shape[0]
     if  nb_offs == 12:
