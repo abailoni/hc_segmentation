@@ -188,9 +188,15 @@ cdef np.ndarray[long, ndim=1] find_split_GT_CY(np.ndarray[long, ndim=3] finalSeg
     print(debug)
 
     large_segments_mask = ((inter_matrix.astype('float32') / np.expand_dims(segm_SP_sizes, axis=1)) >= size_ignored_SP_relative).astype('int16')
+
+    # print(large_segments_mask.sum(axis=1).mean())
+    # large_segments_mask[np.where(large_segments_mask.sum(axis=1) <= 1)] = np.zeros(inter_matrix.shape[1], dtype='int16')
+
     # Ignore segments that are not undersegmented (only one main GT label above the thresh):
-    print(large_segments_mask.sum(axis=1).mean())
-    large_segments_mask[np.where(large_segments_mask.sum(axis=1) <= 1)] = np.zeros(inter_matrix.shape[1], dtype='int16')
+    best_labels = np.argmax(inter_matrix, axis=1)
+    ignore_mask = inter_matrix[np.arange(inter_matrix.shape[0]), best_labels].astype('float32') / segm_SP_sizes >= 0.9
+    print("NB undersegmeted segments: ", ignore_mask.sum())
+    large_segments_mask[ignore_mask] = np.zeros(inter_matrix.shape[1], dtype='int16')
 
 
     print("Associating GT ids to intersected undersegm segments...")

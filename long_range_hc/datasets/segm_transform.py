@@ -6,6 +6,8 @@ from long_range_hc.criteria.learned_HC.utils.rag_utils import compute_mask_bound
 
 from long_range_hc.criteria.learned_HC.utils.segm_utils_CY import find_best_agglomeration
 from neurofire.transform.segmentation import Segmentation2AffinitiesFromOffsets
+from long_range_hc.criteria.learned_HC.utils.segm_utils_CY import find_split_GT
+from long_range_hc.criteria.learned_HC.utils.segm_utils import accumulate_segment_features_vigra, map_features_to_label_array
 
 class FindBestAgglFromOversegmAndGT(Transform):
     """
@@ -91,6 +93,99 @@ class FindBestAgglFromOversegmAndGT(Transform):
         ).astype(np.int64)[...,0]
 
         return best_agglomeration
+
+
+class FindSplitGT(Transform):
+    def __init__(self,
+                 size_small_segments_rel,
+                 ignore_label=0,
+                 border_thickness_GT=0,
+                 border_thickness_segm=0,
+                 number_of_threads=8,
+                 break_oversegm_on_GT_borders=False,
+                 **super_kwargs):
+        self.ignore_label = ignore_label
+        self.border_thickness_GT = border_thickness_GT
+        self.border_thickness_segm = border_thickness_segm
+        self.number_of_threads = number_of_threads
+        self.break_oversegm_on_GT_borders = break_oversegm_on_GT_borders
+        self.size_small_segments_rel = size_small_segments_rel
+        super(FindSplitGT, self).__init__(**super_kwargs)
+
+        self.offsets = None
+        if border_thickness_GT != 0:
+            self.offsets_GT = np.array([[0, border_thickness_GT, 0],
+                                [0, 0, border_thickness_GT]])
+        if border_thickness_segm != 0:
+            self.offsets_segm = np.array([[0, border_thickness_segm, 0],
+                                [0, 0, border_thickness_segm]])
+
+    def batch_function(self, tensors):
+        finalSegm, GT_labels = tensors
+
+        ignore_mask = GT_labels == self.ignore_label
+        if self.break_oversegm_on_GT_borders:
+            # TODO: find a better bug-free solution:
+            finalSegm = np.array(
+                vigra.analysis.labelMultiArray((finalSegm * ((ignore_mask.astype(np.int32) + 3) * 3)).astype(np.uint32)))
+        else:
+            finalSegm, _, _ = vigra.analysis.relabelConsecutive(finalSegm.astype('uint32'))
+
+        if self.ignore_label == 0:
+            # This keeps the zero label:
+            GT_labels, _, _ = vigra.analysis.relabelConsecutive(GT_labels.astype('uint32'))
+        else:
+            raise NotImplementedError()
+
+
+        if self.border_thickness_GT != 0:
+
+            border_affs = 1- compute_mask_boundaries(GT_labels,
+                                                  self.offsets_GT,
+                                                  compress_channels=False,
+                                                  channel_affs=0)
+            border_mask = np.logical_and(border_affs[0], border_affs[1])
+            if self.ignore_label == 0:
+                GT_labels *= border_mask
+            else:
+                GT_labels[border_mask==0] = self.ignore_label
+
+        # Erode also oversegmentation:
+        if self.border_thickness_segm != 0:
+            border_affs = 1 - compute_mask_boundaries(finalSegm,
+                                                      self.offsets_segm,
+                                                      compress_channels=False,
+                                                      channel_affs=0)
+            border_mask = np.logical_and(border_affs[0], border_affs[1])
+            if self.ignore_label == 0:
+                GT_labels *= border_mask
+            else:
+                GT_labels[border_mask == 0] = self.ignore_label
+
+        split_GT = find_split_GT(finalSegm, GT_labels,
+                                                  size_small_segments_rel=self.size_small_segments_rel,
+                                                  ignore_label=self.ignore_label)
+
+        if True:
+            new_split_GT = np.zeros_like(split_GT)
+            for z in range(split_GT.shape[0]):
+                z_slice = split_GT[[z]].astype(np.uint32)
+                z_slice_compontents = np.array(
+                    vigra.analysis.labelMultiArrayWithBackground(z_slice, background_value=self.ignore_label))
+                sizeMap = accumulate_segment_features_vigra([z_slice_compontents],
+                                                            [z_slice_compontents],
+                                                            ['Count'],
+                                                            ignore_label=0,
+                                                            map_to_image=True
+                                                            ).squeeze(axis=-1)
+
+                z_slice[sizeMap <= 50] = self.ignore_label
+                new_split_GT[[z]] = z_slice
+            split_GT = new_split_GT
+
+        split_GT = (split_GT + 1) * (1 - ignore_mask)
+
+        return split_GT
 
 
 class FromSegmToEmbeddingSpace(Transform):
