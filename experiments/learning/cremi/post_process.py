@@ -33,7 +33,8 @@ from long_range_hc.postprocessing.pipelines import get_segmentation_pipeline
 
 
 def evaluate(project_folder, sample, offsets,
-             n_threads, name_aggl, name_infer, crop_slice=None):
+             n_threads, name_aggl, name_infer, crop_slice=None,
+             affinities=None):
     pred_path = os.path.join(project_folder,
                              'Predictions',
                              'prediction_sample%s.h5' % sample)
@@ -90,8 +91,13 @@ def evaluate(project_folder, sample, offsets,
 
     # TODO: it would be really nice to avoid the full loading of the dataset...
     print("Loading affinities and init. segmentation...")
-    affinities, init_segm = import_postproc_data(project_folder, aggl_name=name_aggl,
+    if affinities is None:
+        affinities, init_segm = import_postproc_data(project_folder, aggl_name=name_aggl,
                          data_to_import=['affinities', 'init_segmentation'])
+    else:
+        init_segm = import_postproc_data(project_folder, aggl_name=name_aggl,
+                                         data_to_import=['init_segmentation'])
+    assert affinities.shape[1:] == init_segm.shape, "{}, {}".format(affinities.shape, init_segm.shape)
 
     # TODO: improve this
     gt_path = '/export/home/abailoni/datasets/cremi/SOA_affinities/sample%s_train.h5' % (sample)
@@ -101,12 +107,17 @@ def evaluate(project_folder, sample, offsets,
     with h5py.File(gt_path, 'r') as f:
         gt = f['segmentations/groundtruth_fixed'][bb].astype('uint64')
 
+    return_fragments = post_proc_config.pop('return_fragments', False)
+    post_proc_config.pop('nb_threads')
+    invert_affinities = post_proc_config.pop('invert_affinities', False)
+    segm_pipeline_type = post_proc_config.pop('segm_pipeline_type', 'gen_HC')
+
     agglomerater = get_segmentation_pipeline(
-        post_proc_config.get('segm_pipeline_type', 'gen_HC'),
+        segm_pipeline_type,
         offsets,
         nb_threads=n_threads,
-        invert_affinities=post_proc_config.get('invert_affinities', False),
-        return_fragments=False,
+        invert_affinities=invert_affinities,
+        return_fragments=return_fragments,
         **post_proc_config
     )
 

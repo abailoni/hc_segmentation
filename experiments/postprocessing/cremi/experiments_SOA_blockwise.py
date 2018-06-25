@@ -86,17 +86,16 @@ def evaluate(project_folder, sample, offsets,
 
     # TODO: it would be really nice to avoid the full loading of the dataset...
     affinities_dataset = AffinitiesVolumeLoader.from_config(aff_loader_config)
+    print(affinities_dataset.base_sequence)
 
-    final_agglomerater = FixationAgglomeraterFromSuperpixels(
-                    offsets,
-                    n_threads=n_threads,
-                    invert_affinities=invert_affinities,
-                     **post_proc_config['generalized_HC_kwargs']['final_agglomeration_kwargs']
-        #{ 'zero_init': False,
-    # 'max_distance_lifted_edges': 5,
-    # 'update_rule_merge': 'mean',
-    # 'update_rule_not_merge': 'mean'})
-    )
+    # final_agglomerater = FixationAgglomeraterFromSuperpixels(
+    #                 offsets,
+    #                 n_threads=n_threads,
+    #                 invert_affinities=invert_affinities,
+    #                  **post_proc_config['generalized_HC_kwargs']['final_agglomeration_kwargs']
+    # )
+
+    final_agglomerater = None
 
 
     post_proc_solver = BlockWise(segmentation_pipeline=segmentation_pipeline,

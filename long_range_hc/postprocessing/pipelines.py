@@ -96,15 +96,7 @@ def get_segmentation_pipeline(
     elif segm_pipeline_type == 'gen_HC':
         HC_kwargs = generalized_HC_kwargs
 
-        if not HC_kwargs.get('start_from_given_segm', False):
-            # ------------------------------
-            # Build possible fragmenters:
-            # ------------------------------
-            fragmenter = get_fragmented(generalized_HC_kwargs,
-                                        offsets,
-                                        invert_affinities,
-                                        nb_threads)
-
+        if not post_proc_config.get('start_from_given_segm', False):
             # ------------------------------
             # Build agglomeration:
             # ------------------------------

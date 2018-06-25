@@ -1,4 +1,4 @@
-segm_pipeline_type: 'multicut'
+segm_pipeline_type: 'gen_HC'
 nb_threads: 8
 invert_affinities: True
 blockwise: False
@@ -38,7 +38,7 @@ prob_map_kwargs:
 
 multicut_kwargs:
   weighting_scheme: 'all' # "all", "z", "xyz", None
-  solver_type: 'multicutIlpCplex' # kernighanLin, multicutIlpCplex, ccFusionMoveBased
+  solver_type: 'fusionMoves' # fusionMoves, kernighanLin, multicutIlpCplex, ccFusionMoveBased
 #  time_limit: 120
   weight: 16.
   verbose_visitNth: 100

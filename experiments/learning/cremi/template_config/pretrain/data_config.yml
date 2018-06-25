@@ -143,16 +143,16 @@ volume_config:
 #      B: 'finalSegm_WS_full'
 #      C: 'finalSegm_WS'
 #    dtype: float32
-  segmFinal:
-    path:
-      A: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/thrsh010_A/pred_segm.h5'
-      B: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/thrsh010_B/pred_segm.h5'
-      C: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/thrsh010_C/pred_segm.h5'
-    path_in_h5_dataset:
-      A: 'finalSegm'
-      B: 'finalSegm'
-      C: 'finalSegm'
-    dtype: int32
+#  segmFinal:
+#    path:
+#      A: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/thrsh010_A/pred_segm.h5'
+#      B: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/thrsh010_B/pred_segm.h5'
+#      C: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/thrsh010_C/pred_segm.h5'
+#    path_in_h5_dataset:
+#      A: 'finalSegm'
+#      B: 'finalSegm'
+#      C: 'finalSegm'
+#    dtype: int32
 #  underSegm:
 #    path:
 #      A: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/full_thrsh020_A/pred_segm.h5'
@@ -166,10 +166,10 @@ volume_config:
   GT:
     dtype: float32
     path:
-      A: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/thrsh010_A/pred_segm.h5'
-      B: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/thrsh010_B/pred_segm.h5'
-      C: '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1/postprocess/thrsh010_C/pred_segm.h5'
-    path_in_h5_dataset: {A: 'finalSegm_split_realGT', B: 'finalSegm_split_realGT', C: 'finalSegm_split_realGT'}
+      A: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/WSDTplusHC_thrsh090_sampleA/pred_segm.h5'
+      B: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/WSDTplusHC_thrsh090_sampleB/pred_segm.h5'
+      C: '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities/postprocess/WSDTplusHC_thrsh090_sampleC/pred_segm.h5'
+    path_in_h5_dataset: {A: 'finalSegm_best_GT', B: 'finalSegm_best_GT', C: 'finalSegm_best_GT'}
 #  GT:
 #    dtype: float32
 #    path:

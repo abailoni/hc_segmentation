@@ -30,18 +30,18 @@ class BlockWise(object):
                 blockwise_config)
 
             # At the moment the final agglomeration is a usual  HC with 0.5 threshold:
-            if final_agglomerater is None:
-                raise DeprecationWarning()
-                self.final_agglomerater = FixationAgglomeraterFromSuperpixels(
-                    offsets,
-                    max_distance_lifted_edges=2,
-                    update_rule_merge='mean',
-                    update_rule_not_merge='mean',
-                    zero_init=False,
-                    n_threads=nb_threads,
-                    invert_affinities=invert_affinities)
-            else:
-                self.final_agglomerater = final_agglomerater
+            # if final_agglomerater is None:
+            #     raise DeprecationWarning()
+            #     self.final_agglomerater = FixationAgglomeraterFromSuperpixels(
+            #         offsets,
+            #         max_distance_lifted_edges=2,
+            #         update_rule_merge='mean',
+            #         update_rule_not_merge='mean',
+            #         zero_init=False,
+            #         n_threads=nb_threads,
+            #         invert_affinities=invert_affinities)
+            # else:
+            self.final_agglomerater = final_agglomerater
 
     def __call__(self, input_):
         # TODO: check that input_ is a dataset
@@ -61,7 +61,10 @@ class BlockWise(object):
             # affs = input_.volume[(slice(None),) + final_crop]
             # # ---- TEMP ----
 
-            output_segm = self.final_agglomerater(input_.volume, blockwise_segm)
+            if self.final_agglomerater is not None:
+                output_segm = self.final_agglomerater(input_.volume, blockwise_segm)
+            else:
+                output_segm = blockwise_segm
             # output_segm = output_segm[final_crop]
             # blockwise_segm = blockwise_segm[final_crop]
             if self.return_fragments:
@@ -134,7 +137,7 @@ class BlockWiseSegmentationPipelineSolver(object):
         output_padded = np.zeros(shape_output, dtype='uint64')
 
         # loader
-        loader = SimpleParallelLoader(dataset, num_workers=self.num_workers)
+        loader = SimpleParallelLoader(dataset, num_workers=self.num_workers, enqueue_samples=False)
         # mask to count the number of times a pixel was inferred
 
         max_label = 0
@@ -146,8 +149,9 @@ class BlockWiseSegmentationPipelineSolver(object):
                 break
 
             assert len(batches) == 1
-            assert len(batches[0]) == 2
-            index, input_ = batches[0]
+            assert len(batches[0]) == 1
+            index = batches[0][0]
+            input_ = dataset[index]
             print("[+] Processing block {} of {}.".format(index+1, len(dataset)))
             # print("[*] Input-shape {}".format(input_.shape))
 
@@ -179,13 +183,16 @@ class BlockWiseSegmentationPipelineSolver(object):
 
 
         # Combine padded output with cropped one:
-        print("Combining padded outputs:")
-        global_pad = tuple(slice(pad[0], dataset.volume.shape[i] - pad[1])
-                               for i, pad in enumerate(dataset.padding))
-        final_output = output_padded + max_label
-        final_output[global_pad[1:]] = output[global_pad[1:]]
-        final_output, _, _ = vigra.analysis.relabelConsecutive(final_output,
-                                                                             keep_zeros=False)
+        final_output = output
+        if any(tuple([pad[0]!=0  for i, pad in enumerate(dataset.padding)])):
+            print("Combining padded outputs:")
+            global_pad = tuple(slice(pad[0], dataset.volume.shape[i] - pad[1])
+                                   for i, pad in enumerate(dataset.padding))
+            final_output = output_padded + max_label
+            final_output[global_pad[1:]] = output[global_pad[1:]]
+            final_output, _, _ = vigra.analysis.relabelConsecutive(final_output,
+                                                                                 keep_zeros=False)
+        print("Done!")
 
         # # crop padding from the outputs
         # crop = tuple(slice(pad[0], shape_output[i] - pad[1]) for i, pad in enumerate(dataset.padding[1:]))

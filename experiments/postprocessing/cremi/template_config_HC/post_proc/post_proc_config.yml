@@ -1,4 +1,4 @@
-segm_pipeline_type: 'multicut'
+segm_pipeline_type: 'gen_HC'
 nb_threads: 8
 invert_affinities: false
 blockwise: False
@@ -32,12 +32,18 @@ multicut_kwargs:
 #  used_offsets: [0,1,2]
 
 WSDT_kwargs:
-    threshold: 0.3
+#    threshold: 0.3
+#    from_boundary_maps: true
+#    min_segment_size: 20 # THIS SHOULD NOT BE PUT TO ZERO...!
+#    preserve_membrane: True
+#    sigma_seeds: 0.05
+#    stacked_2d: True
     from_boundary_maps: true
-    min_segment_size: 20 # THIS SHOULD NOT BE PUT TO ZERO...!
-    preserve_membrane: True
-    sigma_seeds: 0.05
-    stacked_2d: True
+    min_segment_size: 20
+    preserve_membrane: true,
+    sigma_seeds: 0.5
+    stacked_2d: true
+    threshold: 0.49
 
 prob_map_kwargs:
 #      offset_weights: [1.0, 1.0, 0.8, 0.8, 0.8, 0.8]
@@ -54,14 +60,20 @@ generalized_HC_kwargs:
   agglomeration_kwargs:
     zero_init: False
     max_distance_lifted_edges: 1
-    update_rule_merge: 'mean'
-    update_rule_not_merge: 'mean'
+#    update_rule_merge: 'mean'
+#    update_rule_not_merge: 'mean'
 #    offsets_weights: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
     offsets_weights: [1., 1., 1., 2., 3, 3, 3, 9, 9, 4, 27, 27]
 #    offsets_weights: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3, 3]
-#    used_offsets: [0,1,2]
-    # update_rule_merge={'name': 'rank', 'q':0.5, 'numberOfBins':200},
-    # update_rule_not_merge={'name': 'rank', 'q':0.5, 'numberOfBins':200},
+    used_offsets: [0,1,2]
+    update_rule_merge:
+      name: 'rank'
+      q: 0.5
+      numberOfBins: 200
+    update_rule_not_merge:
+      name: 'rank'
+      q: 0.5
+      numberOfBins: 200
     # update_rule_merge={'name': 'generalized_mean', 'p': 1.0},
     # update_rule_not_merge={'name': 'generalized_mean', 'p': 1.0},
     extra_aggl_kwargs:
@@ -69,7 +81,7 @@ generalized_HC_kwargs:
       sizeThreshMin: 0.
       sizeThresMax: 120.
       postponeThresholding: False
-      threshold: 0.95 # Merge all: 0.0; split all: 1.0
+      threshold: 0.5 # Merge all: 0.0; split all: 1.0
     extra_runAggl_kwargs:
       verbose: True
       printNth: 300000
@@ -91,7 +103,7 @@ generalized_HC_kwargs:
       sizeThreshMin: 0.
       sizeThresMax: 120.
       postponeThresholding: False
-      threshold: 1.1 # Merge all: 0.0; split all: 1.0
+      threshold: 0.5 # Merge all: 0.0; split all: 1.0
     extra_runAggl_kwargs:
       verbose: True
       printNth: 300000

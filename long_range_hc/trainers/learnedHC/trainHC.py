@@ -187,6 +187,31 @@ class HierarchicalClusteringTrainer(Trainer):
         affinities = Variable(affinities) if is_var else affinities
         return affinities
 
+    def computeSegmToAffsCUDA_initSegm(self, segm_tensor, retain_segmentation = True):
+        """
+        :param segm: [batch_size, z, x, y]
+        """
+        if not hasattr(self, 'segmToAffs_initSegm'):
+            self.segmToAffs_initSegm = Segmentation2AffinitiesFromOffsets(dim=3,
+                                               offsets=[[-1, 0, 0], [0, -2, 0], [0, 0, -2]],
+                                               add_singleton_channel_dimension = True,
+                                               retain_segmentation = True,
+                                               use_gpu=True,
+                                                                 boundary_erode_segmentation=[0,1,1]
+            )
+
+        is_var = True if isinstance(segm_tensor, torch.autograd.variable.Variable) else False
+        segm_tensor = segm_tensor.data if is_var else segm_tensor
+
+        affinities = []
+        for b in range(segm_tensor.size()[0]):
+            affinities.append(self.segmToAffs_initSegm(segm_tensor[b])[None, ...])
+        affinities = torch.cat(affinities, dim=0)
+        if not retain_segmentation:
+            affinities = affinities[:, 1:]
+        affinities = Variable(affinities) if is_var else affinities
+        return affinities
+
 
 
     def get_postprocessing(self, options):
@@ -239,7 +264,8 @@ class HierarchicalClusteringTrainer(Trainer):
     def apply_model(self, *inputs):
         if len(inputs) == 2:
             init_segm_vectors = inputs[1][:, 1:].float()
-            model_inputs = torch.cat([inputs[0], init_segm_vectors], dim=1)
+            binary_boundaries = self.computeSegmToAffsCUDA_initSegm(inputs[1][:, 0].float(), retain_segmentation=False)
+            model_inputs = torch.cat([inputs[0], init_segm_vectors, binary_boundaries], dim=1)
         elif len(inputs) == 4:
             # offsets = self.options['HC_config']['offsets']
             initSegm_vectors = inputs[1][:,1:].float()
@@ -327,13 +353,13 @@ class HierarchicalClusteringTrainer(Trainer):
                 # TODO: update plots!
                 self.plot_pretrain_batch({"raw":raw,
                                           "init_segm": inputs[1][:, 0],
-                                          "lookAhead1": inputs[2][:, 0],
+                                          # "lookAhead1": inputs[2][:, 0],
                                           # "lookAhead2": inputs[3][:, 0],
                                           "stat_prediction":out_prediction,
-                                          "eroded_finalSegm":eroded_finalSegm,
+                                          # "eroded_finalSegm":eroded_finalSegm,
                                           "target":target})
             else:
-                if len(inputs) != 3:
+                if len(inputs) == 2 or len(inputs) == 4:
                     # Compute segmentation:
                     GT_labels = target.cpu().data.numpy()[:, 0]
                     pred_numpy = out_prediction.cpu().data.numpy()
@@ -353,8 +379,8 @@ class HierarchicalClusteringTrainer(Trainer):
                     self.plot_pretrain_batch({"raw": raw,
                                               "stat_prediction": out_prediction,
                                               "init_segm": init_segm_labels,
-                                              "lookAhead1": inputs[2][:, 0],
-                                              "lookAhead2": inputs[3][:, 0],
+                                              # "lookAhead1": inputs[2][:, 0],
+                                              # "lookAhead2": inputs[3][:, 0],
                                               "target": target,
                                               "final_segm": var_segm,
                                               "GT_labels": target[:,0]},

@@ -1,5 +1,9 @@
 import sys
 sys.path.append("/net/hciserver03/storage/abailoni/pyCharm_projects/hc_segmentation/")
+sys.path.append("/net/hciserver03/storage/abailoni/pyCharm_projects/hc_segmentation/experiments/learning/cremi/")
+
+from multiprocessing.pool import ThreadPool
+from itertools import repeat
 
 from long_range_hc.trainers.learnedHC.visualization import VisualizationCallback
 
@@ -23,6 +27,8 @@ from long_range_hc.datasets.path import get_template_config_file, parse_offsets
 
 from long_range_hc.trainers.learnedHC.trainHC import HierarchicalClusteringTrainer
 
+from post_process import evaluate
+
 # def make_data_config(validation_config_file, offsets, n_batches, max_nb_workers, pretrain, reload_model=False):
 #     if not reload_model:
 #         template_path = './template_config/validation_config.yml' if not pretrain else './template_config/pretrain/data_config.yml'
@@ -37,21 +43,24 @@ from long_range_hc.trainers.learnedHC.trainHC import HierarchicalClusteringTrain
 #     with open(validation_config_file, 'w') as f:
 #         yaml.dump(template, f)
 
-def predict(project_folder,
-            sample,
+
+def predict(sample,
+        gpu,
+        project_folder,
             offsets,
             data_slice=None,
             only_nn_channels=False,
             ds=None,
+            path_init_segm=None,
             name_inference=None,
-            path_init_segm=None
+            name_aggl=None,
+            dump_affs=False,
             ): #Only 3 nearest neighbor channels
     data_config_path = os.path.join(project_folder,
                                     'data_config.yml')
     data_config = yaml2dict(data_config_path)
 
 
-    gpu = 0
     checkpoint = os.path.join(project_folder, 'Weights')
     if ds == 1:
         infer_config_template_path = './template_config/inference/infer_config.yml'
@@ -87,6 +96,7 @@ def predict(project_folder,
     infer_config['volume_config']['affinities']['path'] = {}
     infer_config['volume_config']['affinities']['path'][sample] = save_path
 
+    infer_config['infer_config']['gpu'] = gpu
 
 
     # Dump config files:
@@ -121,12 +131,18 @@ def predict(project_folder,
 
     print("[*] Output has shape {}".format(str(output.shape)))
 
+    if name_aggl is not None:
+        evaluate(project_folder, sample, offsets, n_threads=8,
+                 name_aggl=name_aggl,
+                 name_infer=name_inference,
+                 affinities=output.astype('float32'),
+                 )
 
     # if only_nn_channels:
     #     output = output[:3]
     #     save_path = save_path[:-3] + '_nnaffinities.h5'
-
-    toh5(output.astype('float32'), save_path, datapath=name_inference, compression='lzf')
+    if dump_affs:
+        vigra.writeHDF5(output.astype('float32'), save_path, name_inference, compression='gzip')
 
 
 
@@ -134,11 +150,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     # parser.add_argument('project_directory', type=str)
     # parser.add_argument('offset_file', type=str)
-    parser.add_argument('--gpus', type=int)
+    parser.add_argument('--gpus', nargs='+', default=[0], type=int)
     # parser.add_argument('--data_slice',  default='85:,:,:')
     parser.add_argument('--nb_threads', default=1, type=int)
     parser.add_argument('--name_inference', default=None)
     parser.add_argument('--path_init_segm', default=None)
+    parser.add_argument('--name_aggl', default=None)
     parser.add_argument('--samples', nargs='+', default=['A', 'B', 'C'], type=str)
 
 
@@ -173,7 +190,7 @@ if __name__ == '__main__':
 
 
         project_directory = proj_dir + pr_dr
-        gpu = args.gpus
+        gpus = args.gpus
 
         offset_file = offs_dir + offs
         offsets = parse_offsets(offset_file)
@@ -181,16 +198,31 @@ if __name__ == '__main__':
         n_threads = args.nb_threads
         name_inference = args.name_inference
         path_init_segm = args.path_init_segm
-        name_aggl = None
+        name_aggl = args.name_aggl
 
-        os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu)
 
+        # set the proper CUDA_VISIBLE_DEVICES env variables
+        gpus = list(args.gpus)
+        os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(map(str, gpus))
+        gpus = list(range(len(gpus)))
+
+        pool = ThreadPool()
         samples = args.samples
 
-        for sample in samples:
-            predict(project_directory, sample, offsets, data_slice,
-                    only_nn_channels=False,
-                    ds=ds,
-                    path_init_segm=path_init_segm,
-                    name_inference=name_inference
-                    )
+
+        pool.starmap(predict,
+                     zip(samples,
+                         gpus,
+                         repeat(project_directory),
+                         repeat(offsets),
+                         repeat(data_slice),
+                         repeat(False),
+                         repeat(ds),
+                         repeat(path_init_segm),
+                         repeat(name_inference),
+                         repeat(name_aggl)
+                         ))
+
+        pool.close()
+        pool.join()
+
