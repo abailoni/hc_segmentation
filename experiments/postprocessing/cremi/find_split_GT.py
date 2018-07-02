@@ -8,6 +8,8 @@ import numpy as np
 
 from long_range_hc.postprocessing.data_utils import import_dataset, import_segmentations, import_SOA_datasets
 
+
+
 from skunkworks.metrics.cremi_score import cremi_score
 
 project_folder = '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1'
@@ -19,15 +21,15 @@ for aggl_name, sample in zip([
     #               'thrsh050_cropped_B',
     #               'thrsh050_cropped_A',
                   'thrsh010',
-                  'thrsh010',
-                  'thrsh010',
+                  # 'thrsh010',
+                  # 'thrsh010',
                   # 'fancyOverseg_betterWeights_fullB_thresh093_blckws_1',
     # 'fancyOverseg_szRg00_LREbetterWeights_fullB_thresh093_blckws_2',
 ],
     [
      'C',
-        'A',
-     'B',
+        # 'A',
+     # 'B',
     ]):
     aggl_name = aggl_name + "_{}".format(sample)
     print("Loading segm {}...".format(aggl_name))
@@ -55,7 +57,8 @@ for aggl_name, sample in zip([
 
 
     # crop_slice = (slice(40,55), slice(500,1000), slice(500,1000))
-    crop_slice = (slice(None), slice(None), slice(None))
+    crop_slice = (slice(0,25), slice(None), slice(None))
+    # crop_slice = (slice(None), slice(None), slice(None))
     split_GT = find_splits(finalSegm[crop_slice], best_GT[crop_slice])
 
 
@@ -63,6 +66,6 @@ for aggl_name, sample in zip([
 
     print("Writing results...")
     file_path = os.path.join(project_folder, "postprocess/{}/pred_segm.h5".format(aggl_name))
-    vigra.writeHDF5(split_GT, file_path, 'finalSegm_split_realGT', compression='gzip')
+    vigra.writeHDF5(split_GT, file_path, 'finalSegm_split_realGT_prove', compression='gzip')
 
 

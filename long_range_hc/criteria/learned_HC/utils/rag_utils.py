@@ -78,6 +78,8 @@ def compute_mask_boundaries(label_image,
     Faster than the nifty version, but does not check the actual connectivity of the segments (no rag is
     built). A non-local edge could be cut, but it could also connect not-neighboring segments.
 
+    It returns a boundary mask (1 on boundaries, 0 otherwise). To get affinities reverse it.
+
     :param offsets: numpy array
         Example: [ [0,1,0], [0,0,1] ]
 

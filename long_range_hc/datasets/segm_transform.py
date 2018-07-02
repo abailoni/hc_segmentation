@@ -9,6 +9,8 @@ from neurofire.transform.segmentation import Segmentation2AffinitiesFromOffsets
 from long_range_hc.criteria.learned_HC.utils.segm_utils_CY import find_split_GT
 from long_range_hc.criteria.learned_HC.utils.segm_utils import accumulate_segment_features_vigra, map_features_to_label_array
 
+from neurofire.transform.segmentation import get_boundary_offsets
+
 class FindBestAgglFromOversegmAndGT(Transform):
     """
     Given an initial segm. and some GT labels, it finds the best agglomeration that can be done to
@@ -42,8 +44,7 @@ class FindBestAgglFromOversegmAndGT(Transform):
 
         self.offsets = None
         if border_thickness != 0:
-            self.offsets = np.array([[0, border_thickness, 0],
-                                [0, 0, border_thickness]])
+            self.offsets = np.array(get_boundary_offsets([0,border_thickness,border_thickness]))
             # self.get_border_mask = Segmentation2AffinitiesFromOffsets(3,
             #                                                       offsets=[[0,border_thickness,0],
             #                                                                [0,0,border_thickness]],
@@ -114,11 +115,9 @@ class FindSplitGT(Transform):
 
         self.offsets = None
         if border_thickness_GT != 0:
-            self.offsets_GT = np.array([[0, border_thickness_GT, 0],
-                                [0, 0, border_thickness_GT]])
+            self.offsets_GT = np.array(get_boundary_offsets([0,border_thickness_GT,border_thickness_GT]))
         if border_thickness_segm != 0:
-            self.offsets_segm = np.array([[0, border_thickness_segm, 0],
-                                [0, 0, border_thickness_segm]])
+            self.offsets_segm = np.array(get_boundary_offsets([0,border_thickness_segm,border_thickness_segm]))
 
     def batch_function(self, tensors):
         finalSegm, GT_labels = tensors
@@ -165,6 +164,8 @@ class FindSplitGT(Transform):
         split_GT = find_split_GT(finalSegm, GT_labels,
                                                   size_small_segments_rel=self.size_small_segments_rel,
                                                   ignore_label=self.ignore_label)
+        # split_GT = GT_labels
+
 
         if True:
             new_split_GT = np.zeros_like(split_GT)
@@ -180,7 +181,27 @@ class FindSplitGT(Transform):
                                                             ).squeeze(axis=-1)
 
                 z_slice[sizeMap <= 50] = self.ignore_label
-                new_split_GT[[z]] = z_slice
+
+                # WS nonsense:
+                mask_for_WS = compute_mask_boundaries(finalSegm[[z]],
+                                        np.array(
+                                            get_boundary_offsets([0, 1, 1])),
+                                        compress_channels=True)
+                mask_for_WS = - vigra.filters.boundaryDistanceTransform(mask_for_WS.astype('float32'))
+                mask_for_WS = np.random.normal(scale=0.001, size=mask_for_WS.shape) + mask_for_WS
+                mask_for_WS += abs(mask_for_WS.min())
+
+
+                mask_for_eroding_GT = 1 - compute_mask_boundaries(finalSegm[[z]],
+                                        np.array(
+                                            get_boundary_offsets([0, 8, 8])),
+                                        compress_channels=True)
+                seeds = (z_slice + 1) * mask_for_eroding_GT
+
+                z_slice, _ = vigra.analysis.watershedsNew(mask_for_WS[0].astype('float32'), seeds=seeds[0].astype('uint32'),
+                                                                     method='RegionGrowing')
+
+                new_split_GT[z] = z_slice - 1
             split_GT = new_split_GT
 
         split_GT = (split_GT + 1) * (1 - ignore_mask)

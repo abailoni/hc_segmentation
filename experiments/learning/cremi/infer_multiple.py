@@ -174,7 +174,7 @@ if __name__ == '__main__':
     projs = [
         # 'smart_oversegm_DS2_denseOffs',
         # 'WSDT_DS1_denseOffs',
-        'input_segm/WSDT_DS1',
+        'inputSegmPlusBinaryMask/WSDT_DS1',
         # 'look_ahead/WSDT_DS1',
     ]
 
