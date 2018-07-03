@@ -327,38 +327,47 @@ def plot_pretrain_predictions(img_data, targets, z_slice):
         # plot_3_classes(targets[1, z_slice], masks, z_slice=z_slice, background=img_data['raw'],mask_value=0.)
         # targets[1, z_slice].matshow(get_masked_boundary_mask(finalSegm)[z_slice], cmap='Set1', alpha=0.9, interpolation=DEF_INTERP)
     else:
-        if 'lookAhead2' in img_data:
-            plot_segm(targets[0, z_slice], img_data['init_segm'], z_slice, mask_value=0,
-                      background=img_data['raw'])
-            targets[0, z_slice].matshow(get_masked_boundary_mask(img_data['lookAhead1'])[z_slice], cmap='summer', alpha=0.9,
-                                        interpolation=DEF_INTERP)
-            targets[0, z_slice].matshow(get_masked_boundary_mask(img_data['lookAhead2'])[z_slice], cmap='Set1', alpha=1., interpolation=DEF_INTERP)
+        if 'init_segm' in img_data:
+            if 'lookAhead2' in img_data:
+                plot_segm(targets[0, z_slice], img_data['init_segm'], z_slice, mask_value=0,
+                          background=img_data['raw'])
+                targets[0, z_slice].matshow(get_masked_boundary_mask(img_data['lookAhead1'])[z_slice], cmap='summer', alpha=0.9,
+                                            interpolation=DEF_INTERP)
+                targets[0, z_slice].matshow(get_masked_boundary_mask(img_data['lookAhead2'])[z_slice], cmap='Set1', alpha=1., interpolation=DEF_INTERP)
 
-            plot_segm(targets[1, z_slice], img_data['target'][0], z_slice, mask_value=0,
-                      background=img_data['raw'])
-        elif 'lookAhead1' in img_data:
-            plot_segm(targets[0, z_slice], img_data['lookAhead1'], z_slice, mask_value=0,
-                      background=img_data['raw'], highlight_boundaries=False)
-            targets[0, z_slice].matshow(get_masked_boundary_mask(img_data['init_segm'])[z_slice], cmap='gray',
-                                        alpha=1.,
-                                        interpolation=DEF_INTERP)
-            targets[0, z_slice].matshow(get_masked_boundary_mask(img_data['lookAhead1'])[z_slice], cmap='Set1',
-                                        alpha=1., interpolation=DEF_INTERP)
+                plot_segm(targets[1, z_slice], img_data['target'][0], z_slice, mask_value=0,
+                          background=img_data['raw'])
+            elif 'lookAhead1' in img_data:
+                plot_segm(targets[0, z_slice], img_data['lookAhead1'], z_slice, mask_value=0,
+                          background=img_data['raw'], highlight_boundaries=False)
+                targets[0, z_slice].matshow(get_masked_boundary_mask(img_data['init_segm'])[z_slice], cmap='gray',
+                                            alpha=1.,
+                                            interpolation=DEF_INTERP)
+                targets[0, z_slice].matshow(get_masked_boundary_mask(img_data['lookAhead1'])[z_slice], cmap='Set1',
+                                            alpha=1., interpolation=DEF_INTERP)
 
-            plot_segm(targets[1, z_slice], img_data['target'][0], z_slice, mask_value=1,
-                      background=img_data['raw'], highlight_boundaries=True)
-            targets[1, z_slice].matshow(get_masked_boundary_mask(img_data['lookAhead1'])[z_slice], cmap='Set1',
-                                        alpha=1., interpolation=DEF_INTERP)
-            # targets[1, z_slice].matshow(get_masked_boundary_mask(img_data['target'][0])[z_slice], cmap='summer',
-            #                             alpha=1., interpolation=DEF_INTERP)
+                plot_segm(targets[1, z_slice], img_data['target'][0], z_slice, mask_value=1,
+                          background=img_data['raw'], highlight_boundaries=True)
+                targets[1, z_slice].matshow(get_masked_boundary_mask(img_data['lookAhead1'])[z_slice], cmap='Set1',
+                                            alpha=1., interpolation=DEF_INTERP)
+                # targets[1, z_slice].matshow(get_masked_boundary_mask(img_data['target'][0])[z_slice], cmap='summer',
+                #                             alpha=1., interpolation=DEF_INTERP)
+            else:
+                plot_segm(targets[0, z_slice], img_data['init_segm'], z_slice, mask_value=0,
+                          background=img_data['raw'], highlight_boundaries=True)
+                targets[0, z_slice].matshow(get_masked_boundary_mask(img_data['target'][0])[z_slice], cmap='Set1',
+                                            alpha=1., interpolation=DEF_INTERP)
+
+                plot_segm(targets[1, z_slice], img_data['target'][0], z_slice, mask_value=0,
+                          background=img_data['raw'], highlight_boundaries=True)
         else:
-            plot_segm(targets[0, z_slice], img_data['init_segm'], z_slice, mask_value=0,
+            plot_segm(targets[0, z_slice], img_data['target'][0], z_slice, mask_value=0,
                       background=img_data['raw'], highlight_boundaries=True)
-            targets[0, z_slice].matshow(get_masked_boundary_mask(img_data['target'][0])[z_slice], cmap='Set1',
-                                        alpha=1., interpolation=DEF_INTERP)
-
-            plot_segm(targets[1, z_slice], img_data['target'][0], z_slice, mask_value=0,
-                      background=img_data['raw'], highlight_boundaries=True)
+            targets[1, z_slice].matshow(img_data['stat_prediction'][0, z_slice], cmap='gray',
+                                            interpolation=DEF_INTERP)
+            targets[1, z_slice].matshow(mask_the_mask(img_data['target'][0 + 1, z_slice], value_to_mask=1.0),
+                                            cmap='Set1',
+                                            alpha=0.3, interpolation=DEF_INTERP)
 
 
 
@@ -367,6 +376,8 @@ def plot_pretrain_predictions(img_data, targets, z_slice):
         plotted_offsets = [4,5,8,11,0]
     elif nb_offs == 27:
         plotted_offsets = [3, 5, 14, 25, 0]
+    elif nb_offs == 17:
+        plotted_offsets = [1, 7, 8, 12, 16]
     elif nb_offs == 3:
         plotted_offsets = [0, 1, 2]
     else:

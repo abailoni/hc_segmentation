@@ -172,7 +172,7 @@ class HierarchicalClusteringTrainer(Trainer):
                                                add_singleton_channel_dimension = True,
                                                retain_segmentation = True,
                                                use_gpu=True,
-                                                                 boundary_erode_segmentation=[0,1,1]
+                                                                 boundary_erode_segmentation=[0,2,2]
             )
 
         is_var = True if isinstance(segm_tensor, torch.autograd.variable.Variable) else False
@@ -262,7 +262,9 @@ class HierarchicalClusteringTrainer(Trainer):
 
 
     def apply_model(self, *inputs):
-        if len(inputs) == 2:
+        if len(inputs) == 1:
+            model_inputs = inputs[0]
+        elif len(inputs) == 2:
             init_segm_vectors = inputs[1][:, 1:].float()
             binary_boundaries = self.computeSegmToAffsCUDA_initSegm(inputs[1][:, 0].float(), retain_segmentation=False)
             model_inputs = torch.cat([inputs[0], init_segm_vectors, binary_boundaries], dim=1)
@@ -280,7 +282,10 @@ class HierarchicalClusteringTrainer(Trainer):
         else:
             raise NotImplementedError()
         output = super(HierarchicalClusteringTrainer, self).apply_model(model_inputs)
-        return output[0]
+        if isinstance(output, tuple):
+            return output[0]
+        else:
+            return output
 
     def apply_model_and_loss(self, inputs, target, backward=True):
         """
@@ -323,7 +328,8 @@ class HierarchicalClusteringTrainer(Trainer):
 
         # Combine raw and oversegmentation:
         raw = inputs[0][:,0]
-        init_segm_labels = inputs[1][:, 0]
+
+        init_segm_labels = inputs[1][:, 0] if len(inputs) > 1 else None
         # if len(inputs) == 2:
         #     pass
         # elif len(inputs) == 4:
@@ -333,7 +339,9 @@ class HierarchicalClusteringTrainer(Trainer):
 
 
         if self.pre_train:
-            self.model.set_pre_train_mode(True)
+            # Legacy:
+            if hasattr(self.model, 'set_pre_train_mode'):
+                self.model.set_pre_train_mode(True)
             out_prediction = self.apply_model(*inputs)
         else:
             raise DeprecationWarning()
@@ -352,7 +360,7 @@ class HierarchicalClusteringTrainer(Trainer):
                 pass
                 # TODO: update plots!
                 self.plot_pretrain_batch({"raw":raw,
-                                          "init_segm": inputs[1][:, 0],
+                                          "init_segm": init_segm_labels,
                                           # "lookAhead1": inputs[2][:, 0],
                                           # "lookAhead2": inputs[3][:, 0],
                                           "stat_prediction":out_prediction,
@@ -399,7 +407,7 @@ class HierarchicalClusteringTrainer(Trainer):
         loss = self.get_loss_static_prediction(out_prediction, target=target,
                                                validation=validation)
 
-        if validation and len(inputs) == 3:
+        if validation and (len(inputs) == 3 or len(inputs) == 1) :
             self.criterion.validation_score = [loss.cpu().data.numpy()]
 
 

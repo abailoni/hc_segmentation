@@ -34,6 +34,8 @@ from skunkworks.criteria.multi_scale_loss_weighted import MultiScaleLossMaxPoolW
 
 import skunkworks.models as models
 
+from neurofire.models import get_model
+
 from skunkworks.postprocessing.watershed import DamWatershed
 
 # Do we implement this in neurofire again ???
@@ -87,12 +89,13 @@ def set_up_training(project_directory,
                                filename='Weights/checkpoint.pytorch').model
     else:
         if pretrain:
-            model_name = "PreTrainedUnet3DMultiscale"
+            model_name = "UNet3D"
             model_kwargs = config.get('pretrained_model_kwargs')
         else:
             model_name = "DynamicUNet3DMultiscale"
             model_kwargs = config.get('model_kwargs')
-        model = getattr(models, model_name)(**model_kwargs)
+        model = get_model(model_name)(**model_kwargs)
+        # model = getattr(models, model_name)(**model_kwargs)
 
     # Unstructed loss:
     affinity_offsets = data_config['offsets']
