@@ -1,11 +1,11 @@
 # Use this for the 3D model:
-model_name: DynamicUNet3DMultiscale
+model_name: UNet
 
 pretrained_model_kwargs:
   add_residual_connections: true
   conv_type_key: conv_bn
   fmap_growth: 3
-  in_channels: 16
+  in_channels: 1
   initial_num_fmaps: 40
   out_channels: 17
   scale_factor:
