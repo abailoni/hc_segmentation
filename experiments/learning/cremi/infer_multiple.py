@@ -141,8 +141,10 @@ def predict(sample,
     # if only_nn_channels:
     #     output = output[:3]
     #     save_path = save_path[:-3] + '_nnaffinities.h5'
-    if dump_affs:
+    if dump_affs or name_aggl is None:
+        print("Dumping affinities on disk...")
         vigra.writeHDF5(output.astype('float32'), save_path, name_inference, compression='gzip')
+        print("Done!")
 
 
 
@@ -167,14 +169,16 @@ if __name__ == '__main__':
     offsets_dir = [
         # 'dense_offsets.json',
         # 'dense_offsets.json',
-        'SOA_offsets.json',
-        # 'SOA_offsets.json'
+        # 'SOA_offsets.json',
+        'offsets_MWS.json',
+        'offsets_MWS.json'
     ]
 
     projs = [
         # 'smart_oversegm_DS2_denseOffs',
         # 'WSDT_DS1_denseOffs',
-        'inputSegmPlusBinaryMask/WSDT_DS1',
+        'plain_unstruct/MWSoffs_bound1',
+        'plain_unstruct/MWSoffs_bound2',
         # 'look_ahead/WSDT_DS1',
     ]
 
@@ -182,7 +186,7 @@ if __name__ == '__main__':
         # 2,
         # 1,
         1,
-        # 1,
+        1,
         # 2
     ]
 
