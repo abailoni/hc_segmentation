@@ -80,7 +80,21 @@ HC_config:
       offset_weights: [1.0, 1.0]
       used_offsets: [1, 2]
 
+  postproc_type: 'MWS'
 
+  WSDT_kwargs:
+    threshold: 0.49
+    from_boundary_maps: true
+    min_segment_size: 20 # THIS SHOULD NOT BE PUT TO ZERO...!
+    preserve_membrane: True
+    sigma_seeds: 0.5
+    stacked_2d: True
+
+  MWS_kwargs:
+    stride:
+      - 1
+      - 10
+      - 10
 # -------------------------------
 #  DEPRECATED OPTIONS: (SHOULD BE DELETED!)
 # -------------------------------

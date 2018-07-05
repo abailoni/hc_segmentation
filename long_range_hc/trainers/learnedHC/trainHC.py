@@ -2,9 +2,7 @@
 This module contains all training methods for the end to end hierarchical clustering training
 '''
 import numpy as np
-import random
-import time
-import h5py
+from copy import deepcopy
 
 from torch import randn
 # from inferno.extensions.criteria.set_similarity_measures import GeneralizedDiceLoss
@@ -27,6 +25,8 @@ from torch import from_numpy
 from long_range_hc.postprocessing.segmentation_pipelines.agglomeration.fixation_clustering import \
     FixationAgglomeraterFromSuperpixels
 
+from long_range_hc.datasets.segm_transform import ComputeStructuredWeightsWrongMerges
+
 from neurofire.criteria.loss_wrapper import LossWrapper
 from neurofire.criteria.loss_transforms import InvertTarget, MaskTransitionToIgnoreLabel, RemoveSegmentationFromTarget
 from long_range_hc.criteria.loss_transforms import ApplyMaskToBatch
@@ -41,6 +41,10 @@ from skunkworks.inference.blending import Blending
 from inferno.utils.io_utils import yaml2dict
 from inferno.io.core import Zip
 from skunkworks.inference.simple import SimpleParallelLoader
+from skunkworks.postprocessing.watershed import DamWatershed
+
+
+from skunkworks.postprocessing.watershed.wsdt import WatershedOnDistanceTransformFromAffinities
 
 
 def compose_model_inputs(dictionary_list, key_list, channel_axis=-1):
@@ -213,6 +217,72 @@ class HierarchicalClusteringTrainer(Trainer):
         return affinities
 
 
+    def compute_oversegm_loss_weights(self, output, target):
+        """
+        :param segm: [batch_size, z, x, y]
+        """
+        postproc_config = self.options['HC_config']
+        offsets = postproc_config['offsets']
+        nb_threads = postproc_config['nb_threads']
+
+        if not hasattr(self, 'DTWS'):
+            if postproc_config['postproc_type'] == 'DTWS':
+                WSDT_kwargs = deepcopy(postproc_config.get('WSDT_kwargs', {}))
+                self.postproc_alg = WatershedOnDistanceTransformFromAffinities(
+                    offsets,
+                    WSDT_kwargs.pop('threshold', 0.5),
+                    WSDT_kwargs.pop('sigma_seeds', 0.),
+                    invert_affinities=True,
+                    return_hmap=False,
+                    n_threads=nb_threads,
+                    **WSDT_kwargs,
+                    **postproc_config.get('prob_map_kwargs', {}))
+            elif postproc_config['postproc_type'] == 'MWS':
+                self.postproc_alg = DamWatershed(offsets,
+                             min_segment_size=10,
+                             invert_affinities=False,
+                             n_threads=nb_threads,
+                             **postproc_config.get('MWS_kwargs', {}))
+
+            # FIXME: FIXME FIXME FIXME something weird with the inverted offsets....!!!
+            self.get_loss_merge_weights = ComputeStructuredWeightsWrongMerges(
+                                        [[-f for f in of] for of in offsets],
+                                                dim=3,
+                                                ignore_label=0,
+                                                number_of_threads=nb_threads)
+
+        is_var = True if isinstance(output, torch.autograd.variable.Variable) else False
+        is_cuda = output.is_cuda
+        output = output.data if is_var else output
+        target = target.data if is_var else target
+
+
+        from multiprocessing.pool import ThreadPool
+
+        pool = ThreadPool()
+
+        def compute_weights(b):
+            segm = self.postproc_alg(output[b].cpu().numpy())
+            loss_weights_batch = self.get_loss_merge_weights(segm, target[b, 0].cpu().numpy())
+            return from_numpy(loss_weights_batch[None, ...])
+
+        # Parallelize computation of the weights:
+        loss_weights = pool.map(compute_weights,
+                 range(output.size()[0]))
+
+        pool.close()
+        pool.join()
+
+        # for b in range(output.size()[0]):
+        #     segm = self.DTWS(output[b].cpu().numpy())
+        #     loss_weights_batch = self.get_loss_merge_weights(segm, target[b,0].cpu().numpy())
+        #     loss_weights.append(from_numpy(loss_weights_batch[None, ...]))
+
+        loss_weights = torch.cat(loss_weights, dim=0)
+        loss_weights = loss_weights.cuda() if is_cuda else loss_weights
+        loss_weights = Variable(loss_weights, requires_grad=False) if is_var else loss_weights
+        return loss_weights
+
 
     def get_postprocessing(self, options):
         postproc_config = options['HC_config']
@@ -348,6 +418,11 @@ class HierarchicalClusteringTrainer(Trainer):
             # self.model.set_static_prediction(True)
             # static_prediction = self.apply_model(*inputs)
 
+        loss_weights = None
+        if len(inputs) == 1:
+            # Compute structured loss weights:
+            loss_weights = self.compute_oversegm_loss_weights(out_prediction, target)
+
 
 
         # # TODO: check if is a tuple and this works...
@@ -361,6 +436,7 @@ class HierarchicalClusteringTrainer(Trainer):
                 # TODO: update plots!
                 self.plot_pretrain_batch({"raw":raw,
                                           "init_segm": init_segm_labels,
+                                          "loss_weights": loss_weights,
                                           # "lookAhead1": inputs[2][:, 0],
                                           # "lookAhead2": inputs[3][:, 0],
                                           "stat_prediction":out_prediction,
@@ -405,7 +481,7 @@ class HierarchicalClusteringTrainer(Trainer):
         #
         # else:
         loss = self.get_loss_static_prediction(out_prediction, target=target,
-                                               validation=validation)
+                                               validation=validation, loss_weights=loss_weights)
 
         if validation and (len(inputs) == 3 or len(inputs) == 1) :
             self.criterion.validation_score = [loss.cpu().data.numpy()]
@@ -604,7 +680,7 @@ class HierarchicalClusteringTrainer(Trainer):
         # so other dynamic LHC data could be shared in this way..
         return out_prediction, loss
 
-    def get_loss_static_prediction(self, prediction, target=None, validation=False):
+    def get_loss_static_prediction(self, prediction, target=None, validation=False, loss_weights=None):
         if isinstance(prediction, tuple):
             is_cuda = prediction[0].is_cuda
         else:
@@ -613,8 +689,13 @@ class HierarchicalClusteringTrainer(Trainer):
             loss = Variable(from_numpy(np.array([0.], dtype=np.float)))
         else:
             target = target if not is_cuda else target.cuda()
-            loss = self.criterion.unstructured_loss(prediction, target)
-
+            # TODO: change this shit... (multiply weights and sum directly in the loss...)
+            if loss_weights is not None:
+                loss_weights = loss_weights if not is_cuda else loss_weights.cuda()
+                loss = self.criterion.unstructured_loss(prediction, target)
+                loss = (loss * loss_weights).sum()
+            else:
+                loss = self.criterion.unstructured_loss(prediction, target)
         if is_cuda:
             loss = loss.cuda()
         return loss

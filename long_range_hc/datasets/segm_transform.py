@@ -1,13 +1,15 @@
 import vigra
 import numpy as np
 from inferno.io.transform import Transform
-from long_range_hc.criteria.learned_HC.utils.segm_utils import map_features_to_label_array
-from long_range_hc.criteria.learned_HC.utils.rag_utils import compute_mask_boundaries
+import inferno.utils.python_utils as pyu
+from long_range_hc.criteria.learned_HC.utils.rag_utils import compute_mask_boundaries, map_edge_features_to_image
 
 from long_range_hc.criteria.learned_HC.utils.segm_utils_CY import find_best_agglomeration
 from neurofire.transform.segmentation import Segmentation2AffinitiesFromOffsets
-from long_range_hc.criteria.learned_HC.utils.segm_utils_CY import find_split_GT
-from long_range_hc.criteria.learned_HC.utils.segm_utils import accumulate_segment_features_vigra, map_features_to_label_array
+from long_range_hc.criteria.learned_HC.utils.segm_utils_CY import find_split_GT, cantor_pairing_fct
+from long_range_hc.criteria.learned_HC.utils.segm_utils import accumulate_segment_features_vigra, map_features_to_label_array, cantor_pairing_fct
+
+import nifty.graph.rag as nrag
 
 from neurofire.transform.segmentation import get_boundary_offsets
 
@@ -207,6 +209,63 @@ class FindSplitGT(Transform):
         split_GT = (split_GT + 1) * (1 - ignore_mask)
 
         return split_GT
+
+
+class ComputeStructuredWeightsWrongMerges(Transform):
+    def __init__(self,
+                 offsets,
+                 dim=3,
+                 ignore_label=0,
+                 number_of_threads=8,
+                 **super_kwargs):
+        assert pyu.is_listlike(offsets), "`offsets` must be a list or a tuple."
+        assert len(offsets) > 0, "`offsets` must not be empty."
+        assert ignore_label >= 0
+
+        assert dim in (2, 3), "Affinities are only supported for 2d and 3d input"
+
+        self.offsets = np.array(offsets)
+        self.ignore_label = ignore_label
+        self.dim = dim
+        self.number_of_threads = number_of_threads
+        super(ComputeStructuredWeightsWrongMerges, self).__init__(**super_kwargs)
+
+
+    def batch_function(self, tensors):
+        # TODO: add check for the ignore label!!
+        finalSegm, GT_labels = tensors
+
+        intersection_segm = cantor_pairing_fct(finalSegm, GT_labels)
+        intersection_segm, max_label, _ = vigra.analysis.relabelConsecutive(intersection_segm.astype('uint32'))
+
+        rag = nrag.gridRag(intersection_segm, numberOfThreads=self.number_of_threads)
+
+        _, node_features = nrag.accumulateMeanAndLength(rag=rag, data=GT_labels.astype('float32'),
+                                        numberOfThreads=self.number_of_threads)
+
+        size_nodes = node_features[:,1].astype('int')
+        GT_labels_nodes = node_features[:,0].astype('int')
+
+        _, node_features = nrag.accumulateMeanAndLength(rag=rag, data=finalSegm.astype('float32'),
+                                                           numberOfThreads=self.number_of_threads)
+        segm_labels_nodes = node_features[:,0].astype('int')
+
+
+        uv_ids = rag.uvIds()
+
+        false_merge_condition = np.logical_and(GT_labels_nodes[uv_ids[:,0]] != GT_labels_nodes[uv_ids[:,1]],
+                                   segm_labels_nodes[uv_ids[:, 0]] == segm_labels_nodes[uv_ids[:, 1]])
+        edge_weights = np.where(false_merge_condition,
+                             1 + np.minimum(size_nodes[uv_ids[:,0]], size_nodes[uv_ids[:,1]]),
+                             np.ones(uv_ids.shape[0]))
+
+        loss_weights = map_edge_features_to_image(self.offsets, np.expand_dims(edge_weights, -1), rag=rag,
+                                   channel_affs=0, fillValue=1.,
+                                   number_of_threads=self.number_of_threads)[...,0]
+
+        return loss_weights
+
+
 
 
 class FromSegmToEmbeddingSpace(Transform):

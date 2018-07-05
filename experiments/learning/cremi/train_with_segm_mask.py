@@ -129,7 +129,7 @@ def set_up_training(project_directory,
     # unstructured_loss = LossWrapper(criterion=multiscale_loss,
     #                     transforms=GetMaskAndRemoveSegmentation(affinity_offsets))
 
-    unstructured_loss = LossWrapper(criterion=SorensenDiceLoss(),
+    unstructured_loss = LossWrapper(criterion=SorensenDiceLoss(reduce=False),
                                     transforms=Compose(MaskTransitionToIgnoreLabel(affinity_offsets),
                                                        RemoveSegmentationFromTarget(),
                                                        InvertTarget()))
