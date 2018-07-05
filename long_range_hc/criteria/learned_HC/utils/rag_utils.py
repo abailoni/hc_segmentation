@@ -126,7 +126,7 @@ def compute_mask_boundaries(label_image,
 
 
 def map_edge_features_to_image(offsets, edge_features, rag=None, label_image=None, contractedRag=None,
-                               channel_affs=-2, fillValue=0.):
+                               channel_affs=-2, fillValue=0., number_of_threads=8):
     """
     Label image or rag should be passed. Using nifty rag.
     """
@@ -139,8 +139,10 @@ def map_edge_features_to_image(offsets, edge_features, rag=None, label_image=Non
 
     if contractedRag is None:
         image_map = nrag.mapFeaturesToBoundaries(rag, edge_features.astype(np.float32),
-                                                       offsets.astype(np.int32), fillValue)
+                                                       offsets.astype(np.int32), fillValue,
+                                                 number_of_threads)
     else:
+        assert number_of_threads == 1, "Multiple threads are currently not supported with a contracted graph!"
         image_map = nrag.mapFeaturesToBoundaries(rag, contractedRag,
                                                        edge_features.astype(np.float32),
                                                        offsets.astype(np.int32), fillValue)

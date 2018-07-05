@@ -4,6 +4,7 @@ cimport numpy as np
 import numpy as np
 
 from .segm_utils import map_features_to_label_array as map_features_to_label_array_nifty
+from .segm_utils import cantor_pairing_fct
 import vigra
 
 # TODO: find better way to combine the different versions...
@@ -136,15 +137,6 @@ def find_best_agglomeration(segm, GT_segm, undersegm_rel_threshold=None, ignore_
                                       undersegm_rel_threshold, ignore_label)
 
 
-def cantor_pairing_fct(int1, int2):
-    """
-    Remarks:
-        - int1 and int2 should be positive (or zero), otherwise use f(n) = n * 2 if n >= 0; f(n) = -n * 2 - 1 if n < 0
-        - int1<=int2 to assure that cantor_pairing_fct(int1, int2)==cantor_pairing_fct(int2, int1)
-
-    It returns an unique integer associated to (int1, int2).
-    """
-    return (int1 + int2) * (int1 + int2 + 1) / 2 + int2
 
 cdef np.ndarray[long, ndim=1] find_split_GT_CY(np.ndarray[long, ndim=3] finalSegm, np.ndarray[long, ndim=3] bestGT,
                                                          double size_ignored_SP_relative,
