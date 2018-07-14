@@ -249,6 +249,7 @@ class HierarchicalClusteringTrainer(Trainer):
                                         [[-f for f in of] for of in offsets],
                                                 dim=3,
                                                 ignore_label=0,
+                weighting=0.0005,
                                                 number_of_threads=nb_threads)
 
         is_var = True if isinstance(output, torch.autograd.variable.Variable) else False
@@ -264,6 +265,8 @@ class HierarchicalClusteringTrainer(Trainer):
         def compute_weights(b):
             segm = self.postproc_alg(output[b].cpu().numpy())
             loss_weights_batch = self.get_loss_merge_weights(segm, target[b, 0].cpu().numpy())
+            # loss_weights_batch[0] = 1.
+            # loss_weights_batch[3:] = 1.
             return from_numpy(loss_weights_batch[None, ...])
 
         # Parallelize computation of the weights:
@@ -483,6 +486,8 @@ class HierarchicalClusteringTrainer(Trainer):
         loss = self.get_loss_static_prediction(out_prediction, target=target,
                                                validation=validation, loss_weights=loss_weights)
 
+        print(loss.data.cpu().numpy())
+
         if validation and (len(inputs) == 3 or len(inputs) == 1) :
             self.criterion.validation_score = [loss.cpu().data.numpy()]
 
@@ -693,7 +698,22 @@ class HierarchicalClusteringTrainer(Trainer):
             if loss_weights is not None:
                 loss_weights = loss_weights if not is_cuda else loss_weights.cuda()
                 loss = self.criterion.unstructured_loss(prediction, target)
-                loss = (loss * loss_weights).sum()
+                loss_size = loss.size()
+
+                # print("Loss mean",loss.mean())
+                # print("Loss min", loss.min())
+                # print("Weighs mean",loss_weights.mean())
+                # loss *= - 1.0
+                loss = (loss * loss_weights)
+                loss_weights = (loss_weights * (loss_weights > 1.0).float()) * 1e-6
+                # This makes sure that the loss gets higher when some mistakes are done:
+                loss = loss.sum() + loss_weights.sum()
+
+                # from functools import reduce
+                # from operator import mul
+                #
+                # loss = loss / reduce(mul, [s for s in loss_size], 1.)
+                # print(loss_size, reduce(mul, [s for s in loss_size], 1.))
             else:
                 loss = self.criterion.unstructured_loss(prediction, target)
         if is_cuda:
