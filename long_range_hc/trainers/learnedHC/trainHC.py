@@ -705,9 +705,11 @@ class HierarchicalClusteringTrainer(Trainer):
                 # print("Weighs mean",loss_weights.mean())
                 # loss *= - 1.0
                 loss = (loss * loss_weights)
-                loss_weights = (loss_weights * (loss_weights > 1.0).float()) * 1e-6
-                # This makes sure that the loss gets higher when some mistakes are done:
-                loss = loss.sum() + loss_weights.sum()
+                # loss_weights = (loss_weights * (loss_weights > 1.0).float()) * 1e-6
+                # # This makes sure that the loss gets higher when some mistakes are done:
+                # loss = loss.sum() + loss_weights.sum()
+                loss = loss.sum()
+
 
                 # from functools import reduce
                 # from operator import mul

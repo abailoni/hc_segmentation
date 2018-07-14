@@ -129,7 +129,18 @@ def set_up_training(project_directory,
     # unstructured_loss = LossWrapper(criterion=multiscale_loss,
     #                     transforms=GetMaskAndRemoveSegmentation(affinity_offsets))
 
-    unstructured_loss = LossWrapper(criterion=SorensenDiceLoss(reduce=False),
+    from torch.nn.modules.loss import BCELoss
+    if 'loss_type' in config:
+        if config['loss_type'] == 'BCE':
+            loss = BCELoss(reduce=False)
+        elif config['loss_type'] == 'soresen':
+            loss= SorensenDiceLoss(reduce=False)
+        else:
+            raise NotImplementedError()
+    else:
+        loss = SorensenDiceLoss(reduce=False)
+
+    unstructured_loss = LossWrapper(criterion=loss,
                                     transforms=Compose(MaskTransitionToIgnoreLabel(affinity_offsets),
                                                        RemoveSegmentationFromTarget(),
                                                        InvertTarget()))

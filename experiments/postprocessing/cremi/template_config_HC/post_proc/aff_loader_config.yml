@@ -1,3 +1,21 @@
+#volumes:
+#  affinities:
+#    dtype: float32
+#    path_in_h5_dataset:
+#      A: data
+#      B: data
+#      C: data
+#
+#data_slice:
+##  A: ':, 5:120, 50:-50, 50:-50'
+##  B: ':, 5:120, 50:-50, 50:-50'
+##  C: ':, 5:120, 50:-50, 50:-50'
+#  A: ':, :, :, :'
+#  B: ':, :, :, :'
+#  C: ':, :, :, :'
+
+
+
 dtype: float32
 path_in_h5_dataset: data
 slicing_config:
@@ -9,8 +27,10 @@ slicing_config:
   - [0, 0]
   - [0, 0]
   - [0, 0]
-  stride: [12, 64, 400, 400]
-  window_size: [None, 64, None, None]
+#  stride: [12, 64, 400, 400]
+#  window_size: [None, 64, None, None]
+  stride: [12, 25, 400, 400]
+  window_size: [None, 30, None, None]
 #  data_slice: ':, 57:125, 147:1400, 790:1850'
 #data_slice_not_padded: ':, 60:122, 197:1350, 840:1800'
 #  data_slice: ':, :46, :, :'

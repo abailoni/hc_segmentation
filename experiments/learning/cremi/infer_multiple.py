@@ -170,23 +170,27 @@ if __name__ == '__main__':
         # 'dense_offsets.json',
         # 'dense_offsets.json',
         # 'SOA_offsets.json',
-        'offsets_MWS.json',
+        # 'offsets_MWS.json',
         'offsets_MWS.json'
+        # 'offsets_MWS.json'
     ]
 
     projs = [
         # 'smart_oversegm_DS2_denseOffs',
         # 'WSDT_DS1_denseOffs',
-        'plain_unstruct/MWSoffs_bound1',
         'plain_unstruct/MWSoffs_bound2',
+        # 'plain_unstruct/MWSoffs_bound2_structDTWS',
+        # 'plain_unstruct/MWSoffs_bound2_structDTWS_2',
+        # 'plain_unstruct/MWSoffs_bound2_structMWS_2',
         # 'look_ahead/WSDT_DS1',
     ]
 
     DS = [
         # 2,
         # 1,
+        # 1,
         1,
-        1,
+        # 1,
         # 2
     ]
 
@@ -210,23 +214,35 @@ if __name__ == '__main__':
         os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(map(str, gpus))
         gpus = list(range(len(gpus)))
 
-        pool = ThreadPool()
         samples = args.samples
 
+        for sample in samples:
+            predict(sample,
+                    gpus[0],
+                    project_directory,
+                    offsets,
+                    data_slice,
+                    False,
+                    ds,
+                    path_init_segm,
+                    name_inference,
+                    name_aggl)
 
-        pool.starmap(predict,
-                     zip(samples,
-                         gpus,
-                         repeat(project_directory),
-                         repeat(offsets),
-                         repeat(data_slice),
-                         repeat(False),
-                         repeat(ds),
-                         repeat(path_init_segm),
-                         repeat(name_inference),
-                         repeat(name_aggl)
-                         ))
+        # pool = ThreadPool()
 
-        pool.close()
-        pool.join()
+            # pool.starmap(predict,
+        #              zip(samples,
+        #                  gpus,
+        #                  repeat(project_directory),
+        #                  repeat(offsets),
+        #                  repeat(data_slice),
+        #                  repeat(False),
+        #                  repeat(ds),
+        #                  repeat(path_init_segm),
+        #                  repeat(name_inference),
+        #                  repeat(name_aggl)
+        #                  ))
+        #
+        # pool.close()
+        # pool.join()
 

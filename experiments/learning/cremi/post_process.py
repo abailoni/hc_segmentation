@@ -39,6 +39,9 @@ def evaluate(project_folder, sample, offsets,
                              'Predictions',
                              'prediction_sample%s.h5' % sample)
 
+    post_proc_config = './template_config/post_proc/post_proc_config.yml'
+    post_proc_config = yaml2dict(post_proc_config)
+
     name_aggl = "{}_{}".format(name_aggl, sample)
 
     data_config_path = os.path.join(project_folder,
@@ -57,7 +60,10 @@ def evaluate(project_folder, sample, offsets,
     aff_loader_config = yaml2dict(aff_loader_config)
     aff_loader_config['volumes']['affinities']['path'] = {sample: pred_path}
     aff_loader_config['volumes']['affinities']['path_in_h5_dataset'] = {sample: aff_path_in_h5file}
-    aff_loader_config['volumes']['init_segmentation'] = data_config['volume_config']['init_segmentation']
+    given_initSegm = post_proc_config['start_from_given_segm']
+
+    if given_initSegm:
+        aff_loader_config['volumes']['init_segmentation'] = data_config['volume_config']['init_segmentation']
     aff_loader_config['volumes']['GT'] = data_config['volume_config']['GT']
     aff_loader_config['volumes']['raw'] = data_config['volume_config']['raw']
 
@@ -69,8 +75,6 @@ def evaluate(project_folder, sample, offsets,
         crop_slice = aff_loader_config['data_slice'][sample]
 
 
-    post_proc_config = './template_config/post_proc/post_proc_config.yml'
-    post_proc_config = yaml2dict(post_proc_config)
     post_proc_config['nb_threads'] = n_threads
 
     # Create sub-directory and save copy of config files:
@@ -91,13 +95,21 @@ def evaluate(project_folder, sample, offsets,
 
     # TODO: it would be really nice to avoid the full loading of the dataset...
     print("Loading affinities and init. segmentation...")
-    if affinities is None:
-        affinities, init_segm = import_postproc_data(project_folder, aggl_name=name_aggl,
-                         data_to_import=['affinities', 'init_segmentation'])
+    init_segm = None
+    if given_initSegm:
+        if affinities is None:
+            affinities, init_segm = import_postproc_data(project_folder, aggl_name=name_aggl,
+                             data_to_import=['affinities', 'init_segmentation'])
+        else:
+            init_segm = import_postproc_data(project_folder, aggl_name=name_aggl,
+                                             data_to_import=['init_segmentation'])
     else:
-        init_segm = import_postproc_data(project_folder, aggl_name=name_aggl,
-                                         data_to_import=['init_segmentation'])
-    assert affinities.shape[1:] == init_segm.shape, "{}, {}".format(affinities.shape, init_segm.shape)
+        if affinities is None:
+            affinities= import_postproc_data(project_folder, aggl_name=name_aggl,
+                                                         data_to_import=['affinities'])
+
+
+    # assert affinities.shape[1:] == init_segm.shape, "{}, {}".format(affinities.shape, init_segm.shape)
 
     # TODO: improve this
     gt_path = '/export/home/abailoni/datasets/cremi/SOA_affinities/sample%s_train.h5' % (sample)
@@ -130,8 +142,11 @@ def evaluate(project_folder, sample, offsets,
 
     print("Starting prediction...")
     tick = time.time()
-    init_segm, _, _ = vigra.analysis.relabelConsecutive(init_segm.astype('uint32'))
-    pred_segm = agglomerater(affinities, init_segm)
+    if given_initSegm:
+        init_segm, _, _ = vigra.analysis.relabelConsecutive(init_segm.astype('uint32'))
+        pred_segm = agglomerater(affinities, init_segm)
+    else:
+        pred_segm = agglomerater(affinities)
     print("Post-processing took {} s".format(time.time() - tick))
     print("Pred. sahpe: ", pred_segm.shape)
     print("GT shape: ", gt.shape)
@@ -149,9 +164,10 @@ def evaluate(project_folder, sample, offsets,
     # # best_gt = vigra.analysis.labelVolumeWithBackground(best_gt.astype('uint32'))
     # # ignore_mask = best_gt != 0
 
-    print("Evaluating scores...")
-    initSegm_evals = cremi_score(gt, init_segm, border_threshold=None, return_all_scores=True)
-    print("Score of the oversegm:", initSegm_evals)
+    if given_initSegm:
+        print("Evaluating scores...")
+        initSegm_evals = cremi_score(gt, init_segm, border_threshold=None, return_all_scores=True)
+        print("Score of the oversegm:", initSegm_evals)
     evals = cremi_score(gt, pred_segm, border_threshold=None, return_all_scores=True)
     print("Scores achieved: ", evals)
 
@@ -164,7 +180,8 @@ def evaluate(project_folder, sample, offsets,
 
     res[sample] = evals
     res['init_segm'] = {}
-    res['init_segm'][sample] = initSegm_evals
+    if given_initSegm:
+        res['init_segm'][sample] = initSegm_evals
     with open(eval_file, 'w') as f:
         json.dump(res, f, indent=4, sort_keys=True)
 

@@ -217,7 +217,17 @@ class ComputeStructuredWeightsWrongMerges(Transform):
                  dim=3,
                  ignore_label=0,
                  number_of_threads=8,
+                 weighting=1.0,
                  **super_kwargs):
+        """
+
+        :param offsets:
+        :param dim:
+        :param ignore_label:
+        :param number_of_threads:
+        :param weighting: max is 1.0, min is 0.0 (this function has no effect and all weights are 1.0)
+        :param super_kwargs:
+        """
         assert pyu.is_listlike(offsets), "`offsets` must be a list or a tuple."
         assert len(offsets) > 0, "`offsets` must not be empty."
         assert ignore_label >= 0
@@ -226,6 +236,7 @@ class ComputeStructuredWeightsWrongMerges(Transform):
 
         self.offsets = np.array(offsets)
         self.ignore_label = ignore_label
+        self.weighting = weighting
         self.dim = dim
         self.number_of_threads = number_of_threads
         super(ComputeStructuredWeightsWrongMerges, self).__init__(**super_kwargs)
@@ -256,7 +267,7 @@ class ComputeStructuredWeightsWrongMerges(Transform):
         false_merge_condition = np.logical_and(GT_labels_nodes[uv_ids[:,0]] != GT_labels_nodes[uv_ids[:,1]],
                                    segm_labels_nodes[uv_ids[:, 0]] == segm_labels_nodes[uv_ids[:, 1]])
         edge_weights = np.where(false_merge_condition,
-                             1 + np.minimum(size_nodes[uv_ids[:,0]], size_nodes[uv_ids[:,1]]),
+                             1 + np.minimum(size_nodes[uv_ids[:,0]], size_nodes[uv_ids[:,1]]) * self.weighting,
                              np.ones(uv_ids.shape[0]))
 
         loss_weights = map_edge_features_to_image(self.offsets, np.expand_dims(edge_weights, -1), rag=rag,

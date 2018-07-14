@@ -30,23 +30,42 @@ from long_range_hc.postprocessing.pipelines import get_segmentation_pipeline
 
 
 def evaluate(project_folder, sample, offsets,
-             n_threads, name_aggl):
+             n_threads, name_aggl, name_infer=None):
     pred_path = os.path.join(project_folder,
                              'Predictions',
                              'prediction_sample%s.h5' % sample)
 
     name_aggl = "{}_{}".format(name_aggl, sample)
 
+    data_config_path = os.path.join(project_folder,
+                                    'infer_data_config_{}_{}.yml'.format(name_infer, sample))
+    if not os.path.isfile(data_config_path):
+        data_config_path = os.path.join(project_folder,
+                                        'data_config.yml')
+        aff_path_in_h5file = 'data'
+    else:
+        aff_path_in_h5file = name_infer
+        name_aggl = 'inferName_{}_{}'.format(name_infer, name_aggl)
+
+    post_proc_config = './template_config_HC/post_proc/post_proc_config.yml'
+    post_proc_config = yaml2dict(post_proc_config)
+
+    data_config = yaml2dict(data_config_path)
+
     # TODO: save config files associated to this prediction!
     aff_loader_config = './template_config_HC/post_proc/aff_loader_config.yml'
     aff_loader_config = yaml2dict(aff_loader_config)
+    # aff_loader_config['volumes']['affinities']['path'] = {sample: pred_path}
+    # aff_loader_config['volumes']['affinities']['path_in_h5_dataset'] = {sample: aff_path_in_h5file}
+    # given_initSegm = post_proc_config['start_from_given_segm']
+    # aff_loader_config = yaml2dict(aff_loader_config)
     aff_loader_config['path'] = pred_path
+    aff_loader_config['path_in_h5_dataset'] = aff_path_in_h5file
     aff_loader_config['sample'] = sample
     aff_loader_config['offsets'] = list(offsets)
 
 
-    post_proc_config = './template_config_HC/post_proc/post_proc_config.yml'
-    post_proc_config = yaml2dict(post_proc_config)
+
     post_proc_config['nb_threads'] = n_threads
 
     # Create sub-directory and save copy of config files:
@@ -85,6 +104,7 @@ def evaluate(project_folder, sample, offsets,
     )
 
     # TODO: it would be really nice to avoid the full loading of the dataset...
+    print("Loading affinities and init. segmentation...")
     affinities_dataset = AffinitiesVolumeLoader.from_config(aff_loader_config)
     print(affinities_dataset.base_sequence)
 
@@ -113,6 +133,15 @@ def evaluate(project_folder, sample, offsets,
     pred_segm = output_segmentations[0] if isinstance(output_segmentations,tuple) else output_segmentations
     print("Post-processing took {} s".format(time.time() - tick))
     print(pred_segm.shape)
+
+    print('2D stacking...')
+    stacked_pred_segm = np.empty_like(pred_segm)
+    max_label = 0
+    for z in range(pred_segm.shape[0]):
+        slc = vigra.analysis.labelImage(pred_segm[z].astype(np.uint32))
+        stacked_pred_segm[z] = slc + max_label
+        max_label += slc.max() + 1
+    pred_segm = stacked_pred_segm
 
     segm_file = os.path.join(postproc_dir, 'pred_segm.h5')
     name_finalSegm = 'finalSegm'
@@ -161,6 +190,7 @@ if __name__ == '__main__':
     # parser.add_argument('--data_slice', default='85:,:,:')
     parser.add_argument('--n_threads', default=1, type=int)
     parser.add_argument('--name_aggl', default=None)
+    parser.add_argument('--name_infer', default=None)
 
     args = parser.parse_args()
 
@@ -173,4 +203,4 @@ if __name__ == '__main__':
     samples = args.samples
 
     for sample in samples:
-        evaluate(project_directory, sample, offsets, n_threads, name_aggl)
+        evaluate(project_directory, sample, offsets, n_threads, name_aggl, name_infer=args.name_infer)

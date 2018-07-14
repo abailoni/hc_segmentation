@@ -1,5 +1,6 @@
 # Use this for the 3D model:
 model_name: UNet
+loss_type: 'BCE'
 
 pretrained_model_kwargs:
   add_residual_connections: true
