@@ -3,6 +3,7 @@ This module contains all training methods for the end to end hierarchical cluste
 '''
 import numpy as np
 from copy import deepcopy
+import warnings
 
 from torch import randn
 # from inferno.extensions.criteria.set_similarity_measures import GeneralizedDiceLoss
@@ -834,11 +835,13 @@ class HierarchicalClusteringTrainer(Trainer):
             for _ in range(5 - np_input.ndim):
                 np_input = np.expand_dims(np_input, axis=0)
             tensor = torch.from_numpy(np_input).cuda(self.gpu).float()
-            variables.append(
-                Variable(tensor,
-                         requires_grad=requires_grad,
-                         volatile=volatile)
-            )
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore')
+                variables.append(
+                    Variable(tensor,
+                             requires_grad=requires_grad,
+                             volatile=volatile)
+                )
         return variables
 
     def unwrap_prediction(self, output):
@@ -849,20 +852,21 @@ class HierarchicalClusteringTrainer(Trainer):
         return out
 
     def infer_patch(self, *inputs_):
-        # infer with or without TDA
-        if self.augmenter is None:
-            # without TDA
-            vars = self.wrap_numpy_in_variable(*inputs_,
-                                               requires_grad=False,
-                                               volatile=True)
-            output = self.apply_model(*vars)
-        else:
-            raise DeprecationWarning()
-            # with TDA
-            # output = self.augmenter(input_,
-            #                         partial(self.apply_model_infer, predict_images=predict_images),
-            #                         offsets=self.channel_offsets)
-        output = self.unwrap_prediction(output)
+        with torch.no_grad():
+            # infer with or without TDA
+            if self.augmenter is None:
+                # without TDA
+                vars = self.wrap_numpy_in_variable(*inputs_,
+                                                   requires_grad=False,
+                                                   volatile=True)
+                output = self.apply_model(*vars)
+            else:
+                raise DeprecationWarning()
+                # with TDA
+                # output = self.augmenter(input_,
+                #                         partial(self.apply_model_infer, predict_images=predict_images),
+                #                         offsets=self.channel_offsets)
+            output = self.unwrap_prediction(output)
         return output
 
     def infer(self, dataset):
