@@ -154,8 +154,7 @@ class HierarchicalClusteringTrainer(Trainer):
                                                                         return_eroded_labels=True
             )
 
-        is_var = True if isinstance(segm_tensor, torch.autograd.variable.Variable) else False
-        segm_tensor = segm_tensor.data if is_var else segm_tensor
+        segm_tensor = segm_tensor.data
 
         affinities = []
         for b in range(segm_tensor.size()[0]):
@@ -163,7 +162,6 @@ class HierarchicalClusteringTrainer(Trainer):
         affinities = torch.cat(affinities, dim=0)
         if not retain_segmentation:
             affinities = affinities[:, 1:]
-        affinities = Variable(affinities) if is_var else affinities
         return affinities
 
     def computeSegmToAffsCUDA_GT(self, segm_tensor, retain_segmentation = True):
@@ -179,8 +177,7 @@ class HierarchicalClusteringTrainer(Trainer):
                                                                  boundary_erode_segmentation=[0,2,2]
             )
 
-        is_var = True if isinstance(segm_tensor, torch.autograd.variable.Variable) else False
-        segm_tensor = segm_tensor.data if is_var else segm_tensor
+        segm_tensor = segm_tensor.data
 
         affinities = []
         for b in range(segm_tensor.size()[0]):
@@ -188,7 +185,7 @@ class HierarchicalClusteringTrainer(Trainer):
         affinities = torch.cat(affinities, dim=0)
         if not retain_segmentation:
             affinities = affinities[:, 1:]
-        affinities = Variable(affinities) if is_var else affinities
+
         return affinities
 
     def computeSegmToAffsCUDA_initSegm(self, segm_tensor, retain_segmentation = True):
@@ -204,8 +201,8 @@ class HierarchicalClusteringTrainer(Trainer):
                                                                  boundary_erode_segmentation=[0,1,1]
             )
 
-        is_var = True if isinstance(segm_tensor, torch.autograd.variable.Variable) else False
-        segm_tensor = segm_tensor.data if is_var else segm_tensor
+
+        segm_tensor = segm_tensor.data
 
         affinities = []
         for b in range(segm_tensor.size()[0]):
@@ -213,7 +210,6 @@ class HierarchicalClusteringTrainer(Trainer):
         affinities = torch.cat(affinities, dim=0)
         if not retain_segmentation:
             affinities = affinities[:, 1:]
-        affinities = Variable(affinities) if is_var else affinities
         return affinities
 
 
@@ -245,17 +241,15 @@ class HierarchicalClusteringTrainer(Trainer):
                              **postproc_config.get('MWS_kwargs', {}))
 
             # FIXME: FIXME FIXME FIXME something weird with the inverted offsets....!!!
+            weighting = 0.0005 if 'weighting' not in postproc_config else postproc_config['weighting']
             self.get_loss_merge_weights = ComputeStructuredWeightsWrongMerges(
                                         [[-f for f in of] for of in offsets],
                                                 dim=3,
                                                 ignore_label=0,
-                weighting=0.0005,
+                weighting=weighting,
                                                 number_of_threads=nb_threads)
 
-        is_var = True if isinstance(output, torch.autograd.variable.Variable) else False
         is_cuda = output.is_cuda
-        output = output.data if is_var else output
-        target = target.data if is_var else target
 
 
         from multiprocessing.pool import ThreadPool
@@ -263,8 +257,8 @@ class HierarchicalClusteringTrainer(Trainer):
         pool = ThreadPool()
 
         def compute_weights(b):
-            segm = self.postproc_alg(output[b].cpu().numpy())
-            loss_weights_batch = self.get_loss_merge_weights(segm, target[b, 0].cpu().numpy())
+            segm = self.postproc_alg(output[b].cpu().detach().numpy())
+            loss_weights_batch = self.get_loss_merge_weights(segm, target[b, 0].cpu().detach().numpy())
             # loss_weights_batch[0] = 1.
             # loss_weights_batch[3:] = 1.
             return from_numpy(loss_weights_batch[None, ...])
@@ -283,7 +277,6 @@ class HierarchicalClusteringTrainer(Trainer):
 
         loss_weights = torch.cat(loss_weights, dim=0)
         loss_weights = loss_weights.cuda() if is_cuda else loss_weights
-        loss_weights = Variable(loss_weights, requires_grad=False) if is_var else loss_weights
         return loss_weights
 
 
@@ -360,7 +353,7 @@ class HierarchicalClusteringTrainer(Trainer):
         else:
             return output
 
-    def apply_model_and_loss(self, inputs, target, backward=True):
+    def apply_model_and_loss(self, inputs, target, backward=True, mode=None):
         """
         :type  inputs: list
         :param inputs: list of inputs, each with shape (batch_size, channels, z, x, y) on cuda
@@ -422,8 +415,8 @@ class HierarchicalClusteringTrainer(Trainer):
             # static_prediction = self.apply_model(*inputs)
 
         loss_weights = None
-        if len(inputs) == 1:
             # Compute structured loss weights:
+        if len(inputs) == 1 and 'postproc_type' in self.options['HC_config']:
             loss_weights = self.compute_oversegm_loss_weights(out_prediction, target)
 
 
@@ -697,14 +690,27 @@ class HierarchicalClusteringTrainer(Trainer):
             # TODO: change this shit... (multiply weights and sum directly in the loss...)
             if loss_weights is not None:
                 loss_weights = loss_weights if not is_cuda else loss_weights.cuda()
+                if self.options['loss_type'] == 'soresen':
+                    sqrt_weights = torch.sqrt(loss_weights)
+                    prediction = prediction * sqrt_weights
+                    target[:,1:] = target[:,1:] * sqrt_weights
                 loss = self.criterion.unstructured_loss(prediction, target)
                 loss_size = loss.size()
+
 
                 # print("Loss mean",loss.mean())
                 # print("Loss min", loss.min())
                 # print("Weighs mean",loss_weights.mean())
                 # loss *= - 1.0
-                loss = (loss * loss_weights)
+
+                if self.options['loss_type'] == 'BCE':
+                    loss = (loss * loss_weights)
+
+                if 'loss_mul_factor' in self.options['HC_config']:
+                    factor = self.options['HC_config']['loss_mul_factor']
+                    factor = eval(factor) if isinstance(factor, str) else factor
+                    loss = loss * factor
+
                 # loss_weights = (loss_weights * (loss_weights > 1.0).float()) * 1e-6
                 # # This makes sure that the loss gets higher when some mistakes are done:
                 # loss = loss.sum() + loss_weights.sum()
@@ -718,6 +724,7 @@ class HierarchicalClusteringTrainer(Trainer):
                 # print(loss_size, reduce(mul, [s for s in loss_size], 1.))
             else:
                 loss = self.criterion.unstructured_loss(prediction, target)
+                loss = loss.sum()
         if is_cuda:
             loss = loss.cuda()
         return loss

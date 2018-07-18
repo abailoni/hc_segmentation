@@ -80,7 +80,7 @@ def set_up_training(project_directory,
     VALIDATE_EVERY = (150, 'iterations') if pretrain else (1, 'iterations')
     SAVE_EVERY = (500, 'iterations') if pretrain else (300, 'iterations')
     # TODO: move these plots to tensorboard...?
-    PLOT_EVERY = 80 if pretrain else 1 # This is only used by the struct. training
+    PLOT_EVERY = 100 if pretrain else 1 # This is only used by the struct. training
 
     # Get model
     if load_pretrained_model:
@@ -385,13 +385,13 @@ def main():
 
 
     train_config = os.path.join(project_directory, 'train_config.yml')
-    make_train_config(train_config, offsets, gpus, nb_threads, reload_model=load_model)
+    make_train_config(train_config, offsets, gpus, nb_threads, reload_model=eval(args.from_checkpoint))
 
     data_config = os.path.join(project_directory, 'data_config.yml')
-    make_data_config(data_config, offsets, len(gpus), max_nb_workers, pretrain, reload_model=load_model)
+    make_data_config(data_config, offsets, len(gpus), max_nb_workers, pretrain, reload_model=eval(args.from_checkpoint))
 
     validation_config = os.path.join(project_directory, 'validation_config.yml')
-    make_validation_config(validation_config, offsets, len(gpus), max_nb_workers, pretrain, reload_model=load_model)
+    make_validation_config(validation_config, offsets, len(gpus), max_nb_workers, pretrain, reload_model=eval(args.from_checkpoint))
 
     print("Pretrain: {}; Load model: {}".format(pretrain,load_model))
 

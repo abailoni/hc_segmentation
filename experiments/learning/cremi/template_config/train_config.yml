@@ -81,7 +81,9 @@ HC_config:
       offset_weights: [1.0, 1.0]
       used_offsets: [1, 2]
 
-  postproc_type: 'MWS'
+  postproc_type: 'DTWS'
+  weighting: 1.
+  loss_mul_factor: 1e-6
 
   WSDT_kwargs:
     threshold: 0.49
@@ -154,6 +156,7 @@ HC_config:
 training_optimizer_kwargs:
   #method: AnnealedAdam
   method: Adam
+#  lr: 0.0001
   lr: 0.0001
   #lr_decay: 0.9999568274614672
   ##lr_decay: 0.999948708021091
