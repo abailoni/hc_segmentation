@@ -23,9 +23,9 @@ volumes:
         B: [12, 10, 400, 400]
         C: [12, 10, 400, 400]
       window_size:
-        A: [None, 10, None, None]
-        B: [None, 10, None, None]
-        C: [None, 10, None, None]
+        A: [None, 10, 400, 400]
+        B: [None, 10, 400, 400]
+        C: [None, 10, 400, 400]
 
 # Deprecated:
 data_slice:

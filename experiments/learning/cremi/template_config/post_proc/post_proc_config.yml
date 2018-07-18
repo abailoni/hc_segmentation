@@ -8,7 +8,7 @@ stacking_2D: True
 
 blockwise_kwargs:
   crop_padding: True
-  nb_parallel_blocks: 1
+  nb_parallel_blocks: 15
   num_workers: 1
 
 MWS_kwargs:

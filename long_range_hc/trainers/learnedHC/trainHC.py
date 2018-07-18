@@ -4,6 +4,7 @@ This module contains all training methods for the end to end hierarchical cluste
 import numpy as np
 from copy import deepcopy
 import warnings
+from multiprocessing.pool import ThreadPool
 
 from torch import randn
 # from inferno.extensions.criteria.set_similarity_measures import GeneralizedDiceLoss
@@ -253,7 +254,6 @@ class HierarchicalClusteringTrainer(Trainer):
         is_cuda = output.is_cuda
 
 
-        from multiprocessing.pool import ThreadPool
 
         pool = ThreadPool()
 

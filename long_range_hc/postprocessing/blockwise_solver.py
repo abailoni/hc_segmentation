@@ -3,6 +3,7 @@ import numpy as np
 from inferno.utils.io_utils import yaml2dict
 from skunkworks.inference.simple import SimpleParallelLoader
 import vigra
+from multiprocessing.pool import ThreadPool
 
 # TODO: upgrade this basic version with something more advanced
 # here the bad thing is that in the final agglomeration all boundaries between blocks are hard vertical/horizontal boundaries
@@ -110,8 +111,6 @@ class BlockWiseSegmentationPipelineSolver(object):
         self.crop_padding = crop_padding
 
         self.nb_parallel_blocks = nb_parallel_blocks
-        if nb_parallel_blocks != 1:
-            raise NotImplementedError()
         # TODO: not necessary!
         self.nb_threads = nb_threads
         self.num_workers = num_workers
@@ -148,19 +147,12 @@ class BlockWiseSegmentationPipelineSolver(object):
         loader = SimpleParallelLoader(dataset, num_workers=self.num_workers, enqueue_samples=False)
         # mask to count the number of times a pixel was inferred
 
-        max_label = 0
-        while True:
-            # TODO: parallelize (take care of the max label...)
-            batches = loader.next_batch()
-            if not batches:
-                print("[*] All blocks were processed!")
-                break
-
+        def process_batch(batches):
             assert len(batches) == 1
             assert len(batches[0]) == 1
             index = batches[0][0]
             input_ = dataset[index]
-            print("[+] Processing block {} of {}.".format(index+1, len(dataset)))
+            print("[+] Processing block {} of {}.".format(index + 1, len(dataset)))
             # print("[*] Input-shape {}".format(input_.shape))
 
             # get the slicings w.r.t. the current prediction and the output
@@ -176,19 +168,46 @@ class BlockWiseSegmentationPipelineSolver(object):
             print("Global slice: {}".format(global_slicing))
             output_patch = self.segmentation_pipeline(input_)
 
-            output_patch, max_label_patch, _ = vigra.analysis.relabelConsecutive(output_patch.astype(np.uint32), keep_zeros=False)
-            # Save padded output:
-            output_padded[global_slicing_incl_pad] = output_patch + max_label
+            output_patch, max_label_patch, _ = vigra.analysis.relabelConsecutive(output_patch.astype(np.uint32),
+                                                                                 keep_zeros=False)
 
             # Run connected components after cropping the padding:
             output_patch_cropped = vigra.analysis.labelVolume(output_patch[local_slicing].astype(np.uint32))
-            output[global_slicing] = output_patch_cropped + max_label
 
-            max_label += max_label_patch + 1
+            return [output_patch, output_patch_cropped, global_slicing_incl_pad, global_slicing, max_label_patch]
 
-            # print("Max label: ", max_label)
-            # print("Max in total output: ", output.max())
 
+
+        max_label = 0
+        if self.nb_parallel_blocks == 1:
+            while True:
+                # TODO: parallelize (take care of the max label...)
+                batches = loader.next_batch()
+                if not batches:
+                    print("[*] All blocks were processed!")
+                    break
+
+                outputs = process_batch(batches)
+                output_patch, output_patch_cropped, global_slicing_incl_pad, global_slicing, max_label_patch = tuple(outputs)
+                # Save padded output:
+                output_padded[global_slicing_incl_pad] = output_patch + max_label
+
+                output[global_slicing] = output_patch_cropped + max_label
+
+                max_label += max_label_patch + 1
+        else:
+            pool = ThreadPool(processes=self.nb_parallel_blocks)
+
+            output_patch, output_patch_cropped, global_slicing_incl_pad, global_slicing, max_label_patch = zip(*pool.map(process_batch,
+                                    loader))
+            pool.close()
+            pool.join()
+
+            # Save and combine predictions:
+            for i in range(len(output_patch)):
+                output_padded[global_slicing_incl_pad[i]] = output_patch[i] + max_label
+                output[global_slicing[i]] = output_patch_cropped[i] + max_label
+                max_label += max_label_patch[i] + 1
 
         # Combine padded output with cropped one:
         final_output = output

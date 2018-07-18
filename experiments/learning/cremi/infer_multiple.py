@@ -178,10 +178,8 @@ if __name__ == '__main__':
     projs = [
         # 'smart_oversegm_DS2_denseOffs',
         # 'WSDT_DS1_denseOffs',
-        'plain_unstruct/MWSoffs_bound2_pyT4',
-        # 'plain_unstruct/MWSoffs_bound2_structDTWS',
-        # 'plain_unstruct/MWSoffs_bound2_structDTWS_2',
-        # 'plain_unstruct/MWSoffs_bound2_structMWS_2',
+        # 'plain_unstruct/MWSoffs_bound2_pyT4',
+        'plain_unstruct/MWSoffs_bound2_structDTWS_BCE_2_pT04',
         # 'look_ahead/WSDT_DS1',
     ]
 
