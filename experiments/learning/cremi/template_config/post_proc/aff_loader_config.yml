@@ -5,70 +5,32 @@ volumes:
       A: data
       B: data
       C: data
+    slicing_config:
+      downsampling_ratio:
+        A: [1, 1, 1, 1]
+        B: [1, 1, 1, 1]
+        C: [1, 1, 1, 1]
+      volume_already_padded:
+        A: True # True...???
+        B: True # True...???
+        C: True # True...???
+      padding:
+        A: [[0 ,0], [0 ,0], [0 ,0], [0 ,0]]
+        B: [[0 ,0], [0 ,0], [0 ,0], [0 ,0]]
+        C: [[0 ,0], [0 ,0], [0 ,0], [0 ,0]]
+      stride:
+        A: [12, 10, 400, 400]
+        B: [12, 10, 400, 400]
+        C: [12, 10, 400, 400]
+      window_size:
+        A: [None, 10, None, None]
+        B: [None, 10, None, None]
+        C: [None, 10, None, None]
 
+# Deprecated:
 data_slice:
-#  A: ':, 5:120, 50:-50, 50:-50'
-#  B: ':, 5:120, 50:-50, 50:-50'
-#  C: ':, 5:120, 50:-50, 50:-50'
   A: ':, :, :, :'
   B: ':, :, :, :'
   C: ':, :, :, :'
 
 
-#slicing_config_affs:
-#  downsampling_ratio:
-#    A: [1, 1, 1, 1]
-#    B: [1, 1, 1, 1]
-#    C: [1, 1, 1, 1]
-#  volume_already_padded: True
-#
-#  padding:
-#    A: [[0 ,0] [3, 3] [50, 50] [50, 50]]
-#    B: [[0 ,0] [3, 3] [50, 50] [50, 50]]
-#    C: [[0 ,0] [3, 3] [50, 50] [50, 50]]
-#  stride:
-#    A: [12, 24, 400, 400]
-#    B: [12, 24, 400, 400]
-#    C: [12, 24, 400, 400]
-#  window_size:
-#    A: [12, 30, 500, 500]
-#    B: [12, 30, 500, 500]
-#    C: [12, 30, 500, 500]
-#  data_slice: ':, 57:125, 147:1400, 790:1850'
-#data_slice_not_padded: ':, 60:122, 197:1350, 840:1800'
-#  data_slice: ':, :46, :, :'
-#data_slice_not_padded: ':, 3:43, 50:-50, 50:-50'
-
-#  data_slice: ':, :66, :, :'
-#data_slice_not_padded: ':, 3:63, 50:-50, 50:-50'
-#  data_slice: ':, 60:, :, :'
-#data_slice_not_padded: ':, 63:-3, 50:-50, 50:-50'
-
-## DEBUG:
-#  data_slice: ':, 60:114, 100:1000, 100:1000'  # 114
-#data_slice_not_padded: ':, 63:111, 150:950, 150:950'
-
-# THE FULL THING:
-#data_slice_not_padded: ':, 3:72, 50:-50, 50:-50'
-#  data_slice: ':, :30, 400:900, 300:800'  # 114
-#data_slice_not_padded: ':, 3:27, 450:850, 350:750'
-
-#slice(270,1198),slice(158,786)
-
-#  # DEBUG
-#  padding:
-#  - [0 ,0]
-#  - [1, 1]
-#  - [0, 0]
-#  - [0, 0]
-#  stride: [12, 3, 300, 300]
-#  window_size: [12, 5, 400, 400]
-#  data_slice: ':, 54:60, 800:1200, 1000:1400'
-
-# GT in slice 74 (or 75) in dataset C is screwed up!!!
-
-
-#  data_slice: ':, :60, 80:1256,  89:1281'
-#  stride: [12, 1, 350, 350]
-#  window_size: [12, 1, 700, 700]
-#  data_slice: ':, 60:61, :, :'

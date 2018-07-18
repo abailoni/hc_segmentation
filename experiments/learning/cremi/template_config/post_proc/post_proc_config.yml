@@ -1,8 +1,10 @@
-segm_pipeline_type: 'only_fragmenter'
+segm_pipeline_type: 'MWS'
 nb_threads: 8
 invert_affinities: True
-blockwise: False
+blockwise: True
 return_fragments: False
+use_final_agglomerater: False
+stacking_2D: True
 
 blockwise_kwargs:
   crop_padding: True

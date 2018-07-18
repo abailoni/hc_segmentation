@@ -43,10 +43,13 @@ class BlockWise(object):
             # else:
             self.final_agglomerater = final_agglomerater
 
-    def __call__(self, input_):
-        # TODO: check that input_ is a dataset
+    def __call__(self, *inputs_):
+        assert len(inputs_) == 1 or len(inputs_) == 2
+        # TODO: check that input_ is a dataset (and input 2 is numpy)
+        input_ = inputs_[0]
         final_crop = tuple(slice(pad[0], input_.volume.shape[i+1] - pad[1]) for i, pad in enumerate(input_.padding[1:]))
         if self.blockwise:
+            assert len(inputs_) == 1, "Input segmentation not supported with blockwise"
             # TODO: change this!!
             # At the moment if we crop the padding, then we need to crop the global border for the final
             # agglomeration (but in this way we lose affinities context).
@@ -72,7 +75,12 @@ class BlockWise(object):
             else:
                 return output_segm, blockwise_segm
         else:
-            output_segm = self.segmentation_pipeline(input_.volume)
+            if len(inputs_) == 1:
+                output_segm = self.segmentation_pipeline(input_.volume)
+            elif len(inputs_) == 2:
+                output_segm = self.segmentation_pipeline(input_.volume, inputs_[1])
+            else:
+                raise NotImplementedError()
             if self.return_fragments:
                 return output_segm[1], output_segm[0]
             else:

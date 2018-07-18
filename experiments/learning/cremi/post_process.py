@@ -25,6 +25,8 @@ from long_range_hc.postprocessing.blockwise_solver import BlockWise
 from long_range_hc.postprocessing.segmentation_pipelines.agglomeration.fixation_clustering import \
     FixationAgglomeraterFromSuperpixels
 
+from long_range_hc.datasets import AffinitiesHDF5VolumeLoader, AffinitiesVolumeLoader
+
 from cremi.evaluation import NeuronIds
 from cremi import Volume
 
@@ -95,6 +97,7 @@ def evaluate(project_folder, sample, offsets,
 
     # TODO: it would be really nice to avoid the full loading of the dataset...
     print("Loading affinities and init. segmentation...")
+    affinities_from_hdf5 = affinities is None
     init_segm = None
     if given_initSegm:
         if affinities is None:
@@ -103,11 +106,19 @@ def evaluate(project_folder, sample, offsets,
         else:
             init_segm = import_postproc_data(project_folder, aggl_name=name_aggl,
                                              data_to_import=['init_segmentation'])
+
     else:
         if affinities is None:
             affinities= import_postproc_data(project_folder, aggl_name=name_aggl,
                                                          data_to_import=['affinities'])
 
+
+    if affinities_from_hdf5:
+        affinities_dataset = AffinitiesHDF5VolumeLoader.from_config(aff_loader_config['volumes']['affinities'])
+    else:
+        affinities_dataset = AffinitiesVolumeLoader.from_config(affinities,
+                                                                sample,
+                                            aff_loader_config['volumes']['affinities'])
 
     # assert affinities.shape[1:] == init_segm.shape, "{}, {}".format(affinities.shape, init_segm.shape)
 
@@ -124,7 +135,7 @@ def evaluate(project_folder, sample, offsets,
     invert_affinities = post_proc_config.pop('invert_affinities', False)
     segm_pipeline_type = post_proc_config.pop('segm_pipeline_type', 'gen_HC')
 
-    agglomerater = get_segmentation_pipeline(
+    segmentation_pipeline = get_segmentation_pipeline(
         segm_pipeline_type,
         offsets,
         nb_threads=n_threads,
@@ -133,28 +144,57 @@ def evaluate(project_folder, sample, offsets,
         **post_proc_config
     )
 
-    # agglomerater = FixationAgglomeraterFromSuperpixels(
-    #                 offsets,
-    #                 n_threads=n_threads,
-    #                 invert_affinities=post_proc_config.get('invert_affinities', False),
-    #                  **post_proc_config['generalized_HC_kwargs']['agglomeration_kwargs']
-    # )
+    if post_proc_config.get('use_final_agglomerater', False):
+        final_agglomerater = FixationAgglomeraterFromSuperpixels(
+                        offsets,
+                        n_threads=n_threads,
+                        invert_affinities=invert_affinities,
+                         **post_proc_config['generalized_HC_kwargs']['final_agglomeration_kwargs']
+        )
+    else:
+        final_agglomerater = None
+
+
+    post_proc_solver = BlockWise(segmentation_pipeline=segmentation_pipeline,
+              offsets=offsets,
+                                 final_agglomerater=final_agglomerater,
+              blockwise=post_proc_config.get('blockwise', False),
+              invert_affinities=invert_affinities,
+              nb_threads=n_threads,
+              return_fragments=return_fragments,
+              blockwise_config=post_proc_config.get('blockwise_kwargs', {}))
+
+
+
 
     print("Starting prediction...")
     tick = time.time()
     if given_initSegm:
         init_segm, _, _ = vigra.analysis.relabelConsecutive(init_segm.astype('uint32'))
-        pred_segm = agglomerater(affinities, init_segm)
+        output_segmentations = post_proc_solver(affinities_dataset, init_segm)
     else:
-        pred_segm = agglomerater(affinities)
+        output_segmentations = post_proc_solver(affinities_dataset)
+    pred_segm = output_segmentations[0] if isinstance(output_segmentations, tuple) else output_segmentations
     print("Post-processing took {} s".format(time.time() - tick))
     print("Pred. sahpe: ", pred_segm.shape)
     print("GT shape: ", gt.shape)
     print("Min. GT label: ", gt.min())
 
+    if post_proc_config.get('stacking_2D', False):
+        print('2D stacking...')
+        stacked_pred_segm = np.empty_like(pred_segm)
+        max_label = 0
+        for z in range(pred_segm.shape[0]):
+            slc = vigra.analysis.labelImage(pred_segm[z].astype(np.uint32))
+            stacked_pred_segm[z] = slc + max_label
+            max_label += slc.max() + 1
+        pred_segm = stacked_pred_segm
+
+
     segm_file = os.path.join(postproc_dir, 'pred_segm.h5')
     name_finalSegm = 'finalSegm'
     print("Writing on disk...")
+    # TODO: write possible blocks and fragments...
     vigra.writeHDF5(pred_segm.astype('int64'), segm_file, name_finalSegm, compression='gzip')
 
     # print("Connected components if slice is taken...")

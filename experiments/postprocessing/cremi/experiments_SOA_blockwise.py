@@ -17,7 +17,7 @@ from inferno.io.volumetric.volumetric_utils import parse_data_slice
 
 
 
-from long_range_hc.datasets import AffinitiesVolumeLoader
+from long_range_hc.datasets import AffinitiesHDF5VolumeLoader
 from long_range_hc.postprocessing.blockwise_solver import BlockWise
 from long_range_hc.postprocessing.segmentation_pipelines.agglomeration.fixation_clustering import \
     FixationAgglomeraterFromSuperpixels
@@ -105,17 +105,18 @@ def evaluate(project_folder, sample, offsets,
 
     # TODO: it would be really nice to avoid the full loading of the dataset...
     print("Loading affinities and init. segmentation...")
-    affinities_dataset = AffinitiesVolumeLoader.from_config(aff_loader_config)
+    affinities_dataset = AffinitiesHDF5VolumeLoader.from_config(aff_loader_config)
     print(affinities_dataset.base_sequence)
 
-    # final_agglomerater = FixationAgglomeraterFromSuperpixels(
-    #                 offsets,
-    #                 n_threads=n_threads,
-    #                 invert_affinities=invert_affinities,
-    #                  **post_proc_config['generalized_HC_kwargs']['final_agglomeration_kwargs']
-    # )
-
-    final_agglomerater = None
+    if post_proc_config.get('use_final_agglomerater', False):
+        final_agglomerater = FixationAgglomeraterFromSuperpixels(
+                        offsets,
+                        n_threads=n_threads,
+                        invert_affinities=invert_affinities,
+                         **post_proc_config['generalized_HC_kwargs']['final_agglomeration_kwargs']
+        )
+    else:
+        final_agglomerater = None
 
 
     post_proc_solver = BlockWise(segmentation_pipeline=segmentation_pipeline,

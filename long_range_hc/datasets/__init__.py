@@ -1,1 +1,1 @@
-from .affinities_loader import AffinitiesVolumeLoader
+from .affinities_loader import AffinitiesVolumeLoader, AffinitiesHDF5VolumeLoader
