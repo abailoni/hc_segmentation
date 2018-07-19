@@ -268,10 +268,10 @@ class ComputeStructuredWeightsWrongMerges(Transform):
                                    segm_labels_nodes[uv_ids[:, 0]] == segm_labels_nodes[uv_ids[:, 1]])
         edge_weights = np.where(wrong_merge_condition,
                              1 + np.minimum(size_nodes[uv_ids[:,0]], size_nodes[uv_ids[:,1]]) * self.weighting,
-                             np.ones(uv_ids.shape[0]))
+                             np.zeros(uv_ids.shape[0]))
 
         loss_weights = map_edge_features_to_image(self.offsets, np.expand_dims(edge_weights, -1), rag=rag,
-                                   channel_affs=0, fillValue=1.,
+                                   channel_affs=0, fillValue=0.,
                                    number_of_threads=self.number_of_threads)[...,0]
 
         return loss_weights

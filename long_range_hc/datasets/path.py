@@ -61,6 +61,7 @@ def adapt_configs_to_model(model_ID,
             model_name = name
             break
     assert model_name is not None, "Model ID not found in the config file"
+    print("Using model ", model_name)
     model_configs = configs['models'][model_name]
 
     # Update HC threshold postproc:

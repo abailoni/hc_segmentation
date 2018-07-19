@@ -165,7 +165,7 @@ def set_up_training(project_directory,
     trainer.evaluate_metric_every('never')
     trainer.validate_every(VALIDATE_EVERY, for_num_iterations=2)
     trainer.register_callback(SaveAtBestValidationScore(smoothness=smoothness, verbose=True))
-    trainer.register_callback(AutoLR(factor=0.999,
+    trainer.register_callback(AutoLR(factor=1.,
                                   patience='100 iterations',
                                   monitor_while='validating',
                                   monitor_momentum=smoothness,

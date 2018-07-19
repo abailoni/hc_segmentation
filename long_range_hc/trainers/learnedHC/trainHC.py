@@ -179,12 +179,14 @@ class HierarchicalClusteringTrainer(Trainer):
         :param segm: [batch_size, z, x, y]
         """
         if not hasattr(self, 'segmToAffs_GT'):
+            erode_boundary_thickness = self.options['HC_config']['erode_boundary_thickness'] if 'erode_boundary_thickness' in self.options['HC_config'] else 2
+            boundary_erode_segmentation = [0,erode_boundary_thickness,erode_boundary_thickness] if erode_boundary_thickness != 0 else None
             self.segmToAffs_GT = Segmentation2AffinitiesFromOffsets(dim=3,
                                                offsets=self.options['HC_config']['offsets'],
                                                add_singleton_channel_dimension = True,
                                                retain_segmentation = True,
                                                use_gpu=True,
-                                                                 boundary_erode_segmentation=[0,2,2]
+                                                                 boundary_erode_segmentation=boundary_erode_segmentation
             )
 
         segm_tensor = segm_tensor.data
@@ -462,7 +464,7 @@ class HierarchicalClusteringTrainer(Trainer):
                                           # "eroded_finalSegm":eroded_finalSegm,
                                           "target":target})
             else:
-                if len(inputs) == 2 or len(inputs) == 4:
+                if len(inputs) == 4:
                     # Compute segmentation:
                     GT_labels = target.cpu().data.numpy()[:, 0]
                     pred_numpy = out_prediction.cpu().data.numpy()
@@ -504,7 +506,7 @@ class HierarchicalClusteringTrainer(Trainer):
 
         print(loss.data.cpu().numpy())
 
-        if validation and (len(inputs) == 3 or len(inputs) == 1) :
+        if validation and (len(inputs) == 3 or len(inputs) == 1 or len(inputs) == 2) :
             self.criterion.validation_score = [loss.cpu().data.numpy()]
 
 

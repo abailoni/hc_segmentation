@@ -1,4 +1,4 @@
-segm_pipeline_type: 'only_fragmenter'
+segm_pipeline_type: 'gen_HC'
 nb_threads: 8
 invert_affinities: True
 blockwise: False
@@ -17,7 +17,7 @@ MWS_kwargs:
     - 10
     - 10
 
-start_from_given_segm: False
+start_from_given_segm: True
 
 use_fragmenter: False
 fragmenter: 'WSDT'
@@ -61,8 +61,12 @@ generalized_HC_kwargs:
     update_rule_merge: 'mean'
     update_rule_not_merge: 'mean'
 #    offsets_weights: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-    offsets_weights: [1., 1., 1., 2., 3, 3, 3, 9, 9, 4, 27, 27]
+#    offsets_weights: [1., 1., 1., 2., 3, 3, 3, 9, 9, 4, 27, 27]
 #    offsets_weights: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3, 3]
+    offsets_weights: [1., 1., 1.,
+                      1., 1., 1., 1.,
+                      9., 9., 9., 9., 9., 9., 9., 9.,
+                      27., 27.]
 #    offsets_weights: [1., 1., 1.,
 #                      3., 3., 3., 3.,
 #                      5., 5., 5., 5.,
