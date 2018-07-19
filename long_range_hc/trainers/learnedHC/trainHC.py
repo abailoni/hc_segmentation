@@ -46,6 +46,8 @@ from inferno.io.core import Zip
 from skunkworks.inference.simple import SimpleParallelLoader
 from skunkworks.postprocessing.watershed import DamWatershed
 
+from long_range_hc.postprocessing.pipelines import get_segmentation_pipeline
+
 
 from skunkworks.postprocessing.watershed.wsdt import WatershedOnDistanceTransformFromAffinities
 
@@ -221,34 +223,32 @@ class HierarchicalClusteringTrainer(Trainer):
         return affinities
 
 
-    def compute_oversegm_loss_weights(self, output, target):
+    def compute_oversegm_loss_weights(self, output, target, init_segm=None):
         """
         :param segm: [batch_size, z, x, y]
         """
-        postproc_config = self.options['HC_config']
-        offsets = postproc_config['offsets']
-        nb_threads = postproc_config['nb_threads']
+        options = self.options['HC_config']
+        offsets = options['offsets']
+        nb_threads = options['nb_threads']
 
-        if not hasattr(self, 'DTWS'):
-            if postproc_config['postproc_type'] == 'DTWS':
-                WSDT_kwargs = deepcopy(postproc_config.get('WSDT_kwargs', {}))
-                self.postproc_alg = WatershedOnDistanceTransformFromAffinities(
-                    offsets,
-                    WSDT_kwargs.pop('threshold', 0.5),
-                    WSDT_kwargs.pop('sigma_seeds', 0.),
-                    invert_affinities=True,
-                    return_hmap=False,
-                    n_threads=nb_threads,
-                    **WSDT_kwargs,
-                    **postproc_config.get('prob_map_kwargs', {}))
-            elif postproc_config['postproc_type'] == 'MWS':
-                self.postproc_alg = DamWatershed(offsets,
-                             min_segment_size=10,
-                             invert_affinities=False,
-                             n_threads=nb_threads,
-                             **postproc_config.get('MWS_kwargs', {}))
 
-            weighting = 0.0005 if 'weighting' not in postproc_config else postproc_config['weighting']
+        if not hasattr(self, 'segmentation_pipeline'):
+            post_proc_config = self.postproc_options
+            post_proc_config.pop('return_fragments', False)
+            post_proc_config.pop('nb_threads')
+            invert_affinities = post_proc_config.pop('invert_affinities', False)
+            segm_pipeline_type = post_proc_config.pop('segm_pipeline_type', 'gen_HC')
+
+            self.segmentation_pipeline = get_segmentation_pipeline(
+                segm_pipeline_type,
+                offsets,
+                nb_threads=nb_threads,
+                invert_affinities=invert_affinities,
+                return_fragments=False,
+                **post_proc_config
+            )
+
+            weighting = 0.0005 if 'weighting' not in options else options['weighting']
             self.get_loss_merge_weights = ComputeStructuredWeightsWrongMerges(
                                         offsets,
                                                 dim=3,
@@ -256,18 +256,22 @@ class HierarchicalClusteringTrainer(Trainer):
                 weighting=weighting,
                                                 number_of_threads=nb_threads)
 
+
         is_cuda = output.is_cuda
-
-
 
         pool = ThreadPool()
 
         def compute_weights(b):
-            segm = self.postproc_alg(output[b].cpu().detach().numpy())
+            if init_segm is None:
+                segm = self.segmentation_pipeline(output[b].cpu().detach().numpy())
+            else:
+                segm = self.segmentation_pipeline(output[b].cpu().detach().numpy(), init_segm[b].cpu().detach().numpy())
             loss_weights_batch = self.get_loss_merge_weights(segm, target[b, 0].cpu().detach().numpy())
             # loss_weights_batch[0] = 1.
             # loss_weights_batch[3:] = 1.
             return from_numpy(loss_weights_batch[None, ...])
+
+        assert options['focus_on_mistakes'] == 'only_merge_mistakes', "all not implemented atm"
 
         # Parallelize computation of the weights:
         loss_weights = pool.map(compute_weights,
@@ -434,8 +438,9 @@ class HierarchicalClusteringTrainer(Trainer):
 
         loss_weights = None
             # Compute structured loss weights:
-        if len(inputs) == 1:
-            loss_weights = self.compute_model_0_weights(out_prediction, target)
+        if self.options['HC_config']['focus_on_mistakes'] == 'only_merge_mistakes':
+            loss_weights = self.compute_oversegm_loss_weights(out_prediction, target,
+                                                              init_segm=init_segm_labels)
 
 
 
