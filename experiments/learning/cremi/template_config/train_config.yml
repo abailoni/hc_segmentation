@@ -1,6 +1,6 @@
 # Use this for the 3D model:
 model_name: UNet
-loss_type: 'BCE'
+loss_type: 'soresen'
 
 pretrained_model_kwargs:
   add_residual_connections: true
@@ -81,9 +81,9 @@ HC_config:
       offset_weights: [1.0, 1.0]
       used_offsets: [1, 2]
 
-  postproc_type: 'DTWS'
+#  postproc_type: 'DTWS'
   weighting: 1.
-  loss_mul_factor: 1e-6
+  loss_BCE_factor: 500
 
   WSDT_kwargs:
     threshold: 0.49

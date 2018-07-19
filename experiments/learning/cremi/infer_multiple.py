@@ -142,8 +142,8 @@ def predict(sample,
     #     output = output[:3]
     #     save_path = save_path[:-3] + '_nnaffinities.h5'
     if dump_affs or name_aggl is None:
-        print("Dumping affinities on disk...")
-        vigra.writeHDF5(output.astype('float32'), save_path, name_inference, compression='gzip')
+        print("Dumping local affinities on disk...")
+        vigra.writeHDF5(output[:3].astype('float32'), save_path, name_inference, compression='gzip')
         print("Done!")
 
 
@@ -158,6 +158,7 @@ if __name__ == '__main__':
     parser.add_argument('--name_inference', default=None)
     parser.add_argument('--path_init_segm', default=None)
     parser.add_argument('--name_aggl', default=None)
+    parser.add_argument('--dump_affs', default=False, type=bool)
     parser.add_argument('--samples', nargs='+', default=['A', 'B', 'C'], type=str)
 
 
@@ -179,7 +180,7 @@ if __name__ == '__main__':
         # 'smart_oversegm_DS2_denseOffs',
         # 'WSDT_DS1_denseOffs',
         # 'plain_unstruct/MWSoffs_bound2_pyT4',
-        'plain_unstruct/MWSoffs_bound2_structDTWS_BCE_2_pT04',
+        'plain_unstruct/MWSoffs_bound2_DICEplusBCE_50_pT04',
         # 'look_ahead/WSDT_DS1',
     ]
 
@@ -224,7 +225,8 @@ if __name__ == '__main__':
                     ds,
                     path_init_segm,
                     name_inference,
-                    name_aggl)
+                    name_aggl,
+                    args.dump_affs)
 
         # pool = ThreadPool()
 

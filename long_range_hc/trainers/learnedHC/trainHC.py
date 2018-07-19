@@ -7,6 +7,7 @@ import warnings
 from multiprocessing.pool import ThreadPool
 
 from torch import randn
+from torch.nn.modules.loss import BCELoss
 # from inferno.extensions.criteria.set_similarity_measures import GeneralizedDiceLoss
 from long_range_hc.criteria.learned_HC.utils.temp_soresen_loss import SorensenDiceLossPixelWeights
 
@@ -109,6 +110,8 @@ class HierarchicalClusteringTrainer(Trainer):
 
 
         if trainer_kwargs:
+            self.BCE_loss = BCELoss(reduce=False)
+
             # LOOK-AHEAD criterion:
             self.lookahead_loss = SorensenDiceLoss()
             self.applyMask = ApplyMaskToBatch(targets_are_inverted=False)
@@ -280,6 +283,18 @@ class HierarchicalClusteringTrainer(Trainer):
         loss_weights = loss_weights.cuda() if is_cuda else loss_weights
         return loss_weights
 
+    def compute_model_0_weights(self, output, target):
+        """
+        :param segm: [batch_size, z, x, y]
+        """
+        boundaries = target[:, 1:] == 0
+        loss_weights = torch.zeros(size=boundaries.size(), requires_grad=False).cuda()
+        loss_weights[boundaries] = 1.
+        # Focus only on local offsets:
+        loss_weights[:, 0] = 0.
+        loss_weights[:, 3:] = 0.
+        return loss_weights
+
 
     def get_postprocessing(self, options):
         postproc_config = options['HC_config']
@@ -417,8 +432,8 @@ class HierarchicalClusteringTrainer(Trainer):
 
         loss_weights = None
             # Compute structured loss weights:
-        if len(inputs) == 1 and 'postproc_type' in self.options['HC_config']:
-            loss_weights = self.compute_oversegm_loss_weights(out_prediction, target)
+        if len(inputs) == 1:
+            loss_weights = self.compute_model_0_weights(out_prediction, target)
 
 
 
@@ -691,38 +706,36 @@ class HierarchicalClusteringTrainer(Trainer):
             # TODO: change this shit... (multiply weights and sum directly in the loss...)
             if loss_weights is not None:
                 loss_weights = loss_weights if not is_cuda else loss_weights.cuda()
-                if self.options['loss_type'] == 'soresen':
-                    sqrt_weights = torch.sqrt(loss_weights)
-                    prediction = prediction * sqrt_weights
-                    target[:,1:] = target[:,1:] * sqrt_weights
+                # if self.options['loss_type'] == 'soresen':
+                #     sqrt_weights = torch.sqrt(loss_weights)
+                #     prediction = prediction * sqrt_weights
+                #     target[:,1:] = target[:,1:] * sqrt_weights
                 loss = self.criterion.unstructured_loss(prediction, target)
-                loss_size = loss.size()
+                loss = loss.sum()
 
+                # print("Soresen loss: ", loss.data.cpu().numpy())
 
-                # print("Loss mean",loss.mean())
-                # print("Loss min", loss.min())
-                # print("Weighs mean",loss_weights.mean())
-                # loss *= - 1.0
+                # TEMP for getting ignore label:
+                loss_weights[loss == 0.] = 0.
+                BCE_loss = self.BCE_loss(prediction, 1 - target[:,1:])
+                BCE_loss = BCE_loss * loss_weights
+                BCE_loss = BCE_loss.mean()
 
-                if self.options['loss_type'] == 'BCE':
-                    loss = (loss * loss_weights)
+                # print("BCE loss: ", BCE_loss.data.cpu().numpy())
 
-                if 'loss_mul_factor' in self.options['HC_config']:
-                    factor = self.options['HC_config']['loss_mul_factor']
-                    factor = eval(factor) if isinstance(factor, str) else factor
-                    loss = loss * factor
+                loss = loss + BCE_loss * self.options['HC_config']['loss_BCE_factor']
 
-                # loss_weights = (loss_weights * (loss_weights > 1.0).float()) * 1e-6
-                # # This makes sure that the loss gets higher when some mistakes are done:
-                # loss = loss.sum() + loss_weights.sum()
+                # if self.options['loss_type'] == 'BCE':
+                #     loss = (loss * loss_weights)
+                #
+                # if 'loss_mul_factor' in self.options['HC_config']:
+                #     factor = self.options['HC_config']['loss_mul_factor']
+                #     factor = eval(factor) if isinstance(factor, str) else factor
+                #     loss = loss * factor
+
                 loss = loss.sum()
 
 
-                # from functools import reduce
-                # from operator import mul
-                #
-                # loss = loss / reduce(mul, [s for s in loss_size], 1.)
-                # print(loss_size, reduce(mul, [s for s in loss_size], 1.))
             else:
                 loss = self.criterion.unstructured_loss(prediction, target)
                 loss = loss.sum()

@@ -6,6 +6,7 @@ import logging
 import argparse
 import yaml
 import json
+from torch.nn.modules.loss import BCELoss
 
 # from skunkworks.trainers.learnedHC.visualization import VisualizationCallback
 from long_range_hc.trainers.learnedHC.visualization import VisualizationCallback
@@ -129,7 +130,7 @@ def set_up_training(project_directory,
     # unstructured_loss = LossWrapper(criterion=multiscale_loss,
     #                     transforms=GetMaskAndRemoveSegmentation(affinity_offsets))
 
-    from torch.nn.modules.loss import BCELoss
+
     if 'loss_type' in config:
         if config['loss_type'] == 'BCE':
             loss = BCELoss(reduce=False)
@@ -162,7 +163,7 @@ def set_up_training(project_directory,
     trainer.evaluate_metric_every('never')
     trainer.validate_every(VALIDATE_EVERY, for_num_iterations=2)
     trainer.register_callback(SaveAtBestValidationScore(smoothness=smoothness, verbose=True))
-    trainer.register_callback(AutoLR(factor=0.97,
+    trainer.register_callback(AutoLR(factor=0.999,
                                   patience='100 iterations',
                                   monitor_while='validating',
                                   monitor_momentum=smoothness,
