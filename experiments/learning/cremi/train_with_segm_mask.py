@@ -17,7 +17,7 @@ import vigra
 NUM_WORKERS_PER_BATCH = 25
 z_window_slice_training = None
 
-from long_range_hc.datasets.path import get_template_config_file
+from long_range_hc.datasets.path import get_template_config_file, adapt_configs_to_model
 
 
 from inferno.trainers.basic import Trainer
@@ -75,6 +75,7 @@ logger = logging.getLogger(__name__)
 def set_up_training(project_directory,
                     config,
                     data_config,
+                    postproc_config,
                     load_pretrained_model,
                     pretrain=False,
                     dir_loaded_model=None):
@@ -155,6 +156,7 @@ def set_up_training(project_directory,
     # TRAINER:
     # ----------
     trainer = HierarchicalClusteringTrainer(model, pre_train=pretrain, **config)
+    trainer.set_postproc_config(yaml2dict(postproc_config))
     trainer.save_every(SAVE_EVERY, to_directory=os.path.join(project_directory, 'Weights'))
     trainer.build_criterion(LHC, options=config)
     trainer.register_unstructured_criterion(unstructured_loss)
@@ -228,6 +230,7 @@ def training(project_directory,
              train_configuration_file,
              data_configuration_file,
              validation_configuration_file,
+             postproc_configuration_file,
              max_training_iters=int(1e5),
              from_checkpoint=False,
              load_pretrained_model=False,
@@ -252,6 +255,7 @@ def training(project_directory,
         trainer = set_up_training(project_directory,
                                   config,
                                   data_config,
+                                  postproc_configuration_file,
                                   load_pretrained_model,
                                   pretrain,
                                   dir_loaded_model=dir_loaded_model
@@ -328,6 +332,17 @@ def make_validation_config(validation_config_file, offsets, n_batches, max_nb_wo
     with open(validation_config_file, 'w') as f:
         yaml.dump(template, f)
 
+def make_postproc_config(postproc_config_file, nb_threads, reload_model=False):
+    if not reload_model:
+        template_path = './template_config/post_proc/post_proc_config.yml'
+        template = get_template_config_file(template_path, postproc_config_file)
+    else:
+        # Reload previous settings:
+        template = yaml2dict(postproc_config_file)
+    template['nb_threads'] = nb_threads
+    with open(postproc_config_file, 'w') as f:
+        yaml.dump(template, f)
+
 
 def parse_offsets(offset_file):
     assert os.path.exists(offset_file)
@@ -349,6 +364,7 @@ def main():
     parser.add_argument('--dir_loaded_model', type=str)
     parser.add_argument('--z_window_size_training', default=int(10), type=int)
     parser.add_argument('--from_checkpoint', default='False')
+    parser.add_argument('--model_ID', default=None)
 
 
     args = parser.parse_args()
@@ -394,13 +410,26 @@ def main():
     validation_config = os.path.join(project_directory, 'validation_config.yml')
     make_validation_config(validation_config, offsets, len(gpus), max_nb_workers, pretrain, reload_model=eval(args.from_checkpoint))
 
-    print("Pretrain: {}; Load model: {}".format(pretrain,load_model))
+    postproc_config = os.path.join(project_directory, 'postproc_config.yml')
+    make_postproc_config(postproc_config, nb_threads, reload_model=eval(args.from_checkpoint))
+
+    # If a model ID is passed, update the config files:
+    if args.model_ID is not None:
+        config_paths = {'models': './template_config/models_config.yml',
+                        'train': train_config,
+                        'valid': validation_config,
+                        'data': data_config,
+                        'postproc': postproc_config}
+        adapt_configs_to_model(int(args.model_ID), **config_paths)
+
+    print("Pretrain: {}; Load model: {}".format(pretrain, load_model))
 
 
     training(project_directory,
              train_config,
              data_config,
              validation_config,
+             postproc_config,
              max_training_iters=args.max_train_iters,
              from_checkpoint=eval(args.from_checkpoint),
              pretrain=pretrain,

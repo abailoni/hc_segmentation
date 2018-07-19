@@ -1,0 +1,12 @@
+threshold_090:
+  model_ID: 1
+  volumes:
+    init_segmentation:
+      # The '$' character will be replaced with the sample name:
+      path: '/export/home/abailoni/learnedHC/plain_unstruct/MWSoffs_bound2_pyT4/postprocess/inferName_v1_DTWS_$/pred_segm.h5'
+      path_in_h5_dataset: 'finalSegm'
+    GT:
+      path_in_h5_dataset: 'finalSegm_bestGT'
+  threshold: 0.9
+  # Three options available: 'None', 'only_merge_mistakes', 'all_mistakes'
+  focus_on_mistakes: 'only_merge_mistakes'

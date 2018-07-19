@@ -145,6 +145,9 @@ class HierarchicalClusteringTrainer(Trainer):
             if self.pre_train:
                 self.postprocessing = self.get_postprocessing(trainer_kwargs)
 
+    def set_postproc_config(self, options):
+        self.postproc_options = yaml2dict(options)
+
     def computeSegmToAffsCUDA_finalSegm(self, segm_tensor, retain_segmentation = True):
         """
         :param segm: [batch_size, z, x, y]
