@@ -245,10 +245,9 @@ class HierarchicalClusteringTrainer(Trainer):
                              n_threads=nb_threads,
                              **postproc_config.get('MWS_kwargs', {}))
 
-            # FIXME: FIXME FIXME FIXME something weird with the inverted offsets....!!!
             weighting = 0.0005 if 'weighting' not in postproc_config else postproc_config['weighting']
             self.get_loss_merge_weights = ComputeStructuredWeightsWrongMerges(
-                                        [[-f for f in of] for of in offsets],
+                                        offsets,
                                                 dim=3,
                                                 ignore_label=0,
                 weighting=weighting,

@@ -264,9 +264,9 @@ class ComputeStructuredWeightsWrongMerges(Transform):
 
         uv_ids = rag.uvIds()
 
-        false_merge_condition = np.logical_and(GT_labels_nodes[uv_ids[:,0]] != GT_labels_nodes[uv_ids[:,1]],
+        wrong_merge_condition = np.logical_and(GT_labels_nodes[uv_ids[:,0]] != GT_labels_nodes[uv_ids[:,1]],
                                    segm_labels_nodes[uv_ids[:, 0]] == segm_labels_nodes[uv_ids[:, 1]])
-        edge_weights = np.where(false_merge_condition,
+        edge_weights = np.where(wrong_merge_condition,
                              1 + np.minimum(size_nodes[uv_ids[:,0]], size_nodes[uv_ids[:,1]]) * self.weighting,
                              np.ones(uv_ids.shape[0]))
 
