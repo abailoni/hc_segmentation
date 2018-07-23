@@ -180,8 +180,9 @@ if __name__ == '__main__':
         # 'smart_oversegm_DS2_denseOffs',
         # 'WSDT_DS1_denseOffs',
         # 'plain_unstruct/MWSoffs_bound2_pyT4',
-        'plain_unstruct/MWSoffs_bound2_DICEplusBCE_50_pT04',
-        # 'look_ahead/WSDT_DS1',
+        # 'model_090/DICEplusBCE_001'
+        'model_050_A/pureDICE'
+        # 'plain_unstruct/MWSoffs_bound2_addedBCE_001',
     ]
 
     DS = [

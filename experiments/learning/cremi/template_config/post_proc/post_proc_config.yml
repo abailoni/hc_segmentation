@@ -1,4 +1,4 @@
-segm_pipeline_type: 'gen_HC'
+segm_pipeline_type: 'only_fragmenter'
 nb_threads: 8
 invert_affinities: True
 blockwise: False
@@ -17,7 +17,7 @@ MWS_kwargs:
     - 10
     - 10
 
-start_from_given_segm: True
+start_from_given_segm: False
 
 use_fragmenter: False
 fragmenter: 'WSDT'

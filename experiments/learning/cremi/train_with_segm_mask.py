@@ -88,7 +88,7 @@ def set_up_training(project_directory,
     if load_pretrained_model:
         load_dir = project_directory if dir_loaded_model is None else dir_loaded_model
         model = Trainer().load(from_directory=load_dir,
-                               filename='Weights/checkpoint.pytorch').model
+                               filename='Weights/checkpoint.pytorch', best=False).model
     else:
         if pretrain:
             model_name = "UNet3D"

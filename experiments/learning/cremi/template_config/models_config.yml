@@ -23,3 +23,42 @@ threshold_090_struct:
   threshold: 0.9
   # Three options available: 'None', 'only_merge_mistakes', 'all_mistakes'
   focus_on_mistakes: 'only_merge_mistakes'
+
+superpixels:
+  model_ID: 3
+  volumes: {}
+  threshold: 0.9
+  # Three options available: 'None', 'only_merge_mistakes', 'all_mistakes'
+  focus_on_mistakes: 'none'
+
+superpixels_struct:
+  model_ID: 4
+  volumes: {}
+  threshold: 0.9
+  # Three options available: 'None', 'only_merge_mistakes', 'all_mistakes'
+  focus_on_mistakes: 'only_merge_mistakes'
+
+
+threshold_050:
+  model_ID: 5
+  volumes:
+    init_segmentation:
+      path: '/export/home/abailoni/learnedHC/model_090/pureDICE/postprocess/inferName_v1_1_HC_090_$/pred_segm.h5'
+      path_in_h5_dataset: 'finalSegm'
+    GT:
+      path_in_h5_dataset: 'finalSegm_bestGT'
+  threshold: 0.5
+  # Three options available: 'None', 'only_merge_mistakes', 'all_mistakes'
+  focus_on_mistakes: 'none'
+
+threshold_050_struct:
+  model_ID: 6
+  volumes:
+    init_segmentation:
+      path: '/export/home/abailoni/learnedHC/model_090/pureDICE/postprocess/inferName_v1_1_HC_090_$/pred_segm.h5'
+      path_in_h5_dataset: 'finalSegm'
+    GT:
+      path_in_h5_dataset: 'finalSegm_bestGT'
+  threshold: 0.5
+  # Three options available: 'None', 'only_merge_mistakes', 'all_mistakes'
+  focus_on_mistakes: 'only_merge_mistakes'

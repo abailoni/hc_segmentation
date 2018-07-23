@@ -451,6 +451,23 @@ class HierarchicalClusteringTrainer(Trainer):
         #     is_cuda = out_prediction.is_cuda
         # else:
         #     is_cuda = static_prediction.is_cuda
+
+
+
+
+
+        # static_prediction = out_prediction
+
+        # if len(inputs) == 3:
+        #     loss = self.splitCNN_criterion(out_prediction, target)
+        #
+        #
+        # else:
+        loss, loss_weights = self.get_loss_static_prediction(out_prediction, target=target,
+                                               validation=validation, loss_weights=loss_weights)
+
+        print(loss.data.cpu().numpy())
+
         if self.pre_train:
             if not validation:
                 pass
@@ -491,20 +508,6 @@ class HierarchicalClusteringTrainer(Trainer):
                                               "GT_labels": target[:,0]},
                                              validation=True)
 
-
-
-
-        # static_prediction = out_prediction
-
-        # if len(inputs) == 3:
-        #     loss = self.splitCNN_criterion(out_prediction, target)
-        #
-        #
-        # else:
-        loss = self.get_loss_static_prediction(out_prediction, target=target,
-                                               validation=validation, loss_weights=loss_weights)
-
-        print(loss.data.cpu().numpy())
 
         if validation and (len(inputs) == 3 or len(inputs) == 1 or len(inputs) == 2) :
             self.criterion.validation_score = [loss.cpu().data.numpy()]
@@ -720,12 +723,14 @@ class HierarchicalClusteringTrainer(Trainer):
                 #     prediction = prediction * sqrt_weights
                 #     target[:,1:] = target[:,1:] * sqrt_weights
                 loss = self.criterion.unstructured_loss(prediction, target)
+                # TEMP for getting ignore label:
+                loss_weights[loss == 0.0] = 0.
+
                 loss = loss.sum()
 
                 # print("Soresen loss: ", loss.data.cpu().numpy())
 
-                # TEMP for getting ignore label:
-                loss_weights[loss == 0.] = 0.
+
                 BCE_loss = self.BCE_loss(prediction, 1 - target[:,1:])
                 BCE_loss = BCE_loss * loss_weights
                 BCE_loss = BCE_loss.mean()
@@ -750,7 +755,7 @@ class HierarchicalClusteringTrainer(Trainer):
                 loss = loss.sum()
         if is_cuda:
             loss = loss.cuda()
-        return loss
+        return loss, loss_weights
 
     # def get_loss(self, prediction, target=None, validation=False):
     #     if self.criterion.unstructured_loss is not None and not validation:

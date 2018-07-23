@@ -41,8 +41,11 @@ def evaluate(project_folder, sample, offsets,
                              'Predictions',
                              'prediction_sample%s.h5' % sample)
 
-    post_proc_config = './template_config/post_proc/post_proc_config.yml'
-    post_proc_config = yaml2dict(post_proc_config)
+    postproc_config_path = os.path.join(project_folder,
+                                    'postproc_config.yml')
+    if not os.path.isfile(postproc_config_path):
+        postproc_config_path = './template_config/post_proc/post_proc_config.yml'
+    post_proc_config = yaml2dict(postproc_config_path)
 
     name_aggl = "{}_{}".format(name_aggl, sample)
 

@@ -294,7 +294,7 @@ def plot_dyn_predictions(img_data, targets, z_slice, milestep):
                                               interpolation=DEF_INTERP)
 
 
-def plot_pretrain_predictions(img_data, targets, z_slice):
+def plot_pretrain_predictions(img_data, targets, z_slice, fig=None):
     if 'final_segm' in img_data:
         # Plot 1:
         target1 = targets[0, z_slice]
@@ -365,10 +365,10 @@ def plot_pretrain_predictions(img_data, targets, z_slice):
                       background=img_data['raw'], highlight_boundaries=True)
             targets[1, z_slice].matshow(img_data['stat_prediction'][0, z_slice], cmap='gray',
                                             interpolation=DEF_INTERP)
-            # if 'loss_weights' in img_data:
-            #     targets[1, z_slice].matshow(mask_the_mask(img_data['loss_weights'][0, z_slice], value_to_mask=1.0),
-            #                                 cmap='rainbow',
-            #                                 alpha=0.7, interpolation=DEF_INTERP)
+            if 'loss_weights' in img_data:
+                cax = targets[1, z_slice].matshow(mask_the_mask(img_data['loss_weights'][0, z_slice], interval=[-0.0001, 1.0001]),
+                                            cmap='rainbow',
+                                            alpha=0.7, interpolation=DEF_INTERP)
             targets[1, z_slice].matshow(mask_the_mask(img_data['target'][0 + 1, z_slice], value_to_mask=1.0),
                                             cmap='Set1',
                                             alpha=0.3, interpolation=DEF_INTERP)
@@ -390,10 +390,12 @@ def plot_pretrain_predictions(img_data, targets, z_slice):
     for i, offset in enumerate(plotted_offsets):
         targets[i+2, z_slice].matshow(img_data['stat_prediction'][offset,z_slice], cmap='gray', interpolation=DEF_INTERP)
         # targets[i+1, z_slice].matshow(img_data['target'][offset+1, z_slice], cmap='gray', interpolation=DEF_INTERP)
-        # if 'loss_weights' in img_data:
-        #     targets[i + 2, z_slice].matshow(mask_the_mask(img_data['loss_weights'][offset, z_slice], value_to_mask=1.0),
-        #                                     cmap='rainbow',
-        #                                     alpha=0.7, interpolation=DEF_INTERP)
+        if 'loss_weights' in img_data:
+            cax = targets[i + 2, z_slice].matshow(mask_the_mask(img_data['loss_weights'][offset, z_slice], interval=[-0.0001, 1.0001]),
+                                            cmap='rainbow',
+                                            alpha=0.7, interpolation=DEF_INTERP)
+            if z_slice == 6 and i == 0:
+                fig.colorbar(cax, ax=targets[i + 2, z_slice])
         targets[i+2, z_slice].matshow(mask_the_mask(img_data['target'][offset+1, z_slice], value_to_mask=1.0), cmap='Set1',
                                       alpha=0.3, interpolation=DEF_INTERP)
 
@@ -469,7 +471,7 @@ def plot_data_batch(img_data, plot_type, path, name, column_size=0):
             if z_slice==1 or z_slice==5:
                 plot_dyn_predictions(img_data,ax,z_slice,0)
         elif plot_type == "pretrain_plots":
-            plot_pretrain_predictions(img_data,ax,z_slice)
+            plot_pretrain_predictions(img_data,ax,z_slice, fig=f)
         else:
             raise NotImplementedError()
 
