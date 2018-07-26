@@ -1,7 +1,9 @@
 import vigra
 import numpy as np
-from long_range_hc.criteria.learned_HC.utils.segm_utils import accumulate_segment_features_vigra
+from long_range_hc.criteria.learned_HC.utils.segm_utils import accumulate_segment_features_vigra, map_features_to_label_array
 from skunkworks.postprocessing.util import from_affinities_to_hmap
+
+import nifty.graph.rag as nrag
 
 class SizeThreshAndGrowWithWS(object):
     """
@@ -20,19 +22,28 @@ class SizeThreshAndGrowWithWS(object):
         """
         self.size_threshold = size_threshold
         self.offsets = offsets
+        assert len(offsets[0]) ==  3, "Only 3D supported atm"
         self.hmap_kwargs = {} if hmap_kwargs is None else hmap_kwargs
         self.apply_WS_growing = apply_WS_growing
         self.debug = debug
 
     def __call__(self, affinities, label_image):
+        assert len(self.offsets) == affinities.shape[0], "Affinities does not match offsets"
         if self.debug:
             print("Computing segment sizes...")
         label_image = label_image.astype(np.uint32)
-        sizeMap = accumulate_segment_features_vigra([label_image],
-                                                          [label_image],
-                                                          ['Count'],
-                                                          map_to_image=True
-        ).squeeze()
+        rag = nrag.gridRag(label_image)
+        _, node_features = nrag.accumulateMeanAndLength(rag, label_image.astype('float32'),blockShape=[1,100,100],
+                                             numberOfThreads=8,
+                                             saveMemory=True)
+        nodeSizes = node_features[:, [1]]
+        sizeMap = map_features_to_label_array(label_image,nodeSizes,number_of_threads=6).squeeze()
+
+        # sizeMap = accumulate_segment_features_vigra([label_image],
+        #                                                   [label_image],
+        #                                                   ['Count'],
+        #                                                   map_to_image=True
+        # ).squeeze()
 
         sizeMask = sizeMap > self.size_threshold
         seeds = ((label_image+1)*sizeMask).astype(np.uint32)

@@ -2,7 +2,7 @@ import nifty
 import numpy as np
 from nifty.graph import rag as nrag
 import time
-
+from nifty.graph import undirectedLongRangeGridGraph
 
 def accumulate_affinities_on_graph_edges(affinities, offsets, graph=None, label_image=None,
                                          contractedRag=None,
@@ -250,7 +250,7 @@ def build_pixel_lifted_graph_from_offsets(image_shape,
     # TODO: change name offsets_probabilities
     print("Actually building graph...")
     tick = time.time()
-    graph = nifty.graph.undirectedLongRangeGridGraph(image_shape, offsets, is_local_offset,
+    graph = undirectedLongRangeGridGraph(image_shape, offsets, is_local_offset,
                         offsets_probabilities=offsets_probabilities,
                         labels=label_image)
     nb_nodes = graph.numberOfNodes

@@ -228,14 +228,27 @@ class HierarchicalClusteringTrainer(Trainer):
     def compute_oversegm_loss_weights(self, output, target, init_segm=None):
         """
         :param segm: [batch_size, z, x, y]
+
+        If the weights should not be computed, the function returns a None object
         """
         options = self.options['HC_config']
         offsets = options['offsets']
         nb_threads = options['nb_threads']
 
+        struct_weights_kwargs = options.get('struct_weights_kwargs', {})
+
+        # Check if loss weights should be computed:
+        if struct_weights_kwargs.get('trained_mistakes', None) not in ['all_mistakes', 'only_merge_mistakes',
+                                                             'only_split_mistakes']:
+            return None
 
         if not hasattr(self, 'segmentation_pipeline'):
             post_proc_config = self.postproc_options
+            if init_segm is not None:
+                assert post_proc_config['start_from_given_segm'], 'Init. segm. is given. Please update postproc.'
+            else:
+                assert not post_proc_config['start_from_given_segm'], 'Init. segm. is NOT given. Please update postproc.'
+
             post_proc_config.pop('return_fragments', False)
             post_proc_config.pop('nb_threads')
             invert_affinities = post_proc_config.pop('invert_affinities', False)
@@ -250,13 +263,12 @@ class HierarchicalClusteringTrainer(Trainer):
                 **post_proc_config
             )
 
-            weighting = 0.0005 if 'weighting' not in options else options['weighting']
             self.get_loss_merge_weights = ComputeStructuredWeightsWrongMerges(
                                         offsets,
                                                 dim=3,
                                                 ignore_label=0,
-                weighting=weighting,
-                                                number_of_threads=nb_threads)
+                                                number_of_threads=nb_threads,
+                                                **struct_weights_kwargs)
 
 
         is_cuda = output.is_cuda
@@ -273,9 +285,8 @@ class HierarchicalClusteringTrainer(Trainer):
             # loss_weights_batch[3:] = 1.
             return from_numpy(loss_weights_batch[None, ...])
 
-        assert options['focus_on_mistakes'] == 'only_merge_mistakes', "all not implemented atm"
 
-        # Parallelize computation of the weights:
+        # Parallelize computation of the weights for different batches:
         loss_weights = pool.map(compute_weights,
                  range(output.size()[0]))
 
@@ -438,10 +449,8 @@ class HierarchicalClusteringTrainer(Trainer):
             # self.model.set_static_prediction(True)
             # static_prediction = self.apply_model(*inputs)
 
-        loss_weights = None
-            # Compute structured loss weights:
-        if self.options['HC_config']['focus_on_mistakes'] == 'only_merge_mistakes':
-            loss_weights = self.compute_oversegm_loss_weights(out_prediction, target,
+        # Compute structured loss weights:
+        loss_weights = self.compute_oversegm_loss_weights(out_prediction, target,
                                                               init_segm=init_segm_labels)
 
 
@@ -724,7 +733,7 @@ class HierarchicalClusteringTrainer(Trainer):
                 #     target[:,1:] = target[:,1:] * sqrt_weights
                 loss = self.criterion.unstructured_loss(prediction, target)
                 # TEMP for getting ignore label:
-                loss_weights[loss == 0.0] = 0.
+                # loss_weights[loss == 0.0] = 0.
 
                 loss = loss.sum()
 
