@@ -3,13 +3,44 @@ import numpy as np
 from inferno.utils.io_utils import yaml2dict
 from skunkworks.inference.simple import SimpleParallelLoader
 import vigra
-from multiprocessing.pool import ThreadPool
+from multiprocessing.pool import ThreadPool, Pool
 
 # TODO: upgrade this basic version with something more advanced
 # here the bad thing is that in the final agglomeration all boundaries between blocks are hard vertical/horizontal boundaries
 
 from skunkworks.postprocessing.segmentation_pipelines.base import SegmentationPipeline
 from .segmentation_pipelines.agglomeration.fixation_clustering.pipelines import FixationAgglomeraterFromSuperpixels
+
+
+def process_batch(batches, dataset, get_slicings, segmentation_pipeline):
+    assert len(batches) == 1
+    assert len(batches[0]) == 1
+    index = batches[0][0]
+    input_ = dataset[index]
+    print("[+] Processing block {} of {}.".format(index + 1, len(dataset)))
+    # print("[*] Input-shape {}".format(input_.shape))
+
+    # get the slicings w.r.t. the current prediction and the output
+    global_slicing_incl_pad = dataset.base_sequence[index]
+    local_slicing, global_slicing = get_slicings(global_slicing_incl_pad,
+                                                      input_.shape,
+                                                      dataset.padding)
+    # remove offset dim from slicing
+    global_slicing_incl_pad = global_slicing_incl_pad[1:]
+    global_slicing = global_slicing[1:]
+    local_slicing = local_slicing[1:]
+
+    print("Global slice: {}".format(global_slicing))
+    output_patch = segmentation_pipeline(input_)
+
+    output_patch, max_label_patch, _ = vigra.analysis.relabelConsecutive(output_patch.astype(np.uint32),
+                                                                         keep_zeros=False)
+
+    # Run connected components after cropping the padding:
+    output_patch_cropped = vigra.analysis.labelVolume(output_patch[local_slicing].astype(np.uint32))
+
+    return [output_patch, output_patch_cropped, global_slicing_incl_pad, global_slicing, max_label_patch]
+
 
 class BlockWise(object):
     def __init__(self, segmentation_pipeline,
@@ -147,34 +178,7 @@ class BlockWiseSegmentationPipelineSolver(object):
         loader = SimpleParallelLoader(dataset, num_workers=self.num_workers, enqueue_samples=False)
         # mask to count the number of times a pixel was inferred
 
-        def process_batch(batches):
-            assert len(batches) == 1
-            assert len(batches[0]) == 1
-            index = batches[0][0]
-            input_ = dataset[index]
-            print("[+] Processing block {} of {}.".format(index + 1, len(dataset)))
-            # print("[*] Input-shape {}".format(input_.shape))
 
-            # get the slicings w.r.t. the current prediction and the output
-            global_slicing_incl_pad = dataset.base_sequence[index]
-            local_slicing, global_slicing = self.get_slicings(global_slicing_incl_pad,
-                                                              input_.shape,
-                                                              dataset.padding)
-            # remove offset dim from slicing
-            global_slicing_incl_pad = global_slicing_incl_pad[1:]
-            global_slicing = global_slicing[1:]
-            local_slicing = local_slicing[1:]
-
-            print("Global slice: {}".format(global_slicing))
-            output_patch = self.segmentation_pipeline(input_)
-
-            output_patch, max_label_patch, _ = vigra.analysis.relabelConsecutive(output_patch.astype(np.uint32),
-                                                                                 keep_zeros=False)
-
-            # Run connected components after cropping the padding:
-            output_patch_cropped = vigra.analysis.labelVolume(output_patch[local_slicing].astype(np.uint32))
-
-            return [output_patch, output_patch_cropped, global_slicing_incl_pad, global_slicing, max_label_patch]
 
 
 
@@ -187,7 +191,7 @@ class BlockWiseSegmentationPipelineSolver(object):
                     print("[*] All blocks were processed!")
                     break
 
-                outputs = process_batch(batches)
+                outputs = process_batch(batches, dataset, self.get_slicings, self.segmentation_pipeline)
                 output_patch, output_patch_cropped, global_slicing_incl_pad, global_slicing, max_label_patch = tuple(outputs)
                 # Save padded output:
                 output_padded[global_slicing_incl_pad] = output_patch + max_label
@@ -197,9 +201,12 @@ class BlockWiseSegmentationPipelineSolver(object):
                 max_label += max_label_patch + 1
         else:
             pool = ThreadPool(processes=self.nb_parallel_blocks)
-
-            output_patch, output_patch_cropped, global_slicing_incl_pad, global_slicing, max_label_patch = zip(*pool.map(process_batch,
-                                    loader))
+            from itertools import repeat
+            output_patch, output_patch_cropped, global_slicing_incl_pad, global_slicing, max_label_patch = zip(*pool.starmap(process_batch,
+                                    zip(loader,
+                                        repeat(dataset),
+                                        repeat(self.get_slicings),
+                                        repeat(self.segmentation_pipeline))))
             pool.close()
             pool.join()
 
@@ -219,6 +226,10 @@ class BlockWiseSegmentationPipelineSolver(object):
             final_output[global_pad[1:]] = output[global_pad[1:]]
             final_output, _, _ = vigra.analysis.relabelConsecutive(final_output,
                                                                                  keep_zeros=False)
+
+            if not dataset.volume_already_padded:
+                final_output = final_output[global_pad[1:]]
+
         print("Done!")
 
         # # crop padding from the outputs
