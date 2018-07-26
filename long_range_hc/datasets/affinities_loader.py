@@ -33,16 +33,16 @@ class AffinitiesHDF5VolumeLoader(HDF5VolumeLoader):
             return transformed
 
     @classmethod
-    def from_config(cls, config):
+    def from_config(cls, config, name=None, data_slice=None):
         config = yaml2dict(config)
         path = config.get('path')
         path_in_h5_dataset = config.get('path_in_h5_dataset', None)
-        name = config.get('name', None)
+        name = config.get('name', None) if name is None else name
         dtype = config.get('dtype', 'float32')
         slicing_config = config.get('slicing_config', None)
         return cls(path,
                    path_in_h5_dataset=path_in_h5_dataset,
-                   name=name, dtype=dtype,
+                   name=name, dtype=dtype, data_slice=data_slice,
                    **slicing_config)
 
 class AffinitiesVolumeLoader(VolumeLoader):

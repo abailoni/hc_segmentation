@@ -55,6 +55,7 @@ def predict(sample,
             name_inference=None,
             name_aggl=None,
             dump_affs=False,
+            use_default_postproc_config=False
             ): #Only 3 nearest neighbor channels
     data_config_path = os.path.join(project_folder,
                                     'data_config.yml')
@@ -136,6 +137,7 @@ def predict(sample,
                  name_aggl=name_aggl,
                  name_infer=name_inference,
                  affinities=output.astype('float32'),
+                 use_default_postproc_config=use_default_postproc_config
                  )
 
     # if only_nn_channels:
@@ -143,7 +145,7 @@ def predict(sample,
     #     save_path = save_path[:-3] + '_nnaffinities.h5'
     if dump_affs or name_aggl is None:
         print("Dumping local affinities on disk...")
-        vigra.writeHDF5(output[:3].astype('float32'), save_path, name_inference, compression='gzip')
+        vigra.writeHDF5(output[1:3].astype('float32'), save_path, name_inference, compression='gzip')
         print("Done!")
 
 
@@ -159,6 +161,7 @@ if __name__ == '__main__':
     parser.add_argument('--path_init_segm', default=None)
     parser.add_argument('--name_aggl', default=None)
     parser.add_argument('--dump_affs', default=False, type=bool)
+    parser.add_argument('--use_default_postproc_config', default=False, type=bool)
     parser.add_argument('--samples', nargs='+', default=['A', 'B', 'C'], type=str)
 
 
@@ -180,8 +183,9 @@ if __name__ == '__main__':
         # 'smart_oversegm_DS2_denseOffs',
         # 'WSDT_DS1_denseOffs',
         # 'plain_unstruct/MWSoffs_bound2_pyT4',
-        # 'model_090/DICEplusBCE_001'
-        'model_050_A/pureDICE'
+        'model_090_v2/unstrInitSegm_pureDICE'
+        # 'model_090_v2/strInitSegm_pureDICE'
+        # 'model_050_A/pureDICE'
         # 'plain_unstruct/MWSoffs_bound2_addedBCE_001',
     ]
 
@@ -227,11 +231,12 @@ if __name__ == '__main__':
                     path_init_segm,
                     name_inference,
                     name_aggl,
-                    args.dump_affs)
+                    args.dump_affs,
+                    args.use_default_postproc_config)
 
-        # pool = ThreadPool()
-
-            # pool.starmap(predict,
+        # # pool = ThreadPool()
+        #
+        #     pool.starmap(predict,
         #              zip(samples,
         #                  gpus,
         #                  repeat(project_directory),
@@ -243,7 +248,7 @@ if __name__ == '__main__':
         #                  repeat(name_inference),
         #                  repeat(name_aggl)
         #                  ))
-        #
-        # pool.close()
-        # pool.join()
+        # #
+        # # pool.close()
+        # # pool.join()
 

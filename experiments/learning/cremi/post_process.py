@@ -36,14 +36,14 @@ from long_range_hc.postprocessing.pipelines import get_segmentation_pipeline
 
 def evaluate(project_folder, sample, offsets,
              n_threads, name_aggl, name_infer, crop_slice=None,
-             affinities=None):
+             affinities=None, use_default_postproc_config=False):
     pred_path = os.path.join(project_folder,
                              'Predictions',
                              'prediction_sample%s.h5' % sample)
 
     postproc_config_path = os.path.join(project_folder,
                                     'postproc_config.yml')
-    if not os.path.isfile(postproc_config_path):
+    if not os.path.isfile(postproc_config_path) or use_default_postproc_config:
         postproc_config_path = './template_config/post_proc/post_proc_config.yml'
     post_proc_config = yaml2dict(postproc_config_path)
 
@@ -105,19 +105,22 @@ def evaluate(project_folder, sample, offsets,
     if given_initSegm:
         if affinities is None:
             affinities, init_segm = import_postproc_data(project_folder, aggl_name=name_aggl,
-                             data_to_import=['affinities', 'init_segmentation'])
+                             data_to_import=['affinities', 'init_segmentation'],crop_slice=crop_slice)
         else:
             init_segm = import_postproc_data(project_folder, aggl_name=name_aggl,
-                                             data_to_import=['init_segmentation'])
+                                             data_to_import=['init_segmentation'],
+                                             crop_slice=crop_slice)
 
     else:
         if affinities is None:
             affinities= import_postproc_data(project_folder, aggl_name=name_aggl,
-                                                         data_to_import=['affinities'])
+                                                         data_to_import=['affinities'],
+                                             crop_slice=crop_slice)
 
 
     if affinities_from_hdf5:
-        affinities_dataset = AffinitiesHDF5VolumeLoader.from_config(aff_loader_config['volumes']['affinities'])
+        affinities_dataset = AffinitiesHDF5VolumeLoader.from_config(aff_loader_config['volumes']['affinities'],
+                                                                    name=sample, data_slice=crop_slice)
     else:
         affinities_dataset = AffinitiesVolumeLoader.from_config(affinities,
                                                                 sample,
@@ -238,6 +241,7 @@ if __name__ == '__main__':
     parser.add_argument('--n_threads', default=1, type=int)
     parser.add_argument('--name_aggl', default=None)
     parser.add_argument('--name_infer', default=None)
+    parser.add_argument('--use_default_postproc_config', default=False, type=bool)
 
     args = parser.parse_args()
 
@@ -253,4 +257,4 @@ if __name__ == '__main__':
 
     for sample in samples:
         evaluate(project_directory, sample, offsets, n_threads, name_aggl, name_infer,
-                 crop_slice)
+                 crop_slice, use_default_postproc_config=args.use_default_postproc_config)

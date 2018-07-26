@@ -6,7 +6,7 @@ pretrained_model_kwargs:
   add_residual_connections: true
   conv_type_key: conv_bn
   fmap_growth: 3
-  in_channels: 1 #16
+  in_channels: 16
   initial_num_fmaps: 40
   out_channels: 17
   scale_factor:
@@ -82,9 +82,14 @@ HC_config:
       used_offsets: [1, 2]
 
 #  postproc_type: 'DTWS'
-  weighting: 1.
+  struct_weights_kwargs:
+    trained_mistakes: 'all_mistakes'
+    train_correct_predictions: False
+
+
   loss_BCE_factor: 0.1
-  erode_boundary_thickness: 2
+  erode_boundary_thickness: 0
+
 
   WSDT_kwargs:
     threshold: 0.49

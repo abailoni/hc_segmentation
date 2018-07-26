@@ -1,14 +1,14 @@
-segm_pipeline_type: 'only_fragmenter'
+segm_pipeline_type: 'gen_HC'
 nb_threads: 8
 invert_affinities: True
-blockwise: False
+blockwise: True
 return_fragments: False
 use_final_agglomerater: False
 stacking_2D: False
 
 blockwise_kwargs:
   crop_padding: True
-  nb_parallel_blocks: 15
+  nb_parallel_blocks: 8
   num_workers: 1
 
 MWS_kwargs:
@@ -83,10 +83,10 @@ generalized_HC_kwargs:
       sizeThreshMin: 0.
       sizeThresMax: 120.
       postponeThresholding: False
-      threshold: 0.5 # Merge all: 0.0; split all: 1.0
+      threshold: 0.2 # Merge all: 0.0; split all: 1.0
     extra_runAggl_kwargs:
       verbose: True
-      printNth: 5000
+      printNth: 50000
 
 #  final_agglomeration_kwargs:
 #    zero_init: False

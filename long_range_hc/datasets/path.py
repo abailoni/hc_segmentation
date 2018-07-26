@@ -42,6 +42,14 @@ def parse_offsets(offset_file):
         offsets = json.load(f)
     return offsets
 
+def recursive_dict_update(source, target):
+    for key, value in source.items():
+        if isinstance(value, dict):
+            sub_target = target[key] if key in target else {}
+            target[key] = recursive_dict_update(source[key], sub_target)
+        else:
+            target[key] = source[key]
+    return target
 
 def adapt_configs_to_model(model_ID,
                             **path_configs):
@@ -64,12 +72,16 @@ def adapt_configs_to_model(model_ID,
     print("Using model ", model_name)
     model_configs = configs['models'][model_name]
 
-    # Update HC threshold postproc:
-    configs['postproc']['generalized_HC_kwargs']['agglomeration_kwargs']['extra_aggl_kwargs']['threshold'] = \
-        model_configs['threshold']
+    # Update model-specific parameters:
+    for key in path_configs:
+        configs[key] = recursive_dict_update(model_configs.get(key, {}), configs[key])
 
-    # Update struct. training options:
-    configs['train']['HC_config']['focus_on_mistakes'] = model_configs['focus_on_mistakes']
+    # # Update HC threshold postproc:
+    # configs['postproc']['generalized_HC_kwargs']['agglomeration_kwargs']['extra_aggl_kwargs']['threshold'] = \
+    #     model_configs['threshold']
+    #
+    # # Update struct. training options:
+    # configs['train']['HC_config']['trained_mistakes'] = model_configs['trained_mistakes']
 
     # Update paths init. segm and GT:
     samples = ['A', 'B', 'C']
