@@ -5,6 +5,7 @@ import os
 
 from long_range_hc.datasets.segm_transform import FindBestAgglFromOversegmAndGT
 import numpy as np
+from multiprocessing.pool import ThreadPool, Pool
 
 from long_range_hc.postprocessing.data_utils import import_dataset, import_segmentations, import_SOA_datasets
 
@@ -12,15 +13,15 @@ from skunkworks.metrics.cremi_score import cremi_score
 
 # project_folder = '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1'
 SOA_folder = '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities'
-# project_folder = '/export/home/abailoni/learnedHC/plain_unstruct/MWSoffs_bound2_pyT4'
-project_folder = '/export/home/abailoni/learnedHC/model_050_A/pureDICE'
+# project_folder = '/export/home/abailoni/learnedHC/plain_unstruct/MWSoffs_bound2_addedBCE_allBound01'
+project_folder = '/export/home/abailoni/learnedHC/model_090_v2/unstrInitSegm_pureDICE'
 
-aggl_name_partial = 'inferName_v1_HC_050_'
+aggl_name_partial = 'inferName_v1_HC_090_'
 
 for sample in [
-    # 'A',
-    # 'B',
-    'C'
+    'C',
+    'B',
+    'A',
 ]:
     aggl_name = aggl_name_partial + sample
     print("Loading segm {}...".format(aggl_name))
@@ -39,7 +40,30 @@ for sample in [
     crop_slice = (slice(None), slice(None), slice(None))
 
     print("Computing best labels...")
+
+    # # 1: single thread
     best_GT = find_best(WS_segm[crop_slice], gt[crop_slice])
+
+    # # Multithread (analyze single slices...!):
+    # pool = ThreadPool(processes=4)
+    # print("Computing WS labels...")
+    #
+    # best_GT = pool.starmap(find_best,
+    #               zip([WS_segm[[z]] for z in range(WS_segm.shape[0])],
+    #                   [gt[[z]] for z in range(WS_segm.shape[0])]))
+    #
+    # pool.close()
+    # pool.join()
+    # # Do final coloring:
+    # print("Combine slices: ")
+    # # FIXME: overflow int...?
+    # max_label = 0
+    # for z in range(WS_segm.shape[0]):
+    #     best_GT[z] += max_label
+    #     max_label += best_GT[z].max() + 1
+    # best_GT = np.concatenate(best_GT)
+    # best_GT = find_best(best_GT, gt)
+
 
     print("Writing results...")
 
