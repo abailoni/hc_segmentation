@@ -217,16 +217,15 @@ class ComputeStructuredWeightsWrongMerges(Transform):
                  dim=3,
                  ignore_label=0,
                  number_of_threads=8,
-                 weighting=1.0,
+                 weighting_merge_mistakes=1.0,
+                 weighting_split_mistakes=1.0,
+                 trained_mistakes='all_mistakes',
+                 train_correct_predictions=False,
                  **super_kwargs):
         """
-
-        :param offsets:
-        :param dim:
-        :param ignore_label:
-        :param number_of_threads:
+        :param trained_mistakes: 'only_merge_mistakes', 'only_split_mistakes', 'all_mistakes'
         :param weighting: max is 1.0, min is 0.0 (this function has no effect and all weights are 1.0)
-        :param super_kwargs:
+        :param train_correct_predictions: if True, correct boundaries receives a weight 1.0 (inner part of the segments are instead always set to zero)
         """
         assert pyu.is_listlike(offsets), "`offsets` must be a list or a tuple."
         assert len(offsets) > 0, "`offsets` must not be empty."
@@ -236,9 +235,16 @@ class ComputeStructuredWeightsWrongMerges(Transform):
 
         self.offsets = np.array(offsets)
         self.ignore_label = ignore_label
-        self.weighting = weighting
+        self.weighting_merge_mistakes = weighting_merge_mistakes
+        self.weighting_split_mistakes = weighting_split_mistakes
         self.dim = dim
         self.number_of_threads = number_of_threads
+        self.train_correct_predictions = train_correct_predictions
+
+        assert trained_mistakes in ['only_merge_mistakes', 'only_split_mistakes', 'all_mistakes'], '{} option not supported'.format(trained_mistakes)
+        self.train_merge_mistakes = trained_mistakes in ['only_merge_mistakes', 'all_mistakes']
+        self.train_split_mistakes = trained_mistakes in ['only_split_mistakes', 'all_mistakes']
+
         super(ComputeStructuredWeightsWrongMerges, self).__init__(**super_kwargs)
 
 
@@ -254,26 +260,46 @@ class ComputeStructuredWeightsWrongMerges(Transform):
         _, node_features = nrag.accumulateMeanAndLength(rag=rag, data=GT_labels.astype('float32'),
                                         numberOfThreads=self.number_of_threads)
 
-        size_nodes = node_features[:,1].astype('int')
+        GT_size_nodes = node_features[:,1].astype('int')
         GT_labels_nodes = node_features[:,0].astype('int')
 
         _, node_features = nrag.accumulateMeanAndLength(rag=rag, data=finalSegm.astype('float32'),
                                                            numberOfThreads=self.number_of_threads)
+        segm_size_nodes = node_features[:, 1].astype('int')
         segm_labels_nodes = node_features[:,0].astype('int')
 
 
         uv_ids = rag.uvIds()
+        edge_weights = np.ones(uv_ids.shape[0]) if self.train_correct_predictions else np.zeros(uv_ids.shape[0])
+        # Ignore-label:
+        ignore_mask = np.logical_and(GT_labels_nodes[uv_ids[:, 0]] != 0, GT_labels_nodes[uv_ids[:, 1]] != 0)
 
-        wrong_merge_condition = np.logical_and(GT_labels_nodes[uv_ids[:,0]] != GT_labels_nodes[uv_ids[:,1]],
-                                   segm_labels_nodes[uv_ids[:, 0]] == segm_labels_nodes[uv_ids[:, 1]])
-        edge_weights = np.where(wrong_merge_condition,
-                             1 + np.minimum(size_nodes[uv_ids[:,0]], size_nodes[uv_ids[:,1]]) * self.weighting,
-                             np.ones(uv_ids.shape[0]))
 
-        loss_weights = map_edge_features_to_image(self.offsets, np.expand_dims(edge_weights, -1), rag=rag,
+        if self.train_merge_mistakes:
+            wrong_merge_condition = np.logical_and(GT_labels_nodes[uv_ids[:,0]] != GT_labels_nodes[uv_ids[:,1]],
+                                       segm_labels_nodes[uv_ids[:, 0]] == segm_labels_nodes[uv_ids[:, 1]])
+
+            edge_weights = np.where(wrong_merge_condition,
+                                 1 + np.minimum(GT_size_nodes[uv_ids[:,0]], GT_size_nodes[uv_ids[:,1]]) * self.weighting_merge_mistakes,
+                                 edge_weights)
+            edge_weights *= ignore_mask
+            # print("merges: {} ({})".format(wrong_merge_condition.sum(), edge_weights.max()), end='; ')
+
+
+        if self.train_split_mistakes:
+            wrong_splits_condition = np.logical_and(GT_labels_nodes[uv_ids[:, 0]] == GT_labels_nodes[uv_ids[:, 1]],
+                                                   segm_labels_nodes[uv_ids[:, 0]] != segm_labels_nodes[uv_ids[:, 1]])
+            edge_weights = np.where(wrong_splits_condition,
+                                    1 + np.minimum(segm_size_nodes[uv_ids[:, 0]],
+                                                   segm_size_nodes[uv_ids[:, 1]]) * self.weighting_split_mistakes,
+                                    edge_weights)
+            edge_weights *= ignore_mask
+            # print("splits: {} ({})".format(wrong_splits_condition.sum(), edge_weights.max()))
+
+        loss_weights = map_edge_features_to_image(self.offsets, np.expand_dims(edge_weights, -1),
+                                                  rag=rag,
                                    channel_affs=0, fillValue=0.,
                                    number_of_threads=self.number_of_threads)[...,0]
-
         return loss_weights
 
 
