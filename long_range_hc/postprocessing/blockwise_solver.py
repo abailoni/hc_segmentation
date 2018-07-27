@@ -200,7 +200,7 @@ class BlockWiseSegmentationPipelineSolver(object):
 
                 max_label += max_label_patch + 1
         else:
-            pool = Pool(processes=self.nb_parallel_blocks)
+            pool = ThreadPool(processes=self.nb_parallel_blocks)
             from itertools import repeat
             output_patch, output_patch_cropped, global_slicing_incl_pad, global_slicing, max_label_patch = zip(*pool.starmap(process_batch,
                                     zip(loader,

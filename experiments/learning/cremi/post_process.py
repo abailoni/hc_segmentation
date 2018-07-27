@@ -210,10 +210,10 @@ def evaluate(project_folder, sample, offsets,
     # # best_gt = vigra.analysis.labelVolumeWithBackground(best_gt.astype('uint32'))
     # # ignore_mask = best_gt != 0
 
-    if given_initSegm:
-        print("Evaluating scores...")
-        initSegm_evals = cremi_score(gt, init_segm, border_threshold=None, return_all_scores=True)
-        print("Score of the oversegm:", initSegm_evals)
+    # if given_initSegm:
+    #     print("Evaluating scores...")
+    #     initSegm_evals = cremi_score(gt, init_segm, border_threshold=None, return_all_scores=True)
+    #     print("Score of the oversegm:", initSegm_evals)
     evals = cremi_score(gt, pred_segm, border_threshold=None, return_all_scores=True)
     print("Scores achieved: ", evals)
 
@@ -226,8 +226,8 @@ def evaluate(project_folder, sample, offsets,
 
     res[sample] = evals
     res['init_segm'] = {}
-    if given_initSegm:
-        res['init_segm'][sample] = initSegm_evals
+    # if given_initSegm:
+    #     res['init_segm'][sample] = initSegm_evals
     with open(eval_file, 'w') as f:
         json.dump(res, f, indent=4, sort_keys=True)
 

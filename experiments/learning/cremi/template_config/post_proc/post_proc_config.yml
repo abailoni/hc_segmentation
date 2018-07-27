@@ -8,7 +8,7 @@ stacking_2D: False
 
 blockwise_kwargs:
   crop_padding: True
-  nb_parallel_blocks: 8
+  nb_parallel_blocks: 24
   num_workers: 1
 
 MWS_kwargs:
@@ -83,10 +83,10 @@ generalized_HC_kwargs:
       sizeThreshMin: 0.
       sizeThresMax: 120.
       postponeThresholding: False
-      threshold: 0.2 # Merge all: 0.0; split all: 1.0
+      threshold: 0.98 # Merge all: 0.0; split all: 1.0
     extra_runAggl_kwargs:
       verbose: True
-      printNth: 50000
+      printNth: 100000
 
 #  final_agglomeration_kwargs:
 #    zero_init: False

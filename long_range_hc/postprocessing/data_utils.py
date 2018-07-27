@@ -111,7 +111,8 @@ def import_SOA_datasets(
                 outputs.append(f['raw'][bb].astype(np.float32) / 255.)
         if 'gt' == data_key:
             with h5py.File(dataset_path, 'r') as f:
-                outputs.append(f['segmentations/groundtruth_fixed'][bb])
+                print([k for k in f['segmentations']])
+                outputs.append(f['segmentations/groundtruth_fixed'][bb]) # groundtruth_fixed_with_weird_split_mistakes
         if 'affinities' == data_key:
             with h5py.File(config_file['path'], 'r') as f:
                 outputs.append(f[config_file['path_in_h5_dataset']][bb_affs].astype(np.float32))

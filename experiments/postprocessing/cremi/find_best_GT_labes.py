@@ -14,13 +14,13 @@ from skunkworks.metrics.cremi_score import cremi_score
 # project_folder = '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1'
 SOA_folder = '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities'
 # project_folder = '/export/home/abailoni/learnedHC/plain_unstruct/MWSoffs_bound2_addedBCE_allBound01'
-project_folder = '/export/home/abailoni/learnedHC/model_090_v2/unstrInitSegm_pureDICE'
+project_folder = '/export/home/abailoni/learnedHC/model_050_A_v2/pureDICE'
 
-aggl_name_partial = 'inferName_v1_HC_090_'
+aggl_name_partial = 'inferName_v40k_HC_050_'
 
 for sample in [
-    'C',
-    'B',
+    # 'C',
+    # 'B',
     'A',
 ]:
     aggl_name = aggl_name_partial + sample

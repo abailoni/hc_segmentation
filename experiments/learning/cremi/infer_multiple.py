@@ -145,7 +145,7 @@ def predict(sample,
     #     save_path = save_path[:-3] + '_nnaffinities.h5'
     if dump_affs or name_aggl is None:
         print("Dumping local affinities on disk...")
-        vigra.writeHDF5(output[1:3].astype('float32'), save_path, name_inference, compression='gzip')
+        vigra.writeHDF5(output.astype('float32'), save_path, name_inference, compression='gzip')
         print("Done!")
 
 
@@ -182,8 +182,8 @@ if __name__ == '__main__':
     projs = [
         # 'smart_oversegm_DS2_denseOffs',
         # 'WSDT_DS1_denseOffs',
-        # 'plain_unstruct/MWSoffs_bound2_pyT4',
-        'model_090_v2/unstrInitSegm_pureDICE'
+        'plain_unstruct/pureDICE_wholeTrainingSet',
+        # 'model_050_A_v2/pureDICE'
         # 'model_090_v2/strInitSegm_pureDICE'
         # 'model_050_A/pureDICE'
         # 'plain_unstruct/MWSoffs_bound2_addedBCE_001',

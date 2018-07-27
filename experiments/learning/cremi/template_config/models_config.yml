@@ -68,6 +68,13 @@ plain_affs_biggerModel:
     pretrained_model_kwargs:
       in_channels: 1
       initial_num_fmaps: 54
+  data:
+    slicing_config:
+      data_slice:
+        A: ':, :, :'
+        B: ':, :, :'
+        C: ':, :, :'
+
 
 #
 #superpixels_struct:
