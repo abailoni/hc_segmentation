@@ -253,6 +253,8 @@ class ComputeStructuredWeightsWrongMerges(Transform):
         finalSegm, GT_labels = tensors
 
         intersection_segm = cantor_pairing_fct(finalSegm, GT_labels)
+        # FIXME: by intersecting I could get troubles with same label in not-connected segments (run vigra connected componets)
+        raise DeprecationWarning()
         intersection_segm, max_label, _ = vigra.analysis.relabelConsecutive(intersection_segm.astype('uint32'))
 
         rag = nrag.gridRag(intersection_segm, numberOfThreads=self.number_of_threads)
@@ -308,11 +310,13 @@ class ComputeStructuredWeightsWrongMerges(Transform):
 class FromSegmToEmbeddingSpace(Transform):
     def __init__(self, dim_embedding_space=12,
                  number_of_threads=8,
+                 normalize_values=False,
                  keep_segm=True,
                  **super_kwargs):
         self.dim_embedding_space = dim_embedding_space
         self.number_of_threads = number_of_threads
         self.keep_segm = keep_segm
+        self.normalize_values = normalize_values
         super(FromSegmToEmbeddingSpace, self).__init__(**super_kwargs)
 
     def build_random_variables(self, num_segments=None):
@@ -346,7 +350,8 @@ class FromSegmToEmbeddingSpace(Transform):
                                         number_of_threads=self.number_of_threads)
 
             # Normalize values:
-            embedded_tensor = (embedded_tensor - embedded_tensor.mean()) / embedded_tensor.std()
+            if self.normalize_values:
+                embedded_tensor = (embedded_tensor - embedded_tensor.mean()) / embedded_tensor.std()
 
             # TODO: improve!
             if tensor.ndim == 3:

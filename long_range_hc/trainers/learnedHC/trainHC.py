@@ -164,14 +164,15 @@ class HierarchicalClusteringTrainer(Trainer):
                                                                         return_eroded_labels=True
             )
 
-        segm_tensor = segm_tensor.data
+        with torch.no_grad():
+            segm_tensor = segm_tensor.data
 
-        affinities = []
-        for b in range(segm_tensor.size()[0]):
-            affinities.append(self.segmToAffs_fnSegm(segm_tensor[b])[None, ...])
-        affinities = torch.cat(affinities, dim=0)
-        if not retain_segmentation:
-            affinities = affinities[:, 1:]
+            affinities = []
+            for b in range(segm_tensor.size()[0]):
+                affinities.append(self.segmToAffs_fnSegm(segm_tensor[b])[None, ...])
+            affinities = torch.cat(affinities, dim=0)
+            if not retain_segmentation:
+                affinities = affinities[:, 1:]
         return affinities
 
     def computeSegmToAffsCUDA_GT(self, segm_tensor, retain_segmentation = True):
@@ -189,14 +190,15 @@ class HierarchicalClusteringTrainer(Trainer):
                                                                  boundary_erode_segmentation=boundary_erode_segmentation
             )
 
-        segm_tensor = segm_tensor.data
+        with torch.no_grad():
+            segm_tensor = segm_tensor.data
 
-        affinities = []
-        for b in range(segm_tensor.size()[0]):
-            affinities.append(self.segmToAffs_GT(segm_tensor[b])[None, ...])
-        affinities = torch.cat(affinities, dim=0)
-        if not retain_segmentation:
-            affinities = affinities[:, 1:]
+            affinities = []
+            for b in range(segm_tensor.size()[0]):
+                affinities.append(self.segmToAffs_GT(segm_tensor[b])[None, ...])
+            affinities = torch.cat(affinities, dim=0)
+            if not retain_segmentation:
+                affinities = affinities[:, 1:]
 
         return affinities
 
@@ -213,15 +215,16 @@ class HierarchicalClusteringTrainer(Trainer):
                                                                  boundary_erode_segmentation=[0,1,1]
             )
 
+        with torch.no_grad():
 
-        segm_tensor = segm_tensor.data
+            segm_tensor = segm_tensor.data
 
-        affinities = []
-        for b in range(segm_tensor.size()[0]):
-            affinities.append(self.segmToAffs_initSegm(segm_tensor[b])[None, ...])
-        affinities = torch.cat(affinities, dim=0)
-        if not retain_segmentation:
-            affinities = affinities[:, 1:]
+            affinities = []
+            for b in range(segm_tensor.size()[0]):
+                affinities.append(self.segmToAffs_initSegm(segm_tensor[b])[None, ...])
+            affinities = torch.cat(affinities, dim=0)
+            if not retain_segmentation:
+                affinities = affinities[:, 1:]
         return affinities
 
 
@@ -363,6 +366,7 @@ class HierarchicalClusteringTrainer(Trainer):
 
 
     def apply_model(self, *inputs):
+        rnd_ints = None
         if len(inputs) == 1:
             model_inputs = inputs[0]
         elif len(inputs) == 2:
@@ -370,11 +374,50 @@ class HierarchicalClusteringTrainer(Trainer):
             binary_boundaries = self.computeSegmToAffsCUDA_initSegm(inputs[1][:, 0].float(), retain_segmentation=False)
             model_inputs = torch.cat([inputs[0], init_segm_vectors, binary_boundaries], dim=1)
         elif len(inputs) == 4:
-            # offsets = self.options['HC_config']['offsets']
-            initSegm_vectors = inputs[1][:,1:].float()
-            finalSegm_vectors = inputs[2][:, 1:].float()
-            underSegm_vectors = inputs[3][:, 1:].float()
-            model_inputs = torch.cat([inputs[0], initSegm_vectors, finalSegm_vectors, underSegm_vectors], dim=1)
+            def get_batch_inputs(b):
+                batch_inputs = [inp[[b],...] for inp in inputs]
+                # Throw a dice and decide how many inputs to keep (for every batch):
+                rnd_int = np.random.randint(0, 3)
+                if rnd_int == 0:
+                    print("R:", end=' ')
+                    batch_inputs = batch_inputs[0]
+                else:
+                    initSegm_vectors = batch_inputs[1][:, 1:].float()
+                    # Init segm. is always 2D, do not pass mask along z:
+                    binary_bound_initSegm = self.computeSegmToAffsCUDA_initSegm(batch_inputs[1][:, 0].float(),
+                                                                            retain_segmentation=False)[:,1:]
+                    if rnd_int == 1:
+                        print("R+iSegm:", end=' ')
+                        batch_inputs = torch.cat([batch_inputs[0], initSegm_vectors, binary_bound_initSegm], dim=1)
+                    else:
+                        assert rnd_int == 2
+                        print("R+iSegm+lAhead:" , end=' ')
+                        finalSegm_vectors = batch_inputs[2][:, 1:].float()
+                        binary_bound_finalSegm = self.computeSegmToAffsCUDA_initSegm(batch_inputs[2][:, 0].float(),
+                                                                                    retain_segmentation=False)
+                        underSegm_vectors = batch_inputs[3][:, 1:].float()
+                        binary_bound_underSegm = self.computeSegmToAffsCUDA_initSegm(batch_inputs[3][:, 0].float(),
+                                                                                 retain_segmentation=False)
+                        batch_inputs = torch.cat([batch_inputs[0], initSegm_vectors, binary_bound_initSegm,
+                                                  finalSegm_vectors, binary_bound_finalSegm,
+                                                  underSegm_vectors, binary_bound_underSegm], dim=1)
+
+                # Fill missing channels:
+                nb_channels = self.options['pretrained_model_kwargs']['in_channels']
+                missing_channels = nb_channels - batch_inputs.size(1)
+                if missing_channels != 0:
+                    missing_shape = (1, missing_channels) + batch_inputs.size()[2:]
+                    batch_inputs = torch.cat([batch_inputs, torch.zeros(*missing_shape).cuda()], dim=1)
+                return batch_inputs, rnd_int
+
+            btch_size = inputs[0].size(0)
+            pool = ThreadPool(processes=3)
+            batch_inputs, rnd_ints = zip(*pool.map(get_batch_inputs, range(btch_size)))
+            pool.close()
+            pool.join()
+            model_inputs = torch.cat(batch_inputs, dim=0)
+            rnd_ints = from_numpy(np.expand_dims(np.array(rnd_ints), axis=1))
+
         elif len(inputs) == 3:
             # offsets = self.options['HC_config']['offsets']
             # initSegm_vectors = inputs[1][:,1:].float()
@@ -383,10 +426,12 @@ class HierarchicalClusteringTrainer(Trainer):
         else:
             raise NotImplementedError()
         output = super(HierarchicalClusteringTrainer, self).apply_model(model_inputs)
-        if isinstance(output, tuple):
-            return output[0]
-        else:
-            return output
+        output = output[0] if isinstance(output, tuple) else output
+
+        if rnd_ints is not None:
+            output = (output, rnd_ints)
+        return output
+
 
     def apply_model_and_loss(self, inputs, target, backward=True, mode=None):
         """
@@ -449,6 +494,11 @@ class HierarchicalClusteringTrainer(Trainer):
             # self.model.set_static_prediction(True)
             # static_prediction = self.apply_model(*inputs)
 
+        rnd_ints = None
+        if isinstance(out_prediction, tuple):
+            rnd_ints = out_prediction[1]
+            out_prediction = out_prediction[0]
+
         # Compute structured loss weights:
         loss_weights = self.compute_oversegm_loss_weights(out_prediction, target,
                                                               init_segm=init_segm_labels)
@@ -484,42 +534,43 @@ class HierarchicalClusteringTrainer(Trainer):
                 self.plot_pretrain_batch({"raw":raw,
                                           "init_segm": init_segm_labels,
                                           "loss_weights": loss_weights,
+                                          "rnd_ints": rnd_ints,
                                           # "lookAhead1": inputs[2][:, 0],
                                           # "lookAhead2": inputs[3][:, 0],
                                           "stat_prediction":out_prediction,
                                           # "eroded_finalSegm":eroded_finalSegm,
                                           "target":target})
-            else:
-                if len(inputs) == 4:
-                    # Compute segmentation:
-                    GT_labels = target.cpu().data.numpy()[:, 0]
-                    pred_numpy = out_prediction.cpu().data.numpy()
-                    init_segm_numpy = init_segm_labels.cpu().data.numpy()
-                    segmentations = [self.postprocessing(pred,initSegm) for pred, initSegm in zip(pred_numpy, init_segm_numpy)]
-                    try:
-                        validation_scores = [cremi_score(gt, segm, return_all_scores=True) for gt, segm in
-                                             zip(GT_labels, segmentations)]
-                        validation_scores = [ [score[key] for key in score] for score in validation_scores]
-                        print(validation_scores)
-                    except ZeroDivisionError:
-                        print("Error in computing scores...")
-                        validation_scores = [ [0. , 0., 0., 0. ] for _ in pred_numpy]
-                    self.criterion.validation_score = np.array(validation_scores).mean(axis=0)
+            # else:
+            #     if len(inputs) == 4:
+            #         # Compute segmentation:
+            #         GT_labels = target.cpu().data.numpy()[:, 0]
+            #         pred_numpy = out_prediction.cpu().data.numpy()
+            #         init_segm_numpy = init_segm_labels.cpu().data.numpy()
+            #         segmentations = [self.postprocessing(pred,initSegm) for pred, initSegm in zip(pred_numpy, init_segm_numpy)]
+            #         try:
+            #             validation_scores = [cremi_score(gt, segm, return_all_scores=True) for gt, segm in
+            #                                  zip(GT_labels, segmentations)]
+            #             validation_scores = [ [score[key] for key in score] for score in validation_scores]
+            #             print(validation_scores)
+            #         except ZeroDivisionError:
+            #             print("Error in computing scores...")
+            #             validation_scores = [ [0. , 0., 0., 0. ] for _ in pred_numpy]
+            #         self.criterion.validation_score = np.array(validation_scores).mean(axis=0)
+            #
+            #         var_segm = Variable(from_numpy(np.stack(segmentations)))
+            #         self.plot_pretrain_batch({"raw": raw,
+            #                                   "stat_prediction": out_prediction,
+            #                                   "init_segm": init_segm_labels,
+            #                                   # "lookAhead1": inputs[2][:, 0],
+            #                                   # "lookAhead2": inputs[3][:, 0],
+            #                                   "target": target,
+            #                                   "final_segm": var_segm,
+            #                                   "GT_labels": target[:,0]},
+            #                                  validation=True)
 
-                    var_segm = Variable(from_numpy(np.stack(segmentations)))
-                    self.plot_pretrain_batch({"raw": raw,
-                                              "stat_prediction": out_prediction,
-                                              "init_segm": init_segm_labels,
-                                              # "lookAhead1": inputs[2][:, 0],
-                                              # "lookAhead2": inputs[3][:, 0],
-                                              "target": target,
-                                              "final_segm": var_segm,
-                                              "GT_labels": target[:,0]},
-                                             validation=True)
 
-
-        if validation and (len(inputs) == 3 or len(inputs) == 1 or len(inputs) == 2) :
-            self.criterion.validation_score = [loss.cpu().data.numpy()]
+        # if validation and (len(inputs) == 3 or len(inputs) == 1 or len(inputs) == 2) :
+        self.criterion.validation_score = [loss.cpu().data.numpy()]
 
 
             # if len(inputs) == 4:
@@ -566,143 +617,6 @@ class HierarchicalClusteringTrainer(Trainer):
 
         if not self.pre_train:
             raise DeprecationWarning()
-            # # Keep only largest prediction and invert (we want affinities):
-            # static_prediction = 1. - out_prediction
-            # # tick0 = time.time()
-            #
-            # self.model.set_static_prediction(False)
-            #
-            # # --------------------------
-            # # Initialize LHC criterion:
-            # # --------------------------
-            # self.criterion.clear()
-            # self.criterion.set_validation_mode(validation)
-            # raw = inputs[0].cpu().data.numpy()
-            # self.criterion.pass_batch_data_to_workers("set_raw_image", np.squeeze(raw, axis=1))
-            #
-            # if(backward or target is not None):
-            #     # GT labels are in the first channel:
-            #     GT_labels = target.cpu().data.numpy()[:,0]
-            #     self.criterion.pass_batch_data_to_workers("set_targets", GT_labels)
-            #
-            # # Set initial segmentation based on static_prediction:
-            # self.criterion.pass_batch_data_to_workers("set_static_prediction",
-            #                                           static_prediction.cpu().data.numpy())
-            #
-            # # tick1 = time.time()
-            # # print("Initialization: {} s".format(tick1 - tick0))
-            #
-            # # --------------------------
-            # # Loop and perform mile-steps:
-            # # --------------------------
-            # dynamic_predictions = []
-            # dynamic_loss_targets = []
-            # dynamic_loss_weights = []
-            # while not self.criterion.is_finished():
-            #     # tick1 = time.time()
-            #     # TODO: what if some workers are done...?
-            #     dict_list, key_list = self.criterion.get_dynamic_inputs_milestep()
-            #     all_dynamic_inputs = compose_model_inputs(dict_list, key_list, channel_axis=0)
-            #
-            #     if is_cuda:
-            #         all_dynamic_inputs = [dyn_inp.cuda() for dyn_inp in all_dynamic_inputs]
-            #
-            #     # Keep static inputs (raw) on GPU:
-            #     prediction_milestep = self.apply_model(*(inputs+all_dynamic_inputs))
-            #
-            #     # Check if dynamic prediction is multiscale:
-            #     if isinstance(prediction_milestep, tuple):
-            #         highRes_prediction = prediction_milestep[0]
-            #     else:
-            #         highRes_prediction = prediction_milestep
-            #
-            #     # Returned values are None in case of validation:
-            #     milestep_loss_targets, milestep_loss_weights = self.criterion(highRes_prediction)
-            #
-            #     dynamic_predictions.append(prediction_milestep)
-            #     dynamic_loss_targets.append(milestep_loss_targets)
-            #     dynamic_loss_weights.append(milestep_loss_weights)
-            #
-            # if validation:
-            #     self.criterion.run_clustering_on_pretrained_affs(start_from_pixels=False)
-            #
-            # # Plot data batch:
-            # self.plot_batch(validation=not backward)
-            #
-            # if backward:
-            #     for iter in range(len(dynamic_predictions)):
-            #         # tick5 = time.time()
-            #         dynamic_predictions_iter = dynamic_predictions[iter]
-            #         dynamic_loss_targets_iter = dynamic_loss_targets[iter]
-            #         dynamic_loss_weights_iter = dynamic_loss_weights[iter]
-            #
-            #         # dynamic_predictions_iter = torch.cat(dynamic_predictions, dim=0)
-            #         # dynamic_loss_targets_iter = torch.cat(dynamic_loss_targets, dim=0)
-            #         # dynamic_loss_weights_iter = torch.cat(dynamic_loss_weights, dim=0)
-            #
-            #         # print(dynamic_loss_targets_iter.size())
-            #         # print(dynamic_predictions_iter.size())
-            #
-            #         # CLASSES TRAINING:
-            #         # shape = dynamic_loss_targets.size()
-            #         # dynamic_loss_targets = dynamic_loss_targets.view(shape[0], -1, shape[3], shape[4], shape[5])
-            #         # dynamic_predictions = dynamic_predictions.view(shape[0], -1, shape[3], shape[4], shape[5])
-            #
-            #
-            #         # # MY STRANGE IMPLEMENTATION WITH WEIGHTS (DOESN'T SEEM TO GIVE GREAT RESULTS)
-            #         # print(dynamic_loss_targets.size())
-            #         # merge_and_split_targets = dynamic_loss_targets[:,:,0:2]
-            #         # self._structured_criterion.weight = self._compute_batch_weights(merge_and_split_targets).data
-            #         # loss = loss + self._structured_criterion(dynamic_predictions, dynamic_loss_targets)
-            #
-            #         # dynamic_loss_weights = torch.cat(dynamic_loss_weights, dim=0)
-            #
-            #         # DICE LOSS TRAINING:
-            #         # # Find number of trained pixels: (for batch average)
-            #         # flat_weights = dynamic_loss_weights.view(-1)
-            #         # zero_array = Variable(from_numpy(np.array([0.]))).cuda().float()
-            #         # pixels_in_minibatch = torch.sum((flat_weights != zero_array).float())
-            #         #
-            #         # loss = loss.float()
-            #         # loss = loss + self._structured_criterion(dynamic_predictions, dynamic_loss_targets, dynamic_loss_weights)/pixels_in_minibatch.clamp(min=1e-6)
-            #
-            #         # Inferno implementation of Dice Score:
-            #         # Different classes are considered as separate channels:
-            #         def compress_classes_and_offsets(tensor):
-            #             size = tensor.size()
-            #             return tensor.view(size[0], -1, size[3], size[4], size[5])
-            #         dynamic_loss_targets_iter = compress_classes_and_offsets(dynamic_loss_targets_iter)
-            #         dynamic_loss_weights_iter = compress_classes_and_offsets(dynamic_loss_weights_iter)
-            #         if isinstance(dynamic_predictions_iter, (tuple, list)):
-            #             # Multiscale predictions:
-            #             dynamic_predictions_iter = tuple(compress_classes_and_offsets(pred) for pred in dynamic_predictions_iter)
-            #         else:
-            #             dynamic_predictions_iter = compress_classes_and_offsets(dynamic_predictions_iter)
-            #         loss = self._structured_criterion(dynamic_predictions_iter, (dynamic_loss_targets_iter, dynamic_loss_weights_iter))
-            #
-            #         # tick6 = time.time()
-            #         # print("Computing loss iter {}: {} s".format(iter, tick6 - tick5))
-            #         #
-            #         loss.backward()
-            #         # break
-            #
-            #         # print("Backward iter {}: {} s".format(iter,time.time() - tick6))
-            #
-            #         # BCE:
-            #         # flat_pred = dynamic_predictions.view(-1)
-            #         # flat_targets = dynamic_loss_targets.view(-1)
-            #         # flat_weights = dynamic_loss_weights.view(-1)
-            #         #
-            #         # BCE_criteria = BCELoss(weight=flat_weights, size_average=False)
-            #         # zero_array = Variable(from_numpy(np.array([0.]))).cuda().float()
-            #         #
-            #         # pixels_in_minibatch = torch.sum((flat_weights != zero_array).float())
-            #         # loss = loss.float()
-            #         # loss = loss + BCE_criteria(flat_pred, flat_targets)/pixels_in_minibatch
-            #
-            #
-            #
-            # out_prediction = torch.cat(dynamic_predictions, dim=0)
         else:
             # Backprop
             if backward:
@@ -765,24 +679,6 @@ class HierarchicalClusteringTrainer(Trainer):
         if is_cuda:
             loss = loss.cuda()
         return loss, loss_weights
-
-    # def get_loss(self, prediction, target=None, validation=False):
-    #     if self.criterion.unstructured_loss is not None and not validation:
-    #
-    #         # make a validation ws step without calculating the expensive structured loss
-    #         self.criterion.set_validation_mode(True)
-    #         self.criterion(prediction)
-    #         self.criterion.set_validation_mode(validation)
-    #
-    #         # TODO: replace with parameter
-    #         nac = 2
-    #         ndc = 12
-    #         not_inverted_affinities = cat((prediction[:, :nac], 1-prediction[:, -ndc:]), 1)
-    #         aff_target = cat((target[:, :nac+1], target[:, -ndc:]), 1).cuda()
-    #         return self.criterion.unstructured_loss(not_inverted_affinities, aff_target)
-    #     else:
-    #         self.criterion.set_validation_mode(validation)
-    #         return self.criterion(prediction).cuda()
 
     def to_device(self, objects):
         if isinstance(objects, (list, tuple)):

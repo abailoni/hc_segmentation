@@ -295,6 +295,18 @@ def plot_dyn_predictions(img_data, targets, z_slice, milestep):
 
 
 def plot_pretrain_predictions(img_data, targets, z_slice, fig=None):
+    if 'rnd_ints' in img_data and z_slice == 0:
+        print(img_data['rnd_ints'])
+        if img_data['rnd_ints'][0] == 0:
+            str = 'Only RAW'
+        elif img_data['rnd_ints'][0] == 1:
+            str = 'RAW + initSegm'
+        elif img_data['rnd_ints'][0] == 2:
+            str = 'RAW + initSegm + lookAheads'
+        else:
+            raise NotImplementedError
+        fig.suptitle(str)
+
     if 'final_segm' in img_data:
         # Plot 1:
         target1 = targets[0, z_slice]

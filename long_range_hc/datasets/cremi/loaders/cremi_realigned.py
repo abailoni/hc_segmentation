@@ -204,7 +204,7 @@ class CREMIDatasetRealigned(Zip):
                 # computation being warped into the FOV.
                 transforms.add(VolumeAsymmetricCrop(**crop_config))
 
-        transforms.add(FromSegmToEmbeddingSpace(dim_embedding_space=12,
+        transforms.add(FromSegmToEmbeddingSpace(dim_embedding_space=self.master_config.get('dim_embedding_vector_space', 12),
                                                 number_of_threads=8,
                             apply_to=self.apply_FromSegmToEmbeddingSpace_to))
 
