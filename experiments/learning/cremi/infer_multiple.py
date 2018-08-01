@@ -7,6 +7,7 @@ from itertools import repeat
 
 from long_range_hc.trainers.learnedHC.visualization import VisualizationCallback
 
+import torch
 import os
 import numpy as np
 import argparse
@@ -23,7 +24,7 @@ from skunkworks.inference import SimpleInferenceEngine
 from inferno.trainers.basic import Trainer
 from inferno.utils.io_utils import toh5
 
-from long_range_hc.datasets.path import get_template_config_file, parse_offsets
+from long_range_hc.datasets.path import get_template_config_file, parse_offsets, adapt_configs_to_model
 
 from long_range_hc.trainers.learnedHC.trainHC import HierarchicalClusteringTrainer
 
@@ -55,7 +56,9 @@ def predict(sample,
             name_inference=None,
             name_aggl=None,
             dump_affs=False,
-            use_default_postproc_config=False
+            use_default_postproc_config=False,
+            model_IDs=None
+
             ): #Only 3 nearest neighbor channels
     data_config_path = os.path.join(project_folder,
                                     'data_config.yml')
@@ -76,7 +79,7 @@ def predict(sample,
 
     infer_config_path = os.path.join(project_folder, 'infer_data_config_{}_{}.yml'.format(name_inference, sample))
     infer_config = get_template_config_file(infer_config_template_path, infer_config_path)
-    # TODO: update config file with dataset name! Update the saved version
+
     infer_config['dataset_name'] = sample
     infer_config['offsets'] = offsets
 
@@ -103,6 +106,14 @@ def predict(sample,
     # Dump config files:
     with open(infer_config_path, 'w') as f:
         yaml.dump(infer_config, f)
+
+
+    # Adapt config to the passed model options:
+    if model_IDs is not None:
+        config_paths = {'models': './template_config/models_config.yml',
+                        'infer': infer_config_path}
+        adapt_configs_to_model(model_IDs, debug=False, **config_paths)
+        infer_config = yaml2dict(infer_config_path)
 
 
 
@@ -137,7 +148,8 @@ def predict(sample,
                  name_aggl=name_aggl,
                  name_infer=name_inference,
                  affinities=output.astype('float32'),
-                 use_default_postproc_config=use_default_postproc_config
+                 use_default_postproc_config=use_default_postproc_config,
+                 model_IDs=model_IDs
                  )
 
     # if only_nn_channels:
@@ -158,11 +170,14 @@ if __name__ == '__main__':
     # parser.add_argument('--data_slice',  default='85:,:,:')
     parser.add_argument('--nb_threads', default=1, type=int)
     parser.add_argument('--name_inference', default=None)
+    parser.add_argument('--projs', nargs='+', default=None, type=str)
     parser.add_argument('--path_init_segm', default=None)
     parser.add_argument('--name_aggl', default=None)
     parser.add_argument('--dump_affs', default=False, type=bool)
     parser.add_argument('--use_default_postproc_config', default=False, type=bool)
     parser.add_argument('--samples', nargs='+', default=['A', 'B', 'C'], type=str)
+    parser.add_argument('--postproc_config_version', default=None)
+    parser.add_argument('--model_IDs', nargs='+', default=None, type=str)
 
 
     args = parser.parse_args()
@@ -170,39 +185,45 @@ if __name__ == '__main__':
     proj_dir = '/net/hciserver03/storage/abailoni/learnedHC/'
     offs_dir = '/net/hciserver03/storage/abailoni/pyCharm_projects/hc_segmentation/experiments/postprocessing/cremi/offsets/'
 
-    offsets_dir = [
-        # 'dense_offsets.json',
-        # 'dense_offsets.json',
-        # 'SOA_offsets.json',
-        # 'offsets_MWS.json',
-        'offsets_MWS.json'
-        # 'offsets_MWS.json'
-    ]
+    offsets_dir = 'offsets_MWS.json'
+    # [
+    #     # 'dense_offsets.json',
+    #     # 'dense_offsets.json',
+    #     # 'SOA_offsets.json',
+    #     # 'offsets_MWS.json',
+    #
+    #     # 'offsets_MWS.json'
+    # ]
 
     projs = [
         # 'smart_oversegm_DS2_denseOffs',
         # 'WSDT_DS1_denseOffs',
-        'plain_unstruct/pureDICE_wholeTrainingSet',
-        # 'model_050_A_v2/pureDICE'
-        # 'model_090_v2/strInitSegm_pureDICE'
+        # 'plain_unstruct/pureDICE_wholeTrainingSet',
+        'model_050_A_v3/pureDICE_wholeDtSet'
+        # 'model_090_v2/pureDICE_wholeDtSet'
         # 'model_050_A/pureDICE'
         # 'plain_unstruct/MWSoffs_bound2_addedBCE_001',
-    ]
+    ] if args.projs is None else args.projs
 
-    DS = [
-        # 2,
-        # 1,
-        # 1,
-        1,
-        # 1,
-        # 2
-    ]
+    DS = 1
+    #     [
+    #     # 2,
+    #     # 1,
+    #     # 1,
+    #     1,
+    #     # 1,
+    #     # 2
+    # ]
 
-    for pr_dr, offs, ds  in zip(projs, offsets_dir, DS):
+    # set the proper CUDA_VISIBLE_DEVICES env variables
+    gpus = list(args.gpus)
+    os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(map(str, gpus))
+    gpus = list(range(len(gpus)))
+
+    for pr_dr, offs, ds  in zip(projs, repeat(offsets_dir), repeat(DS)):
 
 
         project_directory = proj_dir + pr_dr
-        gpus = args.gpus
 
         offset_file = offs_dir + offs
         offsets = parse_offsets(offset_file)
@@ -213,10 +234,6 @@ if __name__ == '__main__':
         name_aggl = args.name_aggl
 
 
-        # set the proper CUDA_VISIBLE_DEVICES env variables
-        gpus = list(args.gpus)
-        os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(map(str, gpus))
-        gpus = list(range(len(gpus)))
 
         samples = args.samples
 
@@ -232,7 +249,9 @@ if __name__ == '__main__':
                     name_inference,
                     name_aggl,
                     args.dump_affs,
-                    args.use_default_postproc_config)
+                    args.use_default_postproc_config,
+                    model_IDs=args.model_IDs)
+            torch.cuda.empty_cache()
 
         # # pool = ThreadPool()
         #

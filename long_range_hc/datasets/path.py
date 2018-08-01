@@ -51,59 +51,87 @@ def recursive_dict_update(source, target):
             target[key] = source[key]
     return target
 
-def adapt_configs_to_model(model_ID,
+def adapt_configs_to_model(model_IDs,
+                           debug=False,
                             **path_configs):
+    """
+    :param model_ID: can be an int ID or the name of the model
+    :param path_configs: list of strings with the paths to .yml files
+    """
     for key in path_configs:
-        assert key in ['models', 'train', 'valid', 'data', 'postproc']
-    assert isinstance(model_ID, int)
+        assert key in ['models', 'train', 'valid', 'data', 'postproc', 'infer']
 
     # Load config dicts:
     configs = {}
     for key in path_configs:
         configs[key] = yaml2dict(path_configs[key])
 
-    # Look for the given model:
-    model_name = None
-    for name in configs['models']:
-        if configs['models'][name]['model_ID'] == model_ID:
-            model_name = name
-            break
-    assert model_name is not None, "Model ID not found in the config file"
-    print("Using model ", model_name)
-    model_configs = configs['models'][model_name]
+    def get_model_configs(model_IDs, model_configs=None):
+        model_configs = {} if model_configs is None else model_configs
+        model_IDs = [model_IDs] if not isinstance(model_IDs, list) else model_IDs
+
+        for model_ID in model_IDs:# Look for the given model:
+            # Look for the given model:
+            model_name = None
+            for name in configs['models']:
+                if isinstance(model_ID, int):
+                    if configs['models'][name]['model_ID'] == model_ID:
+                        model_name = name
+                        break
+                elif isinstance(model_ID, str):
+                    if name == model_ID:
+                        model_name = name
+                        break
+                else:
+                    raise ValueError("Model ID should be a int. or a string")
+            assert model_name is not None, "Model ID {} not found in the config file".format(model_ID)
+            if debug:
+                print("Using model ", model_name)
+
+
+            new_model_configs = configs['models'][model_name]
+
+            # Check parents models and update them recursively:
+            if 'parent_model' in new_model_configs:
+                model_configs = get_model_configs(new_model_configs['parent_model'], model_configs)
+
+            # Update config with current options:
+            model_configs = recursive_dict_update(new_model_configs, model_configs)
+
+        return model_configs
+
+    model_configs = get_model_configs(model_IDs)
 
     # Update model-specific parameters:
     for key in path_configs:
         configs[key] = recursive_dict_update(model_configs.get(key, {}), configs[key])
 
-    # # Update HC threshold postproc:
-    # configs['postproc']['generalized_HC_kwargs']['agglomeration_kwargs']['extra_aggl_kwargs']['threshold'] = \
-    #     model_configs['threshold']
-    #
-    # # Update struct. training options:
-    # configs['train']['HC_config']['trained_mistakes'] = model_configs['trained_mistakes']
-
     # Update paths init. segm and GT:
-    samples = ['A', 'B', 'C']
-    model_volume_config = model_configs['volumes']
+    if 'volumes' in model_configs:
+        samples = ['A', 'B', 'C']
+        model_volume_config = model_configs['volumes']
 
-    def update_paths(target_vol_config, source_vol_config):
-        # Loop over 'init_segmentation', 'GT', ...
-        # If the path is not specified, then the one of 'init_segmentation' will be used
-        for input_key in source_vol_config:
-            target_vol_config[input_key] = {'dtype': 'int32', 'path': {},
-                                                      'path_in_h5_dataset': {}}
-            for smpl in samples:
-                path = source_vol_config[input_key]['path'] if 'path' in source_vol_config[input_key] else source_vol_config['init_segmentation']['path']
-                path = path.replace('$', smpl)
-                h5_path = source_vol_config[input_key]['path_in_h5_dataset'].replace('$', smpl)
-                target_vol_config[input_key]['path'][smpl] = path
-                target_vol_config[input_key]['path_in_h5_dataset'][smpl] = h5_path
+        def update_paths(target_vol_config, source_vol_config):
+            # Loop over 'init_segmentation', 'GT', ...
+            # If the path is not specified, then the one of 'init_segmentation' will be used
+            for input_key in source_vol_config:
+                target_vol_config[input_key] = {'dtype': 'int32', 'path': {},
+                                                          'path_in_h5_dataset': {}}
+                for smpl in samples:
+                    path = source_vol_config[input_key]['path'] if 'path' in source_vol_config[input_key] else source_vol_config['init_segmentation']['path']
+                    path = path.replace('$', smpl)
+                    h5_path = source_vol_config[input_key]['path_in_h5_dataset'].replace('$', smpl)
+                    target_vol_config[input_key]['path'][smpl] = path
+                    target_vol_config[input_key]['path_in_h5_dataset'][smpl] = h5_path
 
-        return target_vol_config
+            return target_vol_config
 
-    configs['data']['volume_config'] = update_paths(configs['data']['volume_config'], model_volume_config)
-    configs['valid']['volume_config'] = update_paths(configs['valid']['volume_config'], model_volume_config)
+        if 'data' in configs:
+            configs['data']['volume_config'] = update_paths(configs['data']['volume_config'], model_volume_config)
+        if 'valid' in configs:
+            configs['valid']['volume_config'] = update_paths(configs['valid']['volume_config'], model_volume_config)
+        if 'infer' in configs:
+            configs['infer']['volume_config'] = update_paths(configs['infer']['volume_config'], model_volume_config)
 
 
     # Dump config files to disk:

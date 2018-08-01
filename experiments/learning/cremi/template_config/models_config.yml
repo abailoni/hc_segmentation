@@ -153,6 +153,13 @@ threshold_090_newOversegm:
     pretrained_model_kwargs:
       in_channels: 16
 
+  data:
+    slicing_config:
+      data_slice:
+        A: ':, :, :'
+        B: ':, :, :'
+        C: ':, :, :'
+
 
 threshold_050_B_newOversegm:
   model_ID: 8
@@ -187,9 +194,9 @@ threshold_050_A_newOversegm:
   volumes:
     init_segmentation:
       path: '/export/home/abailoni/learnedHC/model_090_v2/unstrInitSegm_pureDICE/postprocess/inferName_v1_HC_090_$/pred_segm.h5'
-      path_in_h5_dataset: 'finalSegm'
+      path_in_h5_dataset: 'finalSegm_WS'
     GT:
-      path_in_h5_dataset: 'finalSegm_bestGT'
+      path_in_h5_dataset: 'finalSegm_WS_bestGT'
 
   postproc:
     generalized_HC_kwargs:
@@ -210,14 +217,29 @@ threshold_050_A_newOversegm:
     pretrained_model_kwargs:
       in_channels: 16
 
-threshold_050_A_newOversegm_struc:
-  model_ID: 10
+  data:
+      slicing_config:
+        data_slice:
+          A: ':, :, :'
+          B: ':, :, :'
+          C: ':, :, :'
+
+
+combined_model_wholeDataSet:
+  model_ID: 100
   volumes:
     init_segmentation:
       path: '/export/home/abailoni/learnedHC/plain_unstruct/MWSoffs_bound2_pyT4/postprocess/inferName_v1_01_HC098_$/pred_segm.h5'
       path_in_h5_dataset: 'finalSegm_WS'
     GT:
+      path: '/export/home/abailoni/learnedHC/plain_unstruct/MWSoffs_bound2_pyT4/postprocess/inferName_v1_01_HC098_$/pred_segm.h5'
       path_in_h5_dataset: 'finalSegm_bestGT'
+    segmFinal:
+      path: '/export/home/abailoni/learnedHC/model_090_v2/unstrInitSegm_pureDICE/postprocess/inferName_v1_HC_090_$/pred_segm.h5'
+      path_in_h5_dataset: 'finalSegm'
+    underSegm:
+      path: '/export/home/abailoni/learnedHC/model_050_A_v2/pureDICE/postprocess/inferName_v40k_HC_050_$/pred_segm.h5'
+      path_in_h5_dataset: 'finalSegm'
 
   postproc:
     generalized_HC_kwargs:
@@ -225,16 +247,200 @@ threshold_050_A_newOversegm_struc:
         extra_aggl_kwargs:
           threshold: 0.5
 
-  # 'only_merge_mistakes', 'all_mistakes', 'only_split_mistakes'
   train:
     HC_config:
-      loss_BCE_factor: 0.01
-      erode_boundary_thickness: 0
+      loss_BCE_factor: 0.0
+      erode_boundary_thickness: 2
       struct_weights_kwargs:
-        trained_mistakes: 'all_mistakes'
+        trained_mistakes: 'none'
         weighting_merge_mistakes: 1.0
         weighting_split_mistakes: 0.1
         train_correct_predictions: False
     pretrained_model_kwargs:
-      in_channels: 16
+      in_channels: 33
+      initial_num_fmaps: 40
 
+  data:
+    slicing_config:
+      data_slice:
+        A: ':, :, :'
+        B: ':, :, :'
+        C: ':, :, :'
+#    slicing_config:
+#      window_size:
+#        A: [25, 424, 424]
+#        B: [25, 424, 424]
+#        C: [25, 424, 424]
+    master_config:
+      dim_embedding_vector_space: 8
+  valid:
+#    slicing_config:
+#      window_size:
+#        A: [25, 424, 424]
+#        B: [25, 424, 424]
+#        C: [25, 424, 424]
+    master_config:
+      dim_embedding_vector_space: 8
+
+
+combined_model_wholeDataSet:
+  model_ID: 101
+  volumes:
+    init_segmentation:
+      path: '/export/home/abailoni/learnedHC/plain_unstruct/pureDICE_wholeTrainingSet/postprocess/inferName_v40k_HC098_$/pred_segm.h5'
+      path_in_h5_dataset: 'finalSegm'
+#    GT:
+#      path: '/export/home/abailoni/learnedHC/plain_unstruct/MWSoffs_bound2_pyT4/postprocess/inferName_v1_01_HC098_$/pred_segm.h5'
+#      path_in_h5_dataset: 'finalSegm_bestGT'
+    segmFinal:
+      path: '/export/home/abailoni/learnedHC/plain_unstruct/pureDICE_wholeTrainingSet/postprocess/inferName_v40k_HC075_$/pred_segm.h5'
+      path_in_h5_dataset: 'finalSegm'
+    underSegm:
+      path: '/export/home/abailoni/learnedHC/plain_unstruct/pureDICE_wholeTrainingSet/postprocess/inferName_v40k_HC050_$/pred_segm.h5'
+      path_in_h5_dataset: 'finalSegm'
+
+  postproc:
+    generalized_HC_kwargs:
+      agglomeration_kwargs:
+        extra_aggl_kwargs:
+          threshold: 0.5
+
+  train:
+    HC_config:
+      loss_BCE_factor: 0.0
+      erode_boundary_thickness: 2
+      struct_weights_kwargs:
+        trained_mistakes: 'none'
+        weighting_merge_mistakes: 1.0
+        weighting_split_mistakes: 0.1
+        train_correct_predictions: False
+    pretrained_model_kwargs:
+      in_channels: 33
+      initial_num_fmaps: 40
+
+  data:
+    slicing_config:
+      data_slice:
+        A: ':, :, :'
+        B: ':, :, :'
+        C: ':, :, :'
+#    slicing_config:
+#      window_size:
+#        A: [25, 424, 424]
+#        B: [25, 424, 424]
+#        C: [25, 424, 424]
+    master_config:
+      dim_embedding_vector_space: 8
+  valid:
+#    slicing_config:
+#      window_size:
+#        A: [25, 424, 424]
+#        B: [25, 424, 424]
+#        C: [25, 424, 424]
+    master_config:
+      dim_embedding_vector_space: 8
+
+
+###################################
+
+gen_HC:
+  postproc:
+    segm_pipeline_type: 'gen_HC'
+
+gen_HC_pix:
+  parent_model: ['gen_HC', 'blockwise']
+  postproc:
+    start_from_given_segm: False
+    use_fragmenter: False
+    volumes:
+      affinities:
+        slicing_config:
+          stride:
+            A: [12, 1, 600, 600]
+            B: [12, 1, 600, 600]
+            C: [12, 1, 600, 600]
+          window_size:
+            A: [None, 3, 600, 600]
+            B: [None, 3, 600, 600]
+            C: [None, 3, 600, 600]
+
+gen_HC_DTWS:
+  parent_model: ['gen_HC']
+  postproc:
+    start_from_given_segm: False
+    use_fragmenter: True
+
+gen_HC_givenSP:
+  parent_model: ['gen_HC']
+  postproc:
+    start_from_given_segm: True
+    use_fragmenter: False
+
+thresh098:
+  parent_model: ['gen_HC']
+  postproc:
+    generalized_HC_kwargs:
+      agglomeration_kwargs:
+        extra_aggl_kwargs:
+          threshold: 0.98
+
+thresh050:
+  parent_model: ['gen_HC']
+  postproc:
+    generalized_HC_kwargs:
+      agglomeration_kwargs:
+        extra_aggl_kwargs:
+          threshold: 0.5
+
+
+
+
+MWS:
+  postproc:
+    segm_pipeline_type: 'MWS'
+
+stride10:
+  parent_model: 'MWS'
+  postproc:
+    MWS_kwargs:
+      stride:
+        - 1
+        - 10
+        - 10
+
+
+blockwise:
+  postproc:
+    blockwise: True
+    blockwise_kwargs:
+      crop_padding: True
+      nb_parallel_blocks: 20
+      num_workers: 1
+
+
+crop_train:
+  postproc:
+    data_slice:
+      A: ':, :, 100:-100, 100:-100'
+      B: ':, :, 100:1330, 665:1750'
+      C: ':, :, 150:-150, 150:-150'
+
+
+DTWSplusHC090:
+  volumes:
+    init_segmentation:
+      path: '/export/home/abailoni/learnedHC/plain_unstruct/pureDICE_wholeTrainingSet/postprocess/inferName_v100k_DTWSplusHC090_notCropped_$/pred_segm.h5'
+      path_in_h5_dataset: 'finalSegm'
+
+
+smallInfer:
+  infer:
+    slicing_config:
+      window_size:
+        A: [25, 540, 540]
+        B: [25, 540, 540]
+        C: [25, 540, 540]
+      stride:
+        A: [15, 360, 360]
+        B: [15, 360, 360]
+        C: [15, 360, 360]

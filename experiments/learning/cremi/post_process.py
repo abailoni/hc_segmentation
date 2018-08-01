@@ -4,13 +4,15 @@ sys.path.append("/net/hciserver03/storage/abailoni/pyCharm_projects/hc_segmentat
 
 from long_range_hc.trainers.learnedHC.visualization import VisualizationCallback
 
+from shutil import copyfile
+
 import os
 import numpy as np
 import argparse
 import vigra
 import h5py
 
-from long_range_hc.datasets.path import get_template_config_file, parse_offsets
+from long_range_hc.datasets.path import get_template_config_file, parse_offsets, adapt_configs_to_model
 import json
 import time
 import yaml
@@ -36,22 +38,21 @@ from long_range_hc.postprocessing.pipelines import get_segmentation_pipeline
 
 def evaluate(project_folder, sample, offsets,
              n_threads, name_aggl, name_infer, crop_slice=None,
-             affinities=None, use_default_postproc_config=False):
+             affinities=None, use_default_postproc_config=False,
+             model_IDs=None):
     pred_path = os.path.join(project_folder,
                              'Predictions',
                              'prediction_sample%s.h5' % sample)
 
-    postproc_config_path = os.path.join(project_folder,
-                                    'postproc_config.yml')
-    if not os.path.isfile(postproc_config_path) or use_default_postproc_config:
-        postproc_config_path = './template_config/post_proc/post_proc_config.yml'
-    post_proc_config = yaml2dict(postproc_config_path)
 
+    # ------
+    # Load data config:
+    # ------
     name_aggl = "{}_{}".format(name_aggl, sample)
-
     data_config_path = os.path.join(project_folder,
-                             'infer_data_config_{}_{}.yml'.format(name_infer, sample))
+                                    'infer_data_config_{}_{}.yml'.format(name_infer, sample))
     if not os.path.isfile(data_config_path):
+        raise DeprecationWarning()
         data_config_path = os.path.join(project_folder,
                                         'data_config.yml')
         aff_path_in_h5file = 'data'
@@ -60,45 +61,65 @@ def evaluate(project_folder, sample, offsets,
         name_aggl = 'inferName_{}_{}'.format(name_infer, name_aggl)
     data_config = yaml2dict(data_config_path)
 
-    # TODO: save config files associated to this prediction!
-    aff_loader_config = './template_config/post_proc/aff_loader_config.yml'
-    aff_loader_config = yaml2dict(aff_loader_config)
-    aff_loader_config['volumes']['affinities']['path'] = {sample: pred_path}
-    aff_loader_config['volumes']['affinities']['path_in_h5_dataset'] = {sample: aff_path_in_h5file}
-    given_initSegm = post_proc_config['start_from_given_segm']
-
-    if given_initSegm:
-        aff_loader_config['volumes']['init_segmentation'] = data_config['volume_config']['init_segmentation']
-    aff_loader_config['volumes']['GT'] = data_config['volume_config']['GT']
-    aff_loader_config['volumes']['raw'] = data_config['volume_config']['raw']
-
-    aff_loader_config['offsets'] = list(offsets)
-    aff_loader_config['sample'] = sample
-    if crop_slice is not None:
-        aff_loader_config['data_slice'][sample] = crop_slice
-    else:
-        crop_slice = aff_loader_config['data_slice'][sample]
-
-
-    post_proc_config['nb_threads'] = n_threads
 
     # Create sub-directory and save copy of config files:
     postproc_dir = os.path.join(project_folder, "postprocess")
-    if not os.path.exists(postproc_dir ):
+    if not os.path.exists(postproc_dir):
         os.mkdir(postproc_dir)
     postproc_dir = os.path.join(postproc_dir, name_aggl)
-    if not os.path.exists(postproc_dir ):
+    if not os.path.exists(postproc_dir):
         os.mkdir(postproc_dir)
-    # Dump config files:
-    with open(os.path.join(postproc_dir, 'main_config.yml'), 'w') as f:
+
+
+    # Load default postproc config:
+    def_postproc_config_path = './template_config/post_proc/post_proc_config.yml'
+    postproc_config_path = os.path.join(postproc_dir, 'main_config.yml')
+    copyfile(def_postproc_config_path, postproc_config_path)
+    post_proc_config = yaml2dict(postproc_config_path)
+
+    # Uptdate volume specs::
+    assert 'volumes' in post_proc_config, "Updated: please move affinity loading to post_proc_config!"
+    assert 'data_slice' in post_proc_config, "Updated: please move crop_slice to post_proc_config!"
+
+    post_proc_config['volumes']['affinities']['path'] = {sample: pred_path}
+    post_proc_config['volumes']['affinities']['path_in_h5_dataset'] = {sample: aff_path_in_h5file}
+    given_initSegm = post_proc_config['start_from_given_segm']
+
+
+    if 'init_segmentation' in data_config['volume_config']:
+        post_proc_config['volumes']['init_segmentation'] = data_config['volume_config']['init_segmentation']
+    post_proc_config['volumes']['GT'] = data_config['volume_config']['GT']
+    post_proc_config['volumes']['raw'] = data_config['volume_config']['raw']
+
+    post_proc_config['offsets'] = list(offsets)
+    post_proc_config['sample'] = sample
+
+    post_proc_config['nb_threads'] = n_threads
+
+    with open(postproc_config_path, 'w') as f:
         yaml.dump(post_proc_config, f)
-    with open(os.path.join(postproc_dir, 'aff_loader_config.yml'), 'w') as f:
-        yaml.dump(aff_loader_config, f)
 
-    # aff_loader_config.pop('data_slice_not_padded')
-    # parsed_slice = tuple(parse_data_slice(aff_loader_config['slicing_config']['data_slice']))
+    # Adapt config to the passed model options:
+    if model_IDs is not None:
+        config_paths = {'models': './template_config/models_config.yml',
+                        'postproc': postproc_config_path}
+        adapt_configs_to_model(model_IDs, debug=True, **config_paths)
+        post_proc_config = yaml2dict(postproc_config_path)
 
-    # TODO: it would be really nice to avoid the full loading of the dataset...
+    # Final checks:
+    if given_initSegm:
+        assert 'init_segmentation' in post_proc_config['volumes'], "Init. segmentation required! Please specify path in config file!"
+    post_proc_config.pop('offsets')
+
+
+    if crop_slice is not None:
+        post_proc_config['data_slice'][sample] = crop_slice
+    else:
+        crop_slice = post_proc_config['data_slice'][sample]
+
+    crop_slice_is_not_none = [slice(None) for _ in range(4)] != parse_data_slice(crop_slice)
+
+
     print("Loading affinities and init. segmentation...")
     affinities_from_hdf5 = affinities is None
     init_segm = None
@@ -119,12 +140,17 @@ def evaluate(project_folder, sample, offsets,
 
 
     if affinities_from_hdf5:
-        affinities_dataset = AffinitiesHDF5VolumeLoader.from_config(aff_loader_config['volumes']['affinities'],
+        affinities_dataset = AffinitiesHDF5VolumeLoader.from_config(post_proc_config['volumes']['affinities'],
                                                                     name=sample, data_slice=crop_slice)
     else:
+        if crop_slice_is_not_none:
+            slc = tuple(parse_data_slice(crop_slice))
+            affinities = affinities[np.s_[slc]]
         affinities_dataset = AffinitiesVolumeLoader.from_config(affinities,
                                                                 sample,
-                                            aff_loader_config['volumes']['affinities'])
+                                            post_proc_config['volumes']['affinities'])
+
+
 
     # assert affinities.shape[1:] == init_segm.shape, "{}, {}".format(affinities.shape, init_segm.shape)
 
@@ -135,6 +161,14 @@ def evaluate(project_folder, sample, offsets,
     bb = np.s_[slc[1:]]
     with h5py.File(gt_path, 'r') as f:
         gt = f['segmentations/groundtruth_fixed'][bb].astype('uint64')
+
+
+    if crop_slice_is_not_none:
+        print("Crop slice is not None. Running connected components.")
+        gt = vigra.analysis.labelVolumeWithBackground(gt.astype('uint32'))
+        if init_segm is not None:
+            init_segm = vigra.analysis.labelVolume(init_segm.astype('uint32'))
+
 
     return_fragments = post_proc_config.pop('return_fragments', False)
     post_proc_config.pop('nb_threads')
@@ -214,6 +248,7 @@ def evaluate(project_folder, sample, offsets,
     #     print("Evaluating scores...")
     #     initSegm_evals = cremi_score(gt, init_segm, border_threshold=None, return_all_scores=True)
     #     print("Score of the oversegm:", initSegm_evals)
+    print("Computing score...")
     evals = cremi_score(gt, pred_segm, border_threshold=None, return_all_scores=True)
     print("Scores achieved: ", evals)
 
@@ -242,12 +277,19 @@ if __name__ == '__main__':
     parser.add_argument('--name_aggl', default=None)
     parser.add_argument('--name_infer', default=None)
     parser.add_argument('--use_default_postproc_config', default=False, type=bool)
+    parser.add_argument('--model_IDs', nargs='+', default=None, type=str)
 
     args = parser.parse_args()
 
     project_directory = args.project_directory
 
+    if project_directory[0] != '/':
+        project_directory = os.path.join('/net/hciserver03/storage/abailoni/learnedHC/', project_directory)
     offset_file = args.offset_file
+    if offset_file[0] != '/':
+        offset_file = os.path.join('/net/hciserver03/storage/abailoni/pyCharm_projects/hc_segmentation/experiments/postprocessing/cremi/offsets/', offset_file)
+
+
     offsets = parse_offsets(offset_file)
     n_threads = args.n_threads
     name_aggl = args.name_aggl
@@ -257,4 +299,5 @@ if __name__ == '__main__':
 
     for sample in samples:
         evaluate(project_directory, sample, offsets, n_threads, name_aggl, name_infer,
-                 crop_slice, use_default_postproc_config=args.use_default_postproc_config)
+                 crop_slice, use_default_postproc_config=args.use_default_postproc_config,
+                 model_IDs=args.model_IDs)

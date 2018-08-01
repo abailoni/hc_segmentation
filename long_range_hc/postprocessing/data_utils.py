@@ -22,7 +22,14 @@ def import_postproc_data(proj_dir, aggl_name,
     :return:
     """
     # TODO: generalize file_names in the dataset folder!
-    config_file = yaml2dict(os.path.join(proj_dir, "postprocess/{}/aff_loader_config.yml".format(aggl_name)))
+    path_config = os.path.join(proj_dir, "postprocess/{}/main_config.yml".format(aggl_name))
+    config_file = yaml2dict(path_config)
+    # Legacy:
+    if 'volumes' not in config_file:
+        print("Please update config files. 'aff_loader_config' deprecated.")
+        path_config = os.path.join(proj_dir, "postprocess/{}/aff_loader_config.yml".format(aggl_name))
+        config_file = yaml2dict(path_config)
+
     sample = config_file['sample']
     volumes = config_file['volumes']
 
@@ -86,7 +93,13 @@ def import_SOA_datasets(
 
     if proj_dir is not None:
         assert aggl_name is not None
-        config_file = yaml2dict(os.path.join(proj_dir, "postprocess/{}/aff_loader_config.yml".format(aggl_name)))
+        path_config = os.path.join(proj_dir, "postprocess/{}/main_config.yml".format(aggl_name))
+        config_file = yaml2dict(path_config)
+        # Legacy:
+        if 'volumes' not in config_file:
+            print("Please update config files. 'aff_loader_config' deprecated.")
+            path_config = os.path.join(proj_dir, "postprocess/{}/aff_loader_config.yml".format(aggl_name))
+            config_file = yaml2dict(path_config)
         sample = config_file['sample']
         if 'slicing_config' in config_file:
             # Legacy:
@@ -96,6 +109,9 @@ def import_SOA_datasets(
     else:
         assert sample is not None
         crop_slice = ":,:,:,:" if crop_slice is None else crop_slice
+        config_file = {}
+        config_file['path'] = "/net/hciserver03/storage/abailoni/learnedHC/new_experiments/SOA_affinities/Predictions/prediction_sample{}.h5".format(sample)
+        config_file['path_in_h5_dataset'] = 'data'
 
 
     slc = parse_data_slice(crop_slice)
@@ -145,8 +161,13 @@ def import_dataset(proj_dir, aggl_name,
             if data_key not in ['raw', 'gt', 'affinities']:
                 raise ValueError('Import key not recognised: {}. Available: {}'.format(data_key, ['raw', 'gt', 'affinities']))
 
-
-    config_file = yaml2dict(os.path.join(proj_dir, "postprocess/{}/aff_loader_config.yml".format(aggl_name)))
+    path_config = os.path.join(proj_dir, "postprocess/{}/main_config.yml".format(aggl_name))
+    config_file = yaml2dict(path_config)
+    # Legacy:
+    if 'volumes' not in config_file:
+        print("Please update config files. 'aff_loader_config' deprecated.")
+        path_config = os.path.join(proj_dir, "postprocess/{}/aff_loader_config.yml".format(aggl_name))
+        config_file = yaml2dict(path_config)
     sample = config_file['sample']
     dataset_path = os.path.join(dataset_folder,'sample%s_train.h5' % (sample))
     slc = parse_data_slice(config_file['slicing_config']['data_slice'])
@@ -188,8 +209,13 @@ def import_segmentations(proj_dir, aggl_name, keys_to_return=None):
                 if data_key not in available_keys:
                     raise ValueError('Import key not found in file: {}. Availables: {}'.format(data_key, available_keys))
 
-
-    config_file = yaml2dict(os.path.join(proj_dir, "postprocess/{}/aff_loader_config.yml".format(aggl_name)))
+    path_config = os.path.join(proj_dir, "postprocess/{}/main_config.yml".format(aggl_name))
+    config_file = yaml2dict(path_config)
+    # Legacy:
+    if 'volumes' not in config_file:
+        print("Please update config files. 'aff_loader_config' deprecated.")
+        path_config = os.path.join(proj_dir, "postprocess/{}/aff_loader_config.yml".format(aggl_name))
+        config_file = yaml2dict(path_config)
     sample = config_file['sample']
 
     scores_file = os.path.join(proj_dir, "postprocess/{}/scores.json".format(aggl_name))
