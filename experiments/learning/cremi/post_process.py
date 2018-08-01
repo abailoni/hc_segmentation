@@ -83,7 +83,7 @@ def evaluate(project_folder, sample, offsets,
 
     post_proc_config['volumes']['affinities']['path'] = {sample: pred_path}
     post_proc_config['volumes']['affinities']['path_in_h5_dataset'] = {sample: aff_path_in_h5file}
-    given_initSegm = post_proc_config['start_from_given_segm']
+
 
 
     if 'init_segmentation' in data_config['volume_config']:
@@ -107,6 +107,7 @@ def evaluate(project_folder, sample, offsets,
         post_proc_config = yaml2dict(postproc_config_path)
 
     # Final checks:
+    given_initSegm = post_proc_config['start_from_given_segm']
     if given_initSegm:
         assert 'init_segmentation' in post_proc_config['volumes'], "Init. segmentation required! Please specify path in config file!"
     post_proc_config.pop('offsets')
