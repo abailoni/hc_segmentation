@@ -80,7 +80,7 @@ class FixationAgglomeraterBase(object):
                  offsets_weights=None,
                  extra_aggl_kwargs=None,
                  extra_runAggl_kwargs=None,
-                 debug=False,
+                 debug=True,
                  ):
         """
                 Starts from pixels.

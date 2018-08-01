@@ -74,7 +74,7 @@ class FeaturerLongRangeAffs(object):
     def __init__(self, offsets,
                        offsets_weights=None,
                        used_offsets=None,
-                       debug=False,
+                       debug=True,
                        n_threads=1,
                    invert_affinities=False,
                  max_distance_lifted_edges=1):
@@ -125,11 +125,11 @@ class FeaturerLongRangeAffs(object):
 
         if self.debug:
             print("Took {} s!".format(time.time() - tick))
-            print("Building graph...")
             tick = time.time()
 
         if self.max_distance_lifted_edges != 1:
             # Build lifted graph:
+            print("Building graph...")
             lifted_graph, is_local_edge = build_lifted_graph_from_rag(
                 rag,
                 segmentation,
@@ -162,6 +162,7 @@ class FeaturerLongRangeAffs(object):
                     offsets_weights=offsets_weights,
                     number_of_threads=self.n_threads)
         else:
+            print("Computing edge_features...")
             is_local_edge = np.ones(rag.numberOfEdges, dtype=np.int8)
             edge_indicators, edge_sizes = \
                 accumulate_affinities_on_graph_edges(
