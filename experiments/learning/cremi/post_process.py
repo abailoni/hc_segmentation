@@ -78,18 +78,18 @@ def evaluate(project_folder, sample, offsets,
     post_proc_config = yaml2dict(postproc_config_path)
 
     # Uptdate volume specs::
-    assert 'volumes' in post_proc_config, "Updated: please move affinity loading to post_proc_config!"
+    assert 'volume_config' in post_proc_config, "Updated: please move affinity loading to post_proc_config!"
     assert 'data_slice' in post_proc_config, "Updated: please move crop_slice to post_proc_config!"
 
-    post_proc_config['volumes']['affinities']['path'] = {sample: pred_path}
-    post_proc_config['volumes']['affinities']['path_in_h5_dataset'] = {sample: aff_path_in_h5file}
+    post_proc_config['volume_config']['affinities']['path'] = {sample: pred_path}
+    post_proc_config['volume_config']['affinities']['path_in_h5_dataset'] = {sample: aff_path_in_h5file}
 
 
 
     if 'init_segmentation' in data_config['volume_config']:
-        post_proc_config['volumes']['init_segmentation'] = data_config['volume_config']['init_segmentation']
-    post_proc_config['volumes']['GT'] = data_config['volume_config']['GT']
-    post_proc_config['volumes']['raw'] = data_config['volume_config']['raw']
+        post_proc_config['volume_config']['init_segmentation'] = data_config['volume_config']['init_segmentation']
+    post_proc_config['volume_config']['GT'] = data_config['volume_config']['GT']
+    post_proc_config['volume_config']['raw'] = data_config['volume_config']['raw']
 
     post_proc_config['offsets'] = list(offsets)
     post_proc_config['sample'] = sample
@@ -109,7 +109,7 @@ def evaluate(project_folder, sample, offsets,
     # Final checks:
     given_initSegm = post_proc_config['start_from_given_segm']
     if given_initSegm:
-        assert 'init_segmentation' in post_proc_config['volumes'], "Init. segmentation required! Please specify path in config file!"
+        assert 'init_segmentation' in post_proc_config['volume_config'], "Init. segmentation required! Please specify path in config file!"
     post_proc_config.pop('offsets')
 
 
@@ -122,26 +122,27 @@ def evaluate(project_folder, sample, offsets,
 
 
     print("Loading affinities and init. segmentation...")
+    tick = time.time()
     affinities_from_hdf5 = affinities is None
     init_segm = None
     if given_initSegm:
-        if affinities is None:
-            affinities, init_segm = import_postproc_data(project_folder, aggl_name=name_aggl,
-                             data_to_import=['affinities', 'init_segmentation'],crop_slice=crop_slice)
-        else:
-            init_segm = import_postproc_data(project_folder, aggl_name=name_aggl,
+        # if affinities is None:
+        #     affinities, init_segm = import_postproc_data(project_folder, aggl_name=name_aggl,
+        #                      data_to_import=['affinities', 'init_segmentation'],crop_slice=crop_slice)
+        # else:
+        init_segm = import_postproc_data(project_folder, aggl_name=name_aggl,
                                              data_to_import=['init_segmentation'],
                                              crop_slice=crop_slice)
 
-    else:
-        if affinities is None:
-            affinities= import_postproc_data(project_folder, aggl_name=name_aggl,
-                                                         data_to_import=['affinities'],
-                                             crop_slice=crop_slice)
+    # else:
+    #     if affinities is None:
+    #         affinities= import_postproc_data(project_folder, aggl_name=name_aggl,
+    #                                                      data_to_import=['affinities'],
+    #                                          crop_slice=crop_slice)
 
 
     if affinities_from_hdf5:
-        affinities_dataset = AffinitiesHDF5VolumeLoader.from_config(post_proc_config['volumes']['affinities'],
+        affinities_dataset = AffinitiesHDF5VolumeLoader.from_config(post_proc_config['volume_config']['affinities'],
                                                                     name=sample, data_slice=crop_slice)
     else:
         if crop_slice_is_not_none:
@@ -149,7 +150,9 @@ def evaluate(project_folder, sample, offsets,
             affinities = affinities[np.s_[slc]]
         affinities_dataset = AffinitiesVolumeLoader.from_config(affinities,
                                                                 sample,
-                                            post_proc_config['volumes']['affinities'])
+                                            post_proc_config['volume_config']['affinities'])
+    print("Loading data took {} s".format(time.time() - tick))
+
 
 
 
@@ -216,7 +219,8 @@ def evaluate(project_folder, sample, offsets,
     else:
         output_segmentations = post_proc_solver(affinities_dataset)
     pred_segm = output_segmentations[0] if isinstance(output_segmentations, tuple) else output_segmentations
-    print("Post-processing took {} s".format(time.time() - tick))
+    comp_time = time.time() - tick
+    print("Post-processing took {} s".format(comp_time))
     print("Pred. sahpe: ", pred_segm.shape)
     print("GT shape: ", gt.shape)
     print("Min. GT label: ", gt.min())
@@ -230,6 +234,15 @@ def evaluate(project_folder, sample, offsets,
             stacked_pred_segm[z] = slc + max_label
             max_label += slc.max() + 1
         pred_segm = stacked_pred_segm
+
+    if post_proc_config.get('thresh_segm_size', 0) != 0:
+        # TODO: call WS_transf
+        raise NotImplementedError()
+
+    if post_proc_config.get('find_best_GT_labels', False):
+        # TODO: call function
+        raise NotImplementedError()
+
 
 
     segm_file = os.path.join(postproc_dir, 'pred_segm.h5')
@@ -260,6 +273,7 @@ def evaluate(project_folder, sample, offsets,
     else:
         res = {}
 
+    res['computation_time'] = comp_time
     res[sample] = evals
     res['init_segm'] = {}
     # if given_initSegm:

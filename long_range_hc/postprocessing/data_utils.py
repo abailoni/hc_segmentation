@@ -25,13 +25,13 @@ def import_postproc_data(proj_dir, aggl_name,
     path_config = os.path.join(proj_dir, "postprocess/{}/main_config.yml".format(aggl_name))
     config_file = yaml2dict(path_config)
     # Legacy:
-    if 'volumes' not in config_file:
+    if 'volume_config' not in config_file:
         print("Please update config files. 'aff_loader_config' deprecated.")
         path_config = os.path.join(proj_dir, "postprocess/{}/aff_loader_config.yml".format(aggl_name))
         config_file = yaml2dict(path_config)
 
     sample = config_file['sample']
-    volumes = config_file['volumes']
+    volumes = config_file['volume_config']
 
     if data_to_import is None:
         data_to_import = ['raw', 'GT', 'affinities']
@@ -96,7 +96,7 @@ def import_SOA_datasets(
         path_config = os.path.join(proj_dir, "postprocess/{}/main_config.yml".format(aggl_name))
         config_file = yaml2dict(path_config)
         # Legacy:
-        if 'volumes' not in config_file:
+        if 'volume_config' not in config_file:
             print("Please update config files. 'aff_loader_config' deprecated.")
             path_config = os.path.join(proj_dir, "postprocess/{}/aff_loader_config.yml".format(aggl_name))
             config_file = yaml2dict(path_config)
@@ -164,7 +164,7 @@ def import_dataset(proj_dir, aggl_name,
     path_config = os.path.join(proj_dir, "postprocess/{}/main_config.yml".format(aggl_name))
     config_file = yaml2dict(path_config)
     # Legacy:
-    if 'volumes' not in config_file:
+    if 'volume_config' not in config_file:
         print("Please update config files. 'aff_loader_config' deprecated.")
         path_config = os.path.join(proj_dir, "postprocess/{}/aff_loader_config.yml".format(aggl_name))
         config_file = yaml2dict(path_config)
@@ -212,7 +212,7 @@ def import_segmentations(proj_dir, aggl_name, keys_to_return=None):
     path_config = os.path.join(proj_dir, "postprocess/{}/main_config.yml".format(aggl_name))
     config_file = yaml2dict(path_config)
     # Legacy:
-    if 'volumes' not in config_file:
+    if 'volume_config' not in config_file:
         print("Please update config files. 'aff_loader_config' deprecated.")
         path_config = os.path.join(proj_dir, "postprocess/{}/aff_loader_config.yml".format(aggl_name))
         config_file = yaml2dict(path_config)

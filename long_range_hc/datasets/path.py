@@ -75,9 +75,10 @@ def adapt_configs_to_model(model_IDs,
             model_name = None
             for name in configs['models']:
                 if isinstance(model_ID, int):
-                    if configs['models'][name]['model_ID'] == model_ID:
-                        model_name = name
-                        break
+                    if 'model_ID' in configs['models'][name]:
+                        if configs['models'][name]['model_ID'] == model_ID:
+                            model_name = name
+                            break
                 elif isinstance(model_ID, str):
                     if name == model_ID:
                         model_name = name
@@ -126,12 +127,13 @@ def adapt_configs_to_model(model_IDs,
 
             return target_vol_config
 
-        if 'data' in configs:
-            configs['data']['volume_config'] = update_paths(configs['data']['volume_config'], model_volume_config)
-        if 'valid' in configs:
-            configs['valid']['volume_config'] = update_paths(configs['valid']['volume_config'], model_volume_config)
-        if 'infer' in configs:
-            configs['infer']['volume_config'] = update_paths(configs['infer']['volume_config'], model_volume_config)
+        for key in ['data', 'valid', 'infer', 'postproc']:
+            if key in configs:
+                configs[key]['volume_config'] = {} if 'volume_config' not in configs[key] else configs[key][
+                    'volume_config']
+                configs[key]['volume_config'] = update_paths(configs[key]['volume_config'], model_volume_config)
+
+
 
 
     # Dump config files to disk:
