@@ -57,7 +57,9 @@ def predict(sample,
             name_aggl=None,
             dump_affs=False,
             use_default_postproc_config=False,
-            model_IDs=None
+            model_IDs=None,
+            use_test_datasets=False,
+            save_folder=None
 
             ): #Only 3 nearest neighbor channels
     data_config_path = os.path.join(project_folder,
@@ -85,11 +87,18 @@ def predict(sample,
 
     infer_config['volume_config'] = data_config['volume_config']
 
+    if use_test_datasets:
+        test_datsets_config = yaml2dict('./template_config/inference/infer_config_test_datasets.yml')
+        infer_config['volume_config']['raw'] = test_datsets_config['volume_config']['raw']
+        infer_config['volume_config'].pop('GT', None)
+
+
     if path_init_segm is not None:
         path_init_segm = os.path.join(path_init_segm+sample, 'pred_segm.h5')
         infer_config['volume_config']['init_segmentation']['path'][sample] = path_init_segm
 
-    save_folder = os.path.join(project_folder, 'Predictions')
+    if save_folder is None:
+        save_folder = os.path.join(project_folder, 'Predictions')
     if not os.path.exists(save_folder):
         os.mkdir(save_folder)
     save_path = os.path.join(save_folder, 'prediction_sample%s.h5' % sample)
@@ -149,7 +158,8 @@ def predict(sample,
                  name_infer=name_inference,
                  affinities=output.astype('float32'),
                  use_default_postproc_config=use_default_postproc_config,
-                 model_IDs=model_IDs
+                 model_IDs=model_IDs,
+                 use_test_datasets=use_test_datasets
                  )
 
     # if only_nn_channels:
@@ -178,6 +188,8 @@ if __name__ == '__main__':
     parser.add_argument('--samples', nargs='+', default=['A', 'B', 'C'], type=str)
     parser.add_argument('--postproc_config_version', default=None)
     parser.add_argument('--model_IDs', nargs='+', default=None, type=str)
+    parser.add_argument('--save_folder', default=None, type=str)
+    parser.add_argument('--use_test_datasets', default=False, type=bool)
 
 
     args = parser.parse_args()
@@ -198,8 +210,8 @@ if __name__ == '__main__':
     projs = [
         # 'smart_oversegm_DS2_denseOffs',
         # 'WSDT_DS1_denseOffs',
-        # 'plain_unstruct/pureDICE_wholeTrainingSet',
-        'model_050_A_v3/pureDICE_wholeDtSet'
+        'plain_unstruct/pureDICE_wholeTrainingSet',
+        # 'model_050_A_v3/pureDICE_wholeDtSet'
         # 'model_090_v2/pureDICE_wholeDtSet'
         # 'model_050_A/pureDICE'
         # 'plain_unstruct/MWSoffs_bound2_addedBCE_001',
@@ -250,7 +262,9 @@ if __name__ == '__main__':
                     name_aggl,
                     args.dump_affs,
                     args.use_default_postproc_config,
-                    model_IDs=args.model_IDs)
+                    model_IDs=args.model_IDs,
+                    use_test_datasets=args.use_test_datasets,
+                    save_folder=args.save_folder)
             torch.cuda.empty_cache()
 
         # # pool = ThreadPool()

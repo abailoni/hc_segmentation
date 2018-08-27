@@ -1,0 +1,13 @@
+## Specify paths to volumes
+volume_config:
+  # Raw data
+  raw:
+    path:
+      A: '/export/home/abailoni/datasets/cremi/raw_padded_test_datasets/sample_A+_padded_20160601.hdf'
+      B: '/export/home/abailoni/datasets/cremi/raw_padded_test_datasets/sample_B+_padded_20160601.hdf'
+      C: '/export/home/abailoni/datasets/cremi/raw_padded_test_datasets/sample_C+_padded_20160601.hdf'
+    path_in_h5_dataset:
+      A: 'volumes/raw_cropped'
+      B: 'volumes/raw_cropped'
+      C: 'volumes/raw_cropped'
+    dtype: float32

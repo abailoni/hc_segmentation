@@ -39,7 +39,8 @@ from long_range_hc.postprocessing.pipelines import get_segmentation_pipeline
 def evaluate(project_folder, sample, offsets,
              n_threads, name_aggl, name_infer, crop_slice=None,
              affinities=None, use_default_postproc_config=False,
-             model_IDs=None):
+             model_IDs=None,
+             use_test_datasets=False):
     pred_path = os.path.join(project_folder,
                              'Predictions',
                              'prediction_sample%s.h5' % sample)
@@ -88,7 +89,8 @@ def evaluate(project_folder, sample, offsets,
 
     if 'init_segmentation' in data_config['volume_config']:
         post_proc_config['volume_config']['init_segmentation'] = data_config['volume_config']['init_segmentation']
-    post_proc_config['volume_config']['GT'] = data_config['volume_config']['GT']
+    if not use_test_datasets:
+        post_proc_config['volume_config']['GT'] = data_config['volume_config']['GT']
     post_proc_config['volume_config']['raw'] = data_config['volume_config']['raw']
 
     post_proc_config['offsets'] = list(offsets)
@@ -158,18 +160,21 @@ def evaluate(project_folder, sample, offsets,
 
     # assert affinities.shape[1:] == init_segm.shape, "{}, {}".format(affinities.shape, init_segm.shape)
 
-    # TODO: improve this
-    gt_path = '/export/home/abailoni/datasets/cremi/SOA_affinities/sample%s_train.h5' % (sample)
-    slc = tuple(parse_data_slice(crop_slice))
-    # # bb = np.s_[65:71]
-    bb = np.s_[slc[1:]]
-    with h5py.File(gt_path, 'r') as f:
-        gt = f['segmentations/groundtruth_fixed'][bb].astype('uint64')
+    gt = None
+    if not use_test_datasets:
+        # TODO: improve this
+        gt_path = '/export/home/abailoni/datasets/cremi/SOA_affinities/sample%s_train.h5' % (sample)
+        slc = tuple(parse_data_slice(crop_slice))
+        # # bb = np.s_[65:71]
+        bb = np.s_[slc[1:]]
+        with h5py.File(gt_path, 'r') as f:
+            gt = f['segmentations/groundtruth_fixed'][bb].astype('uint64')
 
 
     if crop_slice_is_not_none:
         print("Crop slice is not None. Running connected components.")
-        gt = vigra.analysis.labelVolumeWithBackground(gt.astype('uint32'))
+        if not use_test_datasets:
+            gt = vigra.analysis.labelVolumeWithBackground(gt.astype('uint32'))
         if init_segm is not None:
             init_segm = vigra.analysis.labelVolume(init_segm.astype('uint32'))
 
@@ -222,8 +227,9 @@ def evaluate(project_folder, sample, offsets,
     comp_time = time.time() - tick
     print("Post-processing took {} s".format(comp_time))
     print("Pred. sahpe: ", pred_segm.shape)
-    print("GT shape: ", gt.shape)
-    print("Min. GT label: ", gt.min())
+    if not use_test_datasets:
+        print("GT shape: ", gt.shape)
+        print("Min. GT label: ", gt.min())
 
     if post_proc_config.get('stacking_2D', False):
         print('2D stacking...')
@@ -262,24 +268,26 @@ def evaluate(project_folder, sample, offsets,
     #     print("Evaluating scores...")
     #     initSegm_evals = cremi_score(gt, init_segm, border_threshold=None, return_all_scores=True)
     #     print("Score of the oversegm:", initSegm_evals)
-    print("Computing score...")
-    evals = cremi_score(gt, pred_segm, border_threshold=None, return_all_scores=True)
-    print("Scores achieved: ", evals)
 
-    eval_file = os.path.join(postproc_dir, 'scores.json')
-    if os.path.exists(eval_file):
-        with open(eval_file, 'r') as f:
-            res = json.load(f)
-    else:
-        res = {}
+    if not use_test_datasets:
+        print("Computing score...")
+        evals = cremi_score(gt, pred_segm, border_threshold=None, return_all_scores=True)
+        print("Scores achieved: ", evals)
 
-    res['computation_time'] = comp_time
-    res[sample] = evals
-    res['init_segm'] = {}
-    # if given_initSegm:
-    #     res['init_segm'][sample] = initSegm_evals
-    with open(eval_file, 'w') as f:
-        json.dump(res, f, indent=4, sort_keys=True)
+        eval_file = os.path.join(postproc_dir, 'scores.json')
+        if os.path.exists(eval_file):
+            with open(eval_file, 'r') as f:
+                res = json.load(f)
+        else:
+            res = {}
+
+        res['computation_time'] = comp_time
+        res[sample] = evals
+        res['init_segm'] = {}
+        # if given_initSegm:
+        #     res['init_segm'][sample] = initSegm_evals
+        with open(eval_file, 'w') as f:
+            json.dump(res, f, indent=4, sort_keys=True)
 
 
 if __name__ == '__main__':
@@ -292,6 +300,7 @@ if __name__ == '__main__':
     parser.add_argument('--name_aggl', default=None)
     parser.add_argument('--name_infer', default=None)
     parser.add_argument('--use_default_postproc_config', default=False, type=bool)
+    parser.add_argument('--use_test_datasets', default=False, type=bool)
     parser.add_argument('--model_IDs', nargs='+', default=None, type=str)
 
     args = parser.parse_args()
@@ -315,4 +324,4 @@ if __name__ == '__main__':
     for sample in samples:
         evaluate(project_directory, sample, offsets, n_threads, name_aggl, name_infer,
                  crop_slice, use_default_postproc_config=args.use_default_postproc_config,
-                 model_IDs=args.model_IDs)
+                 model_IDs=args.model_IDs, use_test_datasets=args.use_test_datasets)
