@@ -376,45 +376,67 @@ gen_HC_givenSP:
     start_from_given_segm: True
     use_fragmenter: False
 
-thresh098:
-  parent_model: ['gen_HC']
-  postproc:
-    generalized_HC_kwargs:
-      agglomeration_kwargs:
-        extra_aggl_kwargs:
-          threshold: 0.98
-
-thresh050:
-  parent_model: ['gen_HC']
-  postproc:
-    generalized_HC_kwargs:
-      agglomeration_kwargs:
-        extra_aggl_kwargs:
-          threshold: 0.5
-
-
 
 
 MWS:
   postproc:
     segm_pipeline_type: 'MWS'
 
+
+MWS_from_SP:
+  postproc:
+    segm_pipeline_type: 'gen_HC'
+    generalized_HC_kwargs:
+      agglomeration_kwargs:
+#        zero_init: True
+        update_rule_merge: 'max'
+        update_rule_not_merge: 'max'
+
 stride10:
+  parent_model: 'MWS'
+  postproc:
+    MWS_kwargs:
+#      bias: 0. # 1.0 merge everything, 0.0 split everything (or all that is possible)
+      stride:
+        - 1
+        - 10
+        - 10
+stride8:
   parent_model: 'MWS'
   postproc:
     MWS_kwargs:
       stride:
         - 1
-        - 10
-        - 10
+        - 8
+        - 8
 
+
+
+multicut:
+  postproc:
+    segm_pipeline_type: 'multicut'
+
+multicut_exact:
+  parent_model: ['multicut']
+  postproc:
+    multicut_kwargs:
+      solver_type: 'multicutIlpCplex'
+#      beta: 0.9 # 1.0 split everything, 0.0 merge everything
+
+multicut_givenSP:
+  parent_model: ['multicut', 'given_SP']
+
+given_SP:
+  postproc:
+    start_from_given_segm: True
+    use_fragmenter: False
 
 blockwise:
   postproc:
     blockwise: True
     blockwise_kwargs:
       crop_padding: True
-      nb_parallel_blocks: 20
+      nb_parallel_blocks: 24
       num_workers: 1
 
 
@@ -427,20 +449,214 @@ crop_train:
 
 
 DTWSplusHC090:
+  parent_model: ['given_SP']
   volumes:
     init_segmentation:
       path: '/export/home/abailoni/learnedHC/plain_unstruct/pureDICE_wholeTrainingSet/postprocess/inferName_v100k_DTWSplusHC090_notCropped_$/pred_segm.h5'
       path_in_h5_dataset: 'finalSegm'
+
+newHC098-HC090:
+  parent_model: ['given_SP']
+  volumes:
+    init_segmentation:
+      path: '/export/home/abailoni/learnedHC/model_090_v2/pureDICE_wholeDtSet/postprocess/inferName_v70k-HC098new_HC090_notCropped_$/pred_segm.h5'
+      path_in_h5_dataset: 'finalSegm'
+newHC098-HC080:
+  parent_model: ['given_SP']
+  volumes:
+    init_segmentation:
+      path: '/export/home/abailoni/learnedHC/model_090_v2/pureDICE_wholeDtSet/postprocess/inferName_v70k-HC098new_HC080_notCropped_$/pred_segm.h5'
+      path_in_h5_dataset: 'finalSegm'
+newHC098-HC070:
+  parent_model: ['given_SP']
+  volumes:
+    init_segmentation:
+      path: '/export/home/abailoni/learnedHC/model_090_v2/pureDICE_wholeDtSet/postprocess/inferName_v70k-HC098new_HC070_notCropped_$/pred_segm.h5'
+      path_in_h5_dataset: 'finalSegm'
+
+newHC098-HC070unstruct:
+  parent_model: ['given_SP']
+  volumes:
+    init_segmentation:
+      path: '/export/home/abailoni/learnedHC/plain_unstruct/pureDICE_wholeTrainingSet/postprocess/inferName_v100k_newHC098-HC070-notCropped_$/pred_segm.h5'
+      path_in_h5_dataset: 'finalSegm'
+
+newHC098-HC080unstruct:
+  parent_model: ['given_SP']
+  volumes:
+    init_segmentation:
+      path: '/export/home/abailoni/learnedHC/plain_unstruct/pureDICE_wholeTrainingSet/postprocess/inferName_v100k_newHC098-HC080-notCropped_$/pred_segm.h5'
+      path_in_h5_dataset: 'finalSegm'
+
+newHC098-HC090unstruct:
+  parent_model: ['given_SP']
+  volumes:
+    init_segmentation:
+      path: '/export/home/abailoni/learnedHC/plain_unstruct/pureDICE_wholeTrainingSet/postprocess/inferName_v100k_newHC098-HC090-notCropped_$/pred_segm.h5'
+      path_in_h5_dataset: 'finalSegm'
+
+
+HC098v100k:
+  parent_model: ['given_SP']
+  volumes:
+    init_segmentation:
+      path: '/export/home/abailoni/learnedHC/plain_unstruct/pureDICE_wholeTrainingSet/postprocess/inferName_v100k_HC098_notCropped_$/pred_segm.h5'
+      path_in_h5_dataset: 'finalSegm_WS_inters_WS'
 
 
 smallInfer:
   infer:
     slicing_config:
       window_size:
-        A: [25, 540, 540]
-        B: [25, 540, 540]
-        C: [25, 540, 540]
+        A: [18, 540, 540]
+        B: [18, 540, 540]
+        C: [18, 540, 540]
       stride:
-        A: [15, 360, 360]
-        B: [15, 360, 360]
-        C: [15, 360, 360]
+        A: [8, 360, 360]
+        B: [8, 360, 360]
+        C: [8, 360, 360]
+
+
+
+
+
+thresh030:
+  postproc:
+    MWS_kwargs:
+      bias: 0.30
+    multicut_kwargs:
+      beta: 0.30
+    generalized_HC_kwargs:
+      agglomeration_kwargs:
+        extra_aggl_kwargs:
+          threshold: 0.3
+thresh035:
+  postproc:
+    MWS_kwargs:
+      bias: 0.35
+    multicut_kwargs:
+      beta: 0.35
+    generalized_HC_kwargs:
+      agglomeration_kwargs:
+        extra_aggl_kwargs:
+          threshold: 0.35
+thresh040:
+  postproc:
+    MWS_kwargs:
+      bias: 0.40
+    multicut_kwargs:
+      beta: 0.40
+    generalized_HC_kwargs:
+      agglomeration_kwargs:
+        extra_aggl_kwargs:
+          threshold: 0.4
+thresh045:
+  postproc:
+    MWS_kwargs:
+      bias: 0.45
+    multicut_kwargs:
+      beta: 0.45
+    generalized_HC_kwargs:
+      agglomeration_kwargs:
+        extra_aggl_kwargs:
+          threshold: 0.45
+thresh050:
+  postproc:
+    MWS_kwargs:
+      bias: 0.50
+    multicut_kwargs:
+      beta: 0.50
+    generalized_HC_kwargs:
+      agglomeration_kwargs:
+        extra_aggl_kwargs:
+          threshold: 0.5
+thresh055:
+  postproc:
+    MWS_kwargs:
+      bias: 0.55
+    multicut_kwargs:
+      beta: 0.55
+    generalized_HC_kwargs:
+      agglomeration_kwargs:
+        extra_aggl_kwargs:
+          threshold: 0.55
+thresh060:
+  postproc:
+    MWS_kwargs:
+      bias: 0.60
+    multicut_kwargs:
+      beta: 0.60
+    generalized_HC_kwargs:
+      agglomeration_kwargs:
+        extra_aggl_kwargs:
+          threshold: 0.6
+thresh065:
+  postproc:
+    MWS_kwargs:
+      bias: 0.65
+    multicut_kwargs:
+      beta: 0.65
+    generalized_HC_kwargs:
+      agglomeration_kwargs:
+        extra_aggl_kwargs:
+          threshold: 0.65
+thresh070:
+  postproc:
+    MWS_kwargs:
+      bias: 0.70
+    multicut_kwargs:
+      beta: 0.70
+    generalized_HC_kwargs:
+      agglomeration_kwargs:
+        extra_aggl_kwargs:
+          threshold: 0.7
+thresh075:
+  postproc:
+    MWS_kwargs:
+      bias: 0.75
+    multicut_kwargs:
+      beta: 0.75
+    generalized_HC_kwargs:
+      agglomeration_kwargs:
+        extra_aggl_kwargs:
+          threshold: 0.75
+thresh080:
+  postproc:
+    MWS_kwargs:
+      bias: 0.80
+    multicut_kwargs:
+      beta: 0.80
+    generalized_HC_kwargs:
+      agglomeration_kwargs:
+        extra_aggl_kwargs:
+          threshold: 0.8
+thresh085:
+  postproc:
+    MWS_kwargs:
+      bias: 0.85
+    multicut_kwargs:
+      beta: 0.85
+    generalized_HC_kwargs:
+      agglomeration_kwargs:
+        extra_aggl_kwargs:
+          threshold: 0.85
+thresh090:
+  postproc:
+    MWS_kwargs:
+      bias: 0.90
+    multicut_kwargs:
+      beta: 0.90
+    generalized_HC_kwargs:
+      agglomeration_kwargs:
+        extra_aggl_kwargs:
+          threshold: 0.9
+thresh098:
+  postproc:
+    MWS_kwargs:
+      bias: 0.98
+    multicut_kwargs:
+      beta: 0.98
+    generalized_HC_kwargs:
+      agglomeration_kwargs:
+        extra_aggl_kwargs:
+          threshold: 0.98

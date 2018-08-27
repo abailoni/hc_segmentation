@@ -17,10 +17,10 @@ project_folder = '/export/home/abailoni/learnedHC/plain_unstruct/pureDICE_wholeT
 # project_folder = '/export/home/abailoni/learnedHC/model_090_v2/unstrInitSegm_pureDICE'
 
 
-aggl_name_partial = 'inferName_v100k_HC098_'
+aggl_name_partial = 'inferName_v100k_HC098_notCropped_'
 for sample in [
-    'C',
-    'B',
+    # 'C',
+    # 'B',
     'A',
 ]:
     aggl_name = aggl_name_partial + sample
@@ -29,7 +29,7 @@ for sample in [
     # affinities, gt = import_dataset(project_folder, aggl_name,
     #                                      data_to_import=['affinities', 'gt'])
     finalSegm = import_segmentations(project_folder, aggl_name,
-                                             keys_to_return=['finalSegm'])
+                                             keys_to_return=['finalSegm_WS_inters'])
     # FIXME:
     # affinities = 1 - import_SOA_datasets(data_to_import=['affinities'],
     #                                   crop_slice="1:3,:,:,:",
@@ -51,14 +51,14 @@ for sample in [
                             apply_WS_growing=True)
 
 
-    # 1:
-    seeds = np.empty_like(finalSegm)
-    max_label = 0
-    for z in range(finalSegm.shape[0]):
-        print(z)
-        partial_out = grower(1 - affinities[:,slice(z,z+1)], finalSegm[slice(z,z+1)])
-        seeds[slice(z,z+1)] = partial_out + max_label
-        max_label += partial_out.max() + 1
+    # # 1:
+    # seeds = np.empty_like(finalSegm)
+    # max_label = 0
+    # for z in range(finalSegm.shape[0]):
+    #     print(z)
+    #     partial_out = grower(1 - affinities[:,slice(z,z+1)], finalSegm[slice(z,z+1)])
+    #     seeds[slice(z,z+1)] = partial_out + max_label
+    #     max_label += partial_out.max() + 1
 
     # # 2:
     # TODO: fix max label
@@ -73,12 +73,12 @@ for sample in [
     # pool.join()
     # seeds = np.concatenate(seeds)
 
-    # # 3:
-    # seeds = grower(1 - affinities, finalSegm)
+    # 3:
+    seeds = grower(1 - affinities, finalSegm)
 
     print("Writing...")
     file_path = os.path.join(project_folder, "postprocess/{}/pred_segm.h5".format(aggl_name))
-    vigra.writeHDF5(seeds, file_path, 'finalSegm_WS', compression='gzip')
+    vigra.writeHDF5(seeds, file_path, 'finalSegm_WS_inters_WS', compression='gzip')
 
     print("Computing score...")
     evals = cremi_score(gt, seeds, border_threshold=None, return_all_scores=True)

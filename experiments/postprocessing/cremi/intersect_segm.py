@@ -20,22 +20,25 @@ SOA_folder = '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities'
 # project_folder = '/export/home/abailoni/learnedHC/plain_unstruct/MWSoffs_bound2_addedBCE_allBound01'
 
 project_folder_1 = '/export/home/abailoni/learnedHC/plain_unstruct/pureDICE_wholeTrainingSet'
-aggl_name_partial_1 = 'inferName_v40k_HC098_AND_DTWS_'
-key_1 = 'finalSegm_intersectTemp'
+aggl_name_partial_1 = 'inferName_v100k_HC098_notCropped_'
+# key_1 = 'finalSegm_WS'
+key_1 = 'finalSegm_WS_inters'
 
 project_folder_2 = '/export/home/abailoni/learnedHC/plain_unstruct/pureDICE_wholeTrainingSet'
-aggl_name_partial_2 = 'inferName_v30k_DTWS_'
+# aggl_name_partial_2 = 'inferName_v100k_MWS_stride_10_10_'
+aggl_name_partial_2 = 'inferName_v100k_DTWS_'
+# key_2 = 'finalSegm_padded'
 key_2 = 'finalSegm'
 
 project_folder_out = '/export/home/abailoni/learnedHC/plain_unstruct/pureDICE_wholeTrainingSet'
-aggl_name_partial_out = 'inferName_v40k_HC098_AND_DTWS_'
-key_out = 'finalSegm_intersectTemp2'
+aggl_name_partial_out = 'inferName_v100k_HC098_notCropped_'
+key_out = 'finalSegm_WS_inters'
 
 
 
 for sample in [
-    'C',
-    'B',
+    # 'C',
+    # 'B',
     'A',
 ]:
     aggl_name_1 = aggl_name_partial_1 + sample
@@ -60,8 +63,9 @@ for sample in [
         # FIXME: score is copied instaed of being computed:
         for file_name in ['aff_loader_config.yml', 'main_config.yml', 'scores.json']:
             src = os.path.join(orig_dir, file_name)
-            dst = os.path.join(dir_path, file_name)
-            copyfile(src, dst)
+            if os.path.exists(src):
+                dst = os.path.join(dir_path, file_name)
+                copyfile(src, dst)
 
     file_path = os.path.join(project_folder_out, "postprocess/{}/pred_segm.h5".format(aggl_name_out))
     vigra.writeHDF5(intersection_segm, file_path, key_out, compression='gzip')

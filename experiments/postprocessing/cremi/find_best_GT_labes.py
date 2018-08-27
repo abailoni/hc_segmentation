@@ -13,11 +13,11 @@ from skunkworks.metrics.cremi_score import cremi_score
 
 # project_folder = '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1'
 SOA_folder = '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities'
-# project_folder = '/export/home/abailoni/learnedHC/plain_unstruct/pureDICE_wholeTrainingSet'
+project_folder = '/export/home/abailoni/learnedHC/plain_unstruct/pureDICE_wholeTrainingSet'
 # project_folder = '/export/home/abailoni/learnedHC/model_050_A_v2/pureDICE'
-project_folder = '/export/home/abailoni/learnedHC/model_090_v2/unstrInitSegm_pureDICE'
+# project_folder = '/export/home/abailoni/learnedHC/model_090_v2/unstrInitSegm_pureDICE'
 
-aggl_name_partial = 'inferName_v1_HC_090_'
+aggl_name_partial = 'inferName_v100k_HC098_notCropped_'
 
 for sample in [
     'C',
@@ -30,7 +30,7 @@ for sample in [
     gt = import_SOA_datasets(data_to_import=['gt'], sample=sample)
 
     WS_segm = import_segmentations(project_folder, aggl_name,
-                                             keys_to_return=['finalSegm_WS'])
+                                             keys_to_return=['finalSegm_WS_inters_WS'])
 
     find_best = FindBestAgglFromOversegmAndGT(border_thickness=2,
                                   number_of_threads=8,
@@ -71,7 +71,7 @@ for sample in [
 
 
     file_path = os.path.join(project_folder, "postprocess/{}/pred_segm.h5".format(aggl_name))
-    vigra.writeHDF5(best_GT, file_path, 'finalSegm_WS_bestGT', compression='gzip')
+    vigra.writeHDF5(best_GT, file_path, 'finalSegm_WS_inters_WS_bestGT', compression='gzip')
 
     # print("Computing score...")
     # # Get rid of ingore-label in best-agglomeration:
