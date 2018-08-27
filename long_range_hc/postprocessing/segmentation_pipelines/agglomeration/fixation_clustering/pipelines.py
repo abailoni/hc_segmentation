@@ -162,13 +162,20 @@ class FixationAgglomeraterFromSuperpixels(FixationAgglomeraterBase):
         assert isinstance(max_distance_lifted_edges, int)
         self.max_distance_lifted_edges = max_distance_lifted_edges
 
+        if all([rule == 'max' for rule in self.passed_rules]):
+            accumulate_statistic = 'max'
+        else:
+            accumulate_statistic = 'mean'
+
         self.featurer = FeaturerLongRangeAffs(self.offsets,
                                               self.offsets_weights,
                                               self.used_offsets,
                                               self.debug,
                                               self.n_threads,
                                               self.invert_affinities,
-                                              max_distance_lifted_edges=self.max_distance_lifted_edges)
+                                              statistic=accumulate_statistic,
+                                              max_distance_lifted_edges=self.max_distance_lifted_edges,
+                                              return_dict=True)
 
 
 
@@ -178,14 +185,21 @@ class FixationAgglomeraterFromSuperpixels(FixationAgglomeraterBase):
         If the opposite is passed, set option `invert_affinities == True`
         """
         tick = time.time()
-        lifted_graph, edge_features = self.featurer(affinities, segmentation)
+        featurer_outputs = self.featurer(affinities, segmentation)
 
-        edge_indicators = edge_features[0]
-        edge_sizes = edge_features[1]
-        is_local_edge = edge_features[2]
+        lifted_graph = featurer_outputs['graph']
+        if 'merge_prio' in featurer_outputs:
+            merge_prio = featurer_outputs['merge_prio']
+            not_merge_prio = featurer_outputs['not_merge_prio']
 
-        merge_prio = edge_indicators
-        not_merge_prio = 1. - edge_indicators
+        else:
+            edge_indicators = featurer_outputs['edge_indicators']
+            merge_prio = edge_indicators
+            not_merge_prio = 1. - edge_indicators
+
+        edge_sizes = featurer_outputs['edge_sizes']
+        is_local_edge = featurer_outputs['is_local_edge']
+
 
         if self.debug:
             print("Took {} s!".format(time.time() - tick))

@@ -74,6 +74,7 @@ def get_segmentation_pipeline(
                                          )
         if post_proc_config.get('start_from_given_segm', False):
             segm_pipeline = Multicut(featurer, edge_statistic='mean',
+                                     beta=multicut_kwargs.get('beta', 0.5),
                                      weighting_scheme=multicut_kwargs.get('weighting_scheme', None),
                                      weight=multicut_kwargs.get('weight', 16.),
                                      time_limit=multicut_kwargs.get('time_limit', None),
@@ -83,6 +84,7 @@ def get_segmentation_pipeline(
         else:
             assert post_proc_config['use_fragmenter'], "A fragmenter is needed for multicut"
             segm_pipeline = MulticutPipelineFromAffinities(fragmenter, featurer, edge_statistic='mean',
+                                                           beta=multicut_kwargs.get('beta', 0.5),
                                                            weighting_scheme=multicut_kwargs.get('weighting_scheme',
                                                                                                 None),
                                                            weight=multicut_kwargs.get('weight', 16.),

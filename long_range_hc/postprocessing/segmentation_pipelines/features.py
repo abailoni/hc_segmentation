@@ -16,8 +16,7 @@ def accumulate_affinities_on_graph_edges(affinities, offsets, graph=None, label_
 
     :param affinities: expected to have the offset dimension as last/first one
     """
-    if mode != "mean":
-        raise NotImplementedError
+    assert mode in ['mean', 'max'], "Only max and mean are implemented"
 
     if affinities.shape[-1] != offsets.shape[0]:
         assert affinities.shape[0] == offsets.shape[0], "Offsets do not match passed affs"
@@ -47,6 +46,7 @@ def accumulate_affinities_on_graph_edges(affinities, offsets, graph=None, label_
     if not use_undirected_graph:
         if contractedRag is None:
             raise DeprecationWarning("There is some problem in the nifty function...")
+            assert mode == 'mean'
             accumulated_feat, counts = nrag.accumulateAffinitiesMeanAndLength(graph,
                                                                               affinities.astype(np.float32),
                                                                               offsets.astype(np.int32),
@@ -54,21 +54,23 @@ def accumulate_affinities_on_graph_edges(affinities, offsets, graph=None, label_
                                                                               number_of_threads)
         else:
             print("Warning: multipleThread option not implemented!")
+            assert mode == 'mean'
             accumulated_feat, counts = nrag.accumulateAffinitiesMeanAndLength(graph, contractedRag,
                                                                   affinities.astype(np.float32), offsets.astype(np.int32))
     else:
         assert contractedRag is None, "Not implemented atm"
         assert label_image is not None
         # Here 'graph' is actually a general undirected graph (thus label image is needed):
-        accumulated_feat, counts = nrag.accumulateAffinitiesMeanAndLength(graph,
+        accumulated_feat, counts, max_affinities = nrag.accumulateAffinitiesMeanAndLength(graph,
                                                                           label_image.astype(np.int32),
                                                                           affinities.astype(np.float32),
                                                                           offsets.astype(np.int32),
                                                                           offsets_weights.astype(np.float32),
                                                                           number_of_threads)
-
-    return accumulated_feat, counts
-
+    if mode == 'mean':
+        return accumulated_feat, counts
+    elif mode == 'max':
+        return accumulated_feat, max_affinities
 
 class FeaturerLongRangeAffs(object):
     def __init__(self, offsets,
@@ -77,7 +79,9 @@ class FeaturerLongRangeAffs(object):
                        debug=True,
                        n_threads=1,
                    invert_affinities=False,
-                 max_distance_lifted_edges=1):
+                 statistic='mean',
+                 max_distance_lifted_edges=1,
+                 return_dict=False):
 
         if isinstance(offsets, list):
             offsets = np.array(offsets)
@@ -85,7 +89,9 @@ class FeaturerLongRangeAffs(object):
             assert isinstance(offsets, np.ndarray)
 
         self.used_offsets = used_offsets
+        self.return_dict = return_dict
         self.offsets_weights = offsets_weights
+        self.statistic = statistic
 
 
         assert isinstance(n_threads, int)
@@ -127,6 +133,9 @@ class FeaturerLongRangeAffs(object):
             print("Took {} s!".format(time.time() - tick))
             tick = time.time()
 
+        out_dict = {}
+        out_dict['rag'] = rag
+
         if self.max_distance_lifted_edges != 1:
             # Build lifted graph:
             print("Building graph...")
@@ -158,24 +167,62 @@ class FeaturerLongRangeAffs(object):
                     graph=lifted_graph,
                     label_image=segmentation,
                     use_undirected_graph=True,
-                    mode='mean',
+                    mode=self.statistic,
                     offsets_weights=offsets_weights,
                     number_of_threads=self.n_threads)
+            out_dict['graph'] = lifted_graph
+            out_dict['edge_indicators'] = edge_indicators
+            out_dict['edge_sizes'] = edge_sizes
         else:
+            out_dict['graph'] = rag
             print("Computing edge_features...")
             is_local_edge = np.ones(rag.numberOfEdges, dtype=np.int8)
-            edge_indicators, edge_sizes = \
-                accumulate_affinities_on_graph_edges(
-                    affinities, offsets,
-                    graph=rag,
-                    label_image=segmentation,
-                    use_undirected_graph=True,
-                    mode='mean',
-                    offsets_weights=offsets_weights,
-                    number_of_threads=self.n_threads)
+            # TODO: her we have rag (no need to pass egm.), but fix nifty function first.
+            if self.statistic == 'mean':
+                edge_indicators, edge_sizes = \
+                    accumulate_affinities_on_graph_edges(
+                        affinities, offsets,
+                        graph=rag,
+                        label_image=segmentation,
+                        use_undirected_graph=True,
+                        mode=self.statistic,
+                        offsets_weights=offsets_weights,
+                        number_of_threads=self.n_threads)
+                out_dict['edge_indicators'] = edge_indicators
+                out_dict['edge_sizes'] = edge_sizes
+            elif self.statistic == 'max':
+                merge_prio, edge_sizes = \
+                    accumulate_affinities_on_graph_edges(
+                        affinities, offsets,
+                        graph=rag,
+                        label_image=segmentation,
+                        use_undirected_graph=True,
+                        mode=self.statistic,
+                        offsets_weights=offsets_weights,
+                        number_of_threads=self.n_threads)
+                not_merge_prio, _ = \
+                    accumulate_affinities_on_graph_edges(
+                        1 - affinities, offsets,
+                        graph=rag,
+                        label_image=segmentation,
+                        use_undirected_graph=True,
+                        mode=self.statistic,
+                        offsets_weights=offsets_weights,
+                        number_of_threads=self.n_threads)
+                edge_indicators = merge_prio
+                out_dict['edge_indicators'] = merge_prio
+                out_dict['merge_prio'] = merge_prio
+                out_dict['not_merge_prio'] = not_merge_prio
+                out_dict['edge_sizes'] = edge_sizes
 
-        edge_features = np.stack([edge_indicators, edge_sizes, is_local_edge])
-        return rag, edge_features
+
+        if not self.return_dict:
+            edge_features = np.stack([edge_indicators, edge_sizes, is_local_edge])
+            # NOTE: lifted graph is not returned!
+            return rag, edge_features
+        else:
+            out_dict['is_local_edge'] = is_local_edge
+            return out_dict
 
 
 def build_lifted_graph_from_rag(rag,
