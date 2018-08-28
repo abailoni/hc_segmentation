@@ -108,9 +108,9 @@ def adapt_configs_to_model(model_IDs,
         configs[key] = recursive_dict_update(model_configs.get(key, {}), configs[key])
 
     # Update paths init. segm and GT:
-    if 'volumes' in model_configs:
+    if 'volume_config' in model_configs:
         samples = ['A', 'B', 'C']
-        model_volume_config = model_configs['volumes']
+        model_volume_config = model_configs['volume_config']
 
         def update_paths(target_vol_config, source_vol_config):
             # Loop over 'init_segmentation', 'GT', ...

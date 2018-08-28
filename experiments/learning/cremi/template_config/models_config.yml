@@ -1,6 +1,6 @@
 #threshold_090:
 #  model_ID: 1
-#  volumes:
+#  volume_config:
 #    init_segmentation:
 #      # The '$' character will be replaced with the sample name:
 #      path: '/export/home/abailoni/learnedHC/plain_unstruct/MWSoffs_bound2_pyT4/postprocess/inferName_v1_DTWS_$/pred_segm.h5'
@@ -13,7 +13,7 @@
 #
 #threshold_090_struct:
 #  model_ID: 2
-#  volumes:
+#  volume_config:
 #    init_segmentation:
 #      # The '$' character will be replaced with the sample name:
 #      path: '/export/home/abailoni/learnedHC/plain_unstruct/MWSoffs_bound2_pyT4/postprocess/inferName_v1_DTWS_$/pred_segm.h5'
@@ -26,7 +26,7 @@
 #
 #plain_affs:
 #  model_ID: 3
-#  volumes: {}
+#  volume_config: {}
 #  postproc:
 #    generalized_HC_kwargs:
 #      agglomeration_kwargs:
@@ -48,7 +48,7 @@
 #
 #plain_affs_biggerModel:
 #  model_ID: 20
-#  volumes: {}
+#  volume_config: {}
 #  postproc:
 #    generalized_HC_kwargs:
 #      agglomeration_kwargs:
@@ -79,7 +79,7 @@
 ##
 ##superpixels_struct:
 ##  model_ID: 4
-##  volumes: {}
+##  volume_config: {}
 ##  threshold: 0.9
 ##  # Three options available: 'None', 'only_merge_mistakes', 'all_mistakes'
 ##  trained_mistakes: 'only_merge_mistakes'
@@ -87,7 +87,7 @@
 #
 #threshold_050:
 #  model_ID: 5
-#  volumes:
+#  volume_config:
 #    init_segmentation:
 #      path: '/export/home/abailoni/learnedHC/model_090/pureDICE/postprocess/inferName_v1_1_HC_090_$/pred_segm.h5'
 #      path_in_h5_dataset: 'finalSegm'
@@ -99,7 +99,7 @@
 #
 #threshold_050_struct:
 #  model_ID: 6
-#  volumes:
+#  volume_config:
 #    init_segmentation:
 #      path: '/export/home/abailoni/learnedHC/model_090/pureDICE/postprocess/inferName_v1_1_HC_090_$/pred_segm.h5'
 #      path_in_h5_dataset: 'finalSegm'
@@ -127,7 +127,7 @@
 #
 #threshold_090_newOversegm:
 #  model_ID: 7
-#  volumes:
+#  volume_config:
 #    init_segmentation:
 #      path: '/export/home/abailoni/learnedHC/plain_unstruct/MWSoffs_bound2_pyT4/postprocess/inferName_v1_01_HC098_$/pred_segm.h5'
 #      path_in_h5_dataset: 'finalSegm_WS'
@@ -163,7 +163,7 @@
 #
 #threshold_050_B_newOversegm:
 #  model_ID: 8
-#  volumes:
+#  volume_config:
 #    init_segmentation:
 #      path: '/export/home/abailoni/learnedHC/model_090_v2/unstrInitSegm_pureDICE/postprocess/inferName_v1_HC_050_$/pred_segm.h5'
 #      path_in_h5_dataset: 'finalSegm'
@@ -191,7 +191,7 @@
 #
 #threshold_050_A_newOversegm:
 #  model_ID: 9
-#  volumes:
+#  volume_config:
 #    init_segmentation:
 #      path: '/export/home/abailoni/learnedHC/model_090_v2/unstrInitSegm_pureDICE/postprocess/inferName_v1_HC_090_$/pred_segm.h5'
 #      path_in_h5_dataset: 'finalSegm_WS'
@@ -227,7 +227,7 @@
 #
 #combined_model_wholeDataSet:
 #  model_ID: 100
-#  volumes:
+#  volume_config:
 #    init_segmentation:
 #      path: '/export/home/abailoni/learnedHC/plain_unstruct/MWSoffs_bound2_pyT4/postprocess/inferName_v1_01_HC098_$/pred_segm.h5'
 #      path_in_h5_dataset: 'finalSegm_WS'
@@ -285,7 +285,7 @@
 #
 #combined_model_wholeDataSet:
 #  model_ID: 101
-#  volumes:
+#  volume_config:
 #    init_segmentation:
 #      path: '/export/home/abailoni/learnedHC/plain_unstruct/pureDICE_wholeTrainingSet/postprocess/inferName_v40k_HC098_$/pred_segm.h5'
 #      path_in_h5_dataset: 'finalSegm'
@@ -352,7 +352,7 @@ gen_HC_pix:
   postproc:
     start_from_given_segm: False
     use_fragmenter: False
-    volumes:
+    volume_config:
       affinities:
         slicing_config:
           stride:
@@ -382,7 +382,7 @@ MWS_blockwise:
   postproc:
       start_from_given_segm: False
       use_fragmenter: False
-      volumes:
+      volume_config:
         affinities:
           slicing_config:
             stride:
@@ -453,7 +453,7 @@ blockwise:
     blockwise: True
     blockwise_kwargs:
       crop_padding: True
-      nb_parallel_blocks: 10
+      nb_parallel_blocks: 20
       num_workers: 1
 
 
@@ -473,47 +473,47 @@ DTWS:
 
 DTWSplusHC090:
   parent_model: ['given_SP']
-  volumes:
+  volume_config:
     init_segmentation:
       path: '/export/home/abailoni/learnedHC/plain_unstruct/pureDICE_wholeTrainingSet/postprocess/inferName_v100k_DTWSplusHC090_notCropped_$/pred_segm.h5'
       path_in_h5_dataset: 'finalSegm'
 
 newHC098-HC090:
   parent_model: ['given_SP']
-  volumes:
+  volume_config:
     init_segmentation:
       path: '/export/home/abailoni/learnedHC/model_090_v2/pureDICE_wholeDtSet/postprocess/inferName_v70k-HC098new_HC090_notCropped_$/pred_segm.h5'
       path_in_h5_dataset: 'finalSegm'
 newHC098-HC080:
   parent_model: ['given_SP']
-  volumes:
+  volume_config:
     init_segmentation:
       path: '/export/home/abailoni/learnedHC/model_090_v2/pureDICE_wholeDtSet/postprocess/inferName_v70k-HC098new_HC080_notCropped_$/pred_segm.h5'
       path_in_h5_dataset: 'finalSegm'
 newHC098-HC070:
   parent_model: ['given_SP']
-  volumes:
+  volume_config:
     init_segmentation:
       path: '/export/home/abailoni/learnedHC/model_090_v2/pureDICE_wholeDtSet/postprocess/inferName_v70k-HC098new_HC070_notCropped_$/pred_segm.h5'
       path_in_h5_dataset: 'finalSegm'
 
 newHC098-HC070unstruct:
   parent_model: ['given_SP']
-  volumes:
+  volume_config:
     init_segmentation:
       path: '/export/home/abailoni/learnedHC/plain_unstruct/pureDICE_wholeTrainingSet/postprocess/inferName_v100k_newHC098-HC070-notCropped_$/pred_segm.h5'
       path_in_h5_dataset: 'finalSegm'
 
 newHC098-HC080unstruct:
   parent_model: ['given_SP']
-  volumes:
+  volume_config:
     init_segmentation:
       path: '/export/home/abailoni/learnedHC/plain_unstruct/pureDICE_wholeTrainingSet/postprocess/inferName_v100k_newHC098-HC080-notCropped_$/pred_segm.h5'
       path_in_h5_dataset: 'finalSegm'
 
 newHC098-HC090unstruct:
   parent_model: ['given_SP']
-  volumes:
+  volume_config:
     init_segmentation:
       path: '/export/home/abailoni/learnedHC/plain_unstruct/pureDICE_wholeTrainingSet/postprocess/inferName_v100k_newHC098-HC090-notCropped_$/pred_segm.h5'
       path_in_h5_dataset: 'finalSegm'
@@ -521,7 +521,7 @@ newHC098-HC090unstruct:
 
 HC098v100k:
   parent_model: ['given_SP']
-  volumes:
+  volume_config:
     init_segmentation:
       path: '/export/home/abailoni/learnedHC/plain_unstruct/pureDICE_wholeTrainingSet/postprocess/inferName_v100k_HC098_notCropped_$/pred_segm.h5'
       path_in_h5_dataset: 'finalSegm_WS_inters_WS'
