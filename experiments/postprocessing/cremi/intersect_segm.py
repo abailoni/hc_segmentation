@@ -20,26 +20,26 @@ SOA_folder = '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities'
 # project_folder = '/export/home/abailoni/learnedHC/plain_unstruct/MWSoffs_bound2_addedBCE_allBound01'
 
 project_folder_1 = '/export/home/abailoni/learnedHC/plain_unstruct/pureDICE_wholeTrainingSet'
-aggl_name_partial_1 = 'inferName_v100k_HC098_notCropped_'
-# key_1 = 'finalSegm_WS'
-key_1 = 'finalSegm_WS_inters'
+aggl_name_partial_1 = 'inferName_v100k-alignedTestDts_HC097plusDTWSplusMWS_'
+key_1 = 'finalSegm_WS'
+# key_1 = 'finalSegm_WS_inters'
 
 project_folder_2 = '/export/home/abailoni/learnedHC/plain_unstruct/pureDICE_wholeTrainingSet'
-# aggl_name_partial_2 = 'inferName_v100k_MWS_stride_10_10_'
-aggl_name_partial_2 = 'inferName_v100k_DTWS_'
-# key_2 = 'finalSegm_padded'
-key_2 = 'finalSegm'
+aggl_name_partial_2 = 'inferName_v100k-alignedTestDts_HC098_'
+# aggl_name_partial_2 = 'inferName_v100k_DTWS_'
+key_2 = 'finalSegm_WS'
+# key_2 = 'finalSegm'
 
 project_folder_out = '/export/home/abailoni/learnedHC/plain_unstruct/pureDICE_wholeTrainingSet'
-aggl_name_partial_out = 'inferName_v100k_HC098_notCropped_'
-key_out = 'finalSegm_WS_inters'
+aggl_name_partial_out = 'inferName_v100k-alignedTestDts_HC097plusDTWSplusMWS_'
+key_out = 'finalSegm_new'
 
 
 
 for sample in [
-    # 'C',
-    # 'B',
     'A',
+    # 'B',
+    # 'C',
 ]:
     aggl_name_1 = aggl_name_partial_1 + sample
     aggl_name_2 = aggl_name_partial_2 + sample
@@ -48,8 +48,11 @@ for sample in [
 
     segm_1 = import_segmentations(project_folder_1, aggl_name_1,
                                              keys_to_return=[key_1])
+    segm_1 = vigra.analysis.labelVolume(segm_1.astype('uint32'))
+
     segm_2 = import_segmentations(project_folder_2, aggl_name_2,
                                   keys_to_return=[key_2])
+    segm_2 = vigra.analysis.labelVolume(segm_2.astype('uint32'))
 
     intersection_segm = cantor_pairing_fct(segm_1, segm_2)
     intersection_segm = vigra.analysis.labelVolume(intersection_segm.astype('uint32'))
