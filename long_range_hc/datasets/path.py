@@ -103,10 +103,6 @@ def adapt_configs_to_model(model_IDs,
 
     model_configs = get_model_configs(model_IDs)
 
-    # Update model-specific parameters:
-    for key in path_configs:
-        configs[key] = recursive_dict_update(model_configs.get(key, {}), configs[key])
-
     # Update paths init. segm and GT:
     if 'volume_config' in model_configs:
         samples = ['A', 'B', 'C']
@@ -117,7 +113,7 @@ def adapt_configs_to_model(model_IDs,
             # If the path is not specified, then the one of 'init_segmentation' will be used
             for input_key in source_vol_config:
                 target_vol_config[input_key] = {'dtype': 'int32', 'path': {},
-                                                          'path_in_h5_dataset': {}}
+                                                          'path_in_h5_dataset': {}} if input_key not in target_vol_config else target_vol_config[input_key]
                 for smpl in samples:
                     path = source_vol_config[input_key]['path'] if 'path' in source_vol_config[input_key] else source_vol_config['init_segmentation']['path']
                     path = path.replace('$', smpl)
@@ -133,8 +129,9 @@ def adapt_configs_to_model(model_IDs,
                     'volume_config']
                 configs[key]['volume_config'] = update_paths(configs[key]['volume_config'], model_volume_config)
 
-
-
+    # Update model-specific parameters:
+    for key in path_configs:
+        configs[key] = recursive_dict_update(model_configs.get(key, {}), configs[key])
 
     # Dump config files to disk:
     for key in path_configs:

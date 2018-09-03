@@ -13,6 +13,7 @@ import numpy as np
 import argparse
 import vigra
 import yaml
+import time
 
 from inferno.utils.io_utils import yaml2dict
 
@@ -167,8 +168,9 @@ def predict(sample,
     #     save_path = save_path[:-3] + '_nnaffinities.h5'
     if dump_affs or name_aggl is None:
         print("Dumping local affinities on disk...")
+        tick = time.time()
         vigra.writeHDF5(output.astype('float32'), save_path, name_inference, compression='gzip')
-        print("Done!")
+        print("Done in {} s!".format(time.time() - tick))
 
 
 

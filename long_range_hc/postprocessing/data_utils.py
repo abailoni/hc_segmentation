@@ -219,14 +219,15 @@ def import_segmentations(proj_dir, aggl_name, keys_to_return=None):
     sample = config_file['sample']
 
     scores_file = os.path.join(proj_dir, "postprocess/{}/scores.json".format(aggl_name))
-    with open(scores_file) as f:
-        scores = json.load(f)
-    print("{0} --> CS: {1:.4f}; AR: {2:.4f}; VI-split: {3:.4f}; VI-merge: {4:.4f}".format(aggl_name,
-                                                                                          scores[sample]['cremi-score'],
-                                                                                          scores[sample][
-                                                                                              'adapted-rand'],
-                                                                                          scores[sample]['vi-split'],
-                                                                                          scores[sample]['vi-merge']))
+    if os.path.exists(scores_file):
+        with open(scores_file) as f:
+            scores = json.load(f)
+        print("{0} --> CS: {1:.4f}; AR: {2:.4f}; VI-split: {3:.4f}; VI-merge: {4:.4f}".format(aggl_name,
+                                                                                              scores[sample]['cremi-score'],
+                                                                                              scores[sample][
+                                                                                                  'adapted-rand'],
+                                                                                              scores[sample]['vi-split'],
+                                                                                              scores[sample]['vi-merge']))
 
     outputs = []
     for data_key in keys_to_return:

@@ -24,11 +24,11 @@ fragmenter: 'WSDT'
 
 
 WSDT_kwargs:
-  threshold: 0.49
+  threshold: 0.4
   from_boundary_maps: true
   min_segment_size: 20 # THIS SHOULD NOT BE PUT TO ZERO...!
   preserve_membrane: True
-  sigma_seeds: 0.5
+  sigma_seeds: 0.1
   stacked_2d: True
 
 prob_map_kwargs:

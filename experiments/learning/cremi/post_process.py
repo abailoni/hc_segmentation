@@ -82,8 +82,12 @@ def evaluate(project_folder, sample, offsets,
     assert 'volume_config' in post_proc_config, "Updated: please move affinity loading to post_proc_config!"
     assert 'data_slice' in post_proc_config, "Updated: please move crop_slice to post_proc_config!"
 
-    post_proc_config['volume_config']['affinities']['path'] = {sample: pred_path}
-    post_proc_config['volume_config']['affinities']['path_in_h5_dataset'] = {sample: aff_path_in_h5file}
+    if 'affinities' not in data_config['volume_config']:
+        post_proc_config['volume_config']['affinities']['path'] = {sample: pred_path}
+        post_proc_config['volume_config']['affinities']['path_in_h5_dataset'] = {sample: aff_path_in_h5file}
+    else:
+        post_proc_config['volume_config']['affinities']['path'] = data_config['volume_config']['affinities']['path']
+        post_proc_config['volume_config']['affinities']['path_in_h5_dataset'] = data_config['volume_config']['affinities']['path_in_h5_dataset']
 
 
 
