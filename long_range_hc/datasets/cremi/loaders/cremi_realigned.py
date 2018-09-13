@@ -16,7 +16,7 @@ from neurofire.transform.volume import RandomSlide
 from skunkworks.datasets.cremi.loaders.raw import RawVolumeWithDefectAugmentation
 from skunkworks.transforms.artifact_source import RejectNonZeroThreshold
 
-from long_range_hc.datasets.segm_transform import FromSegmToEmbeddingSpace
+from long_range_hc.datasets.segm_transform import FromSegmToEmbeddingSpace, OverSegmentationAgglomeration
 
 
 def get_multiple_datasets(dataset_names,
@@ -203,6 +203,10 @@ class CREMIDatasetRealigned(Zip):
                 # to avoid edge artefacts of affinity
                 # computation being warped into the FOV.
                 transforms.add(VolumeAsymmetricCrop(**crop_config))
+
+        assert len(self.apply_FromSegmToEmbeddingSpace_to) == 1
+        transforms.add(OverSegmentationAgglomeration(**self.master_config.get('agglomeration_kwargs'),
+                       apply_to=self.apply_FromSegmToEmbeddingSpace_to))
 
         transforms.add(FromSegmToEmbeddingSpace(dim_embedding_space=self.master_config.get('dim_embedding_vector_space', 12),
                                                 number_of_threads=8,

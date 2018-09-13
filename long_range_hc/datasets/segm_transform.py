@@ -10,6 +10,8 @@ from long_range_hc.criteria.learned_HC.utils.segm_utils_CY import find_split_GT,
 from long_range_hc.criteria.learned_HC.utils.segm_utils import accumulate_segment_features_vigra, map_features_to_label_array, cantor_pairing_fct
 
 import nifty.graph.rag as nrag
+import nifty.graph.agglo as nagglo
+import time
 
 from neurofire.transform.segmentation import get_boundary_offsets
 
@@ -379,3 +381,126 @@ class FromSegmToEmbeddingSpace(Transform):
             return out
         else:
             raise NotImplementedError()
+
+
+class OverSegmentationAgglomeration(Transform):
+    def __init__(self, path=None,
+                 path_in_h5='data',
+                 prob_agglomeration=0.3,
+                 max_threshold=1.0,
+                 min_threshold=0.5,
+                 wrong_merge_flips=False,
+                 wrong_split_flips=False,
+                 flip_probability=0.03,
+                 number_of_threads=8,
+                 **super_kwargs):
+        assert isinstance(path, str)
+        self.number_of_threads = number_of_threads
+
+        # Expected data in the array: u, v, edge_indicator, edge_weight (shape --> (N, 4))
+        edge_weights = vigra.readHDF5(path, pathInFile=path_in_h5).astype(np.float32)
+        uvIds = np.sort(edge_weights[:,:2], axis=1)
+        cantor_coeff = cantor_pairing_fct(uvIds[:,[0]], uvIds[:,[1]])
+        # TODO: is it slow...?
+        sort_indices = np.argsort(cantor_coeff[:,0])
+        edge_weights = np.concatenate((cantor_coeff, edge_weights[:,2:]), axis=1)
+        self.edge_weights = edge_weights[sort_indices]
+
+        self.prob_agglomeration = prob_agglomeration
+        self.max_threshold = max_threshold
+        self.min_threshold = min_threshold
+        self.flip_probability = flip_probability
+        self.wrong_merge_flips = wrong_merge_flips
+        self.wrong_split_flips= wrong_split_flips
+
+        super(OverSegmentationAgglomeration, self).__init__(**super_kwargs)
+
+    def build_random_variables(self
+                               ):
+        np.random.seed()
+        self.set_random_variable('agglomerate_oversegmentation',
+                                 np.random.rand() <= 0.3)
+        self.set_random_variable('threshold',
+                                 np.random.uniform(self.min_threshold, self.max_threshold))
+
+
+    def tensor_function(self, tensor_):
+        """
+        """
+        tensor = tensor_.astype(np.uint32)
+        assert tensor_.ndim == 3
+
+        self.build_random_variables()
+
+        agglomerate_oversegmentation = self.get_random_variable('agglomerate_oversegmentation')
+
+        if agglomerate_oversegmentation:
+            rag = nrag.gridRag(tensor, self.number_of_threads)
+
+            uvIds = np.sort(rag.uvIds(), axis=1)
+            cantor_coeff = cantor_pairing_fct(uvIds[:, [0]], uvIds[:, [1]])
+
+            edge_indices = np.searchsorted(self.edge_weights[:, 0], cantor_coeff)
+            # TODO: check if some edges where not found...!?
+            selected_edges = self.edge_weights[edge_indices]
+            # Edge indicators should be affinities (merge: 1.0; split: 0.0)
+            edge_indicators = selected_edges[:, 1]
+            edge_sizes = selected_edges[:, 2]
+
+
+            # Add noise:
+            if self.wrong_split_flips or self.wrong_merge_flips:
+                random_probs = np.random.uniform(low=0., high=1., size=edge_indicators.shape)
+                edges_to_flip = random_probs < self.flip_probability
+                if self.wrong_merge_flips and not self.wrong_split_flips:
+                    # Only allow 'false-merge' flips:
+                    edges_to_flip = np.logical_and(edges_to_flip, edge_indicators < 0.5)
+                elif self.wrong_split_flips and not self.wrong_merge_flips:
+                    # Only allow 'false-split' flips:
+                    edges_to_flip = np.logical_and(edges_to_flip, edge_indicators > 0.5)
+                print("Nb. flips: {} out of {}".format(edges_to_flip.sum(), edges_to_flip.shape))
+                edge_indicators[edges_to_flip] = 1 - edge_indicators[edges_to_flip]
+
+            node_sizes = np.ones((rag.numberOfNodes ,))
+            is_local_edge = np.ones_like(edge_indicators)
+            threshold = self.get_random_variable('threshold')
+            cluster_policy = nagglo.fixationClusterPolicy(graph=rag,
+                                                          mergePrios=edge_indicators,
+                                                          notMergePrios=1 - edge_indicators,
+                                                          edgeSizes=edge_sizes,
+                                                          nodeSizes=node_sizes,
+                                                          isMergeEdge=is_local_edge,
+                                                          updateRule0='',
+                                                          updateRule1=nagglo.updatRule('mean'),
+                                                          zeroInit=nagglo.updatRule('mean'),
+                                                          sizeRegularizer=0.,
+                                                          sizeThreshMin=0.,
+                                                          sizeThreshMax=1000.,
+                                                          postponeThresholding=False,
+                                                          threshold=threshold,
+                                                          )
+            agglomerativeClustering = nagglo.agglomerativeClustering(cluster_policy)
+
+            print("Running initial clustering...")
+            tick = time.time()
+
+            agglomerativeClustering.run(False, 1000)  # (True, 10000)
+            node_labels = agglomerativeClustering.result()
+            print("Took {} s!".format(time.time() - tick))
+
+            final_segm = map_features_to_label_array(
+                tensor,
+                np.expand_dims(node_labels, axis=-1),
+                number_of_threads=self.number_of_threads
+            )[..., 0]
+
+            return final_segm.astype('float32')
+
+        else:
+            return tensor_
+
+
+
+
+
+
