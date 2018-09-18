@@ -364,13 +364,17 @@ def main():
     parser.add_argument('--dir_loaded_model', type=str)
     parser.add_argument('--z_window_size_training', default=int(10), type=int)
     parser.add_argument('--from_checkpoint', default='False')
-    parser.add_argument('--model_ID', default=None)
+    parser.add_argument('--model_IDs', nargs='+', default=None, type=str)
+
+    base_proj_dir = '/net/hciserver03/storage/abailoni/learnedHC/'
+    base_offs_dir = '/net/hciserver03/storage/abailoni/pyCharm_projects/hc_segmentation/experiments/postprocessing/cremi/offsets/'
+
 
 
     args = parser.parse_args()
 
     # Set the proper project folder:
-    project_directory = args.project_directory
+    project_directory = os.path.join(base_proj_dir, args.project_directory)
     # pretrain = eval(args.pretrain)
     pretrain = True
     if not os.path.exists(project_directory):
@@ -382,7 +386,7 @@ def main():
 
     # We still leave options for varying the offsets
     # to be more flexible later variable
-    offset_file = args.offset_file
+    offset_file = os.path.join(base_offs_dir, args.offset_file)
     offsets = parse_offsets(offset_file)
 
     global z_window_slice_training
@@ -414,13 +418,13 @@ def main():
     make_postproc_config(postproc_config, nb_threads, reload_model=eval(args.from_checkpoint))
 
     # If a model ID is passed, update the config files:
-    if args.model_ID is not None:
+    if args.model_IDs is not None:
         config_paths = {'models': './template_config/models_config.yml',
                         'train': train_config,
                         'valid': validation_config,
                         'data': data_config,
                         'postproc': postproc_config}
-        adapt_configs_to_model(int(args.model_ID), **config_paths)
+        adapt_configs_to_model(args.model_IDs, **config_paths)
 
     print("Pretrain: {}; Load model: {}".format(pretrain, load_model))
 
