@@ -1,3 +1,76 @@
+mergeCNN:
+  data:
+    master_config:
+      agglomeration_kwargs:
+        prob_agglomeration: 0.85
+        max_threshold: 1.0
+        min_threshold: 0.4
+        allow_wrong_merges: False
+        allow_wrong_splits: True
+#        flip_probability: 0.0
+        minimum_sigma: 0.05
+        scale_factor_sigma: 0.5
+  train:
+    model_type: 'mergeCNN'
+    pretrained_model_kwargs:
+      in_channels: 18 # 17 offsets + raw
+
+mergeCNNv2:
+  parent_model: ['mergeCNN']
+  train:
+    modify_targets: True
+
+splitCNN:
+  data:
+    master_config:
+      agglomeration_kwargs:
+#        path: '/export/home/abailoni/learnedHC/plain_unstruct/pureDICE_wholeTrainingSet/postprocess/inferName_v100k_repAttrHC095_A/edge_data.h5'
+        path: '/export/home/abailoni/learnedHC/mergeSpCNN/pureDICE/infer_v16k/sample$/edge_data.h5'
+        prob_agglomeration: 1.
+        max_threshold: 0.50
+        min_threshold: 0.15
+        allow_wrong_merges: False
+        allow_wrong_splits: True
+#        flip_probability: 0.08
+        minimum_sigma: 0.005
+        scale_factor_sigma: 0.4
+  train:
+    model_type: 'splitCNN'
+    pretrained_model_kwargs:
+      in_channels: 16
+
+
+splitCNNv2:
+  parent_model: ['splitCNN']
+  train:
+    modify_targets: True
+
+inferSplitCNN:
+  infer:
+    master_config:
+      agglomeration_kwargs:
+        prob_agglomeration: 0.
+        path: '/export/home/abailoni/learnedHC/mergeSpCNN/pureDICE/infer_v16k/sample$/edge_data.h5'
+
+
+# For mergeCNN
+inferMergeCNN:
+  infer:
+    master_config:
+      agglomeration_kwargs:
+        path: '/export/home/abailoni/learnedHC/plain_unstruct/pureDICE_wholeTrainingSet/postprocess/inferName_v100k_repAttrHC095_A/edge_data.h5'
+        prob_agglomeration: 0.
+        max_threshold: 0.45
+        min_threshold: 0.35
+        allow_wrong_merges: False
+        allow_wrong_splits: False
+#        flip_probability: 0.08
+        minimum_sigma: 0.2
+        scale_factor_sigma: 1.0
+  train:
+    model_type: 'mergeCNN'
+    pretrained_model_kwargs:
+      in_channels: 18
 
 ###################################
 
@@ -18,9 +91,19 @@ gen_HC_pix:
             B: [12, 1, 600, 600]
             C: [12, 1, 600, 600]
           window_size:
-            A: [None, 3, 600, 600]
-            B: [None, 3, 600, 600]
-            C: [None, 3, 600, 600]
+            A: [None, 3, None, None]
+            B: [None, 3, None, None]
+            C: [None, 3, None, None]
+
+gen_HC_sum:
+  parent_model: ['gen_HC']
+  postproc:
+    generalized_HC_kwargs:
+      agglomeration_kwargs:
+        update_rule_merge: 'sum'
+        update_rule_not_merge: 'sum'
+
+
 
 gen_HC_DTWS:
   parent_model: ['gen_HC']
@@ -33,6 +116,9 @@ gen_HC_givenSP:
   postproc:
     start_from_given_segm: True
     use_fragmenter: False
+
+
+
 
 MWS_blockwise:
   parent_model: ['MWS', 'blockwise']
@@ -47,9 +133,9 @@ MWS_blockwise:
               B: [12, 1, 600, 600]
               C: [12, 1, 600, 600]
             window_size:
-              A: [None, 3, 600, 600]
-              B: [None, 3, 600, 600]
-              C: [None, 3, 600, 600]
+              A: [None, 3, None, None]
+              B: [None, 3, None, None]
+              C: [None, 3, None, None]
 
 
 MWS:
@@ -57,7 +143,7 @@ MWS:
     segm_pipeline_type: 'MWS'
 
 
-MWS_from_SP:
+gen_HC_max:
   postproc:
     segm_pipeline_type: 'gen_HC'
     generalized_HC_kwargs:
@@ -65,6 +151,29 @@ MWS_from_SP:
 #        zero_init: True
         update_rule_merge: 'max'
         update_rule_not_merge: 'max'
+
+notInvertAffs:
+  postproc:
+    invert_affinities: False
+
+zeroInit:
+  postproc:
+    generalized_HC_kwargs:
+      agglomeration_kwargs:
+        zero_init: True
+
+initSignedWeights:
+  postproc:
+    generalized_HC_kwargs:
+      agglomeration_kwargs:
+        initSignedWeights: True
+
+sizeReg:
+  postproc:
+    generalized_HC_kwargs:
+      agglomeration_kwargs:
+        extra_aggl_kwargs:
+          sizeRegularizer: 0.01
 
 stride10:
   parent_model: 'MWS'
@@ -119,6 +228,12 @@ blockwise:
     blockwise_kwargs:
       nb_parallel_blocks: 8
 
+1_blocks:
+  parent_model: ['blockwise']
+  postproc:
+    blockwise_kwargs:
+      nb_parallel_blocks: 1
+
 12_blocks:
   parent_model: ['blockwise']
   postproc:
@@ -163,7 +278,7 @@ longRangeProbMap:
 localTestAffsTrendyTukan:
   volume_config:
     affinities:
-      path: '/mnt/localdata0/abailoni/infer_results_SP_CNN/unstruct/prediction_sample$.h5'
+      path: '/home/abailoni/local_data/unstruct/prediction_sample$.h5'
       path_in_h5_dataset: 'v100k-alignedTestDts'
 
 testAffs:
@@ -172,6 +287,25 @@ testAffs:
       path: '/net/hciserver03/storage/abailoni/learnedHC/plain_unstruct/pureDICE_wholeTrainingSet/Predictions_test/prediction_sample$.h5'
       path_in_h5_dataset: 'v100k-alignedTestDts'
 
+
+
+signedHC095-WS:
+  parent_model: ['given_SP']
+  volume_config:
+    init_segmentation:
+      path: '/export/home/abailoni/learnedHC/plain_unstruct/pureDICE_wholeTrainingSet/postprocess/inferName_v100k_repAttrHC095_$/pred_segm.h5'
+      path_in_h5_dataset: 'finalSegm_WS'
+    GT:
+      path: '/export/home/abailoni/learnedHC/plain_unstruct/pureDICE_wholeTrainingSet/postprocess/inferName_v100k_repAttrHC095_$/pred_segm.h5'
+      path_in_h5_dataset: 'finalSegm_bestGT'
+
+
+v100k-HC050:
+  parent_model: ['given_SP']
+  volume_config:
+    init_segmentation:
+      path: '/export/home/abailoni/learnedHC/mergeSpCNN/pureDICE_v2/postprocess/inferName_v100k_HC050_$/pred_segm.h5'
+      path_in_h5_dataset: 'finalSegm'
 
 
 

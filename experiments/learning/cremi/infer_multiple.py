@@ -26,7 +26,7 @@ from inferno.trainers.basic import Trainer
 from inferno.utils.io_utils import toh5
 
 from long_range_hc.datasets.path import get_template_config_file, parse_offsets, adapt_configs_to_model
-
+from long_range_hc.postprocessing.segmentation_pipelines.features import save_edge_indicators
 from long_range_hc.trainers.learnedHC.trainHC import HierarchicalClusteringTrainer
 
 from post_process import evaluate
@@ -60,7 +60,8 @@ def predict(sample,
             use_default_postproc_config=False,
             model_IDs=None,
             use_test_datasets=False,
-            save_folder=None
+            save_folder=None,
+            dump_edge_indicators=False
 
             ): #Only 3 nearest neighbor channels
     data_config_path = os.path.join(project_folder,
@@ -99,10 +100,13 @@ def predict(sample,
         infer_config['volume_config']['init_segmentation']['path'][sample] = path_init_segm
 
     if save_folder is None:
-        save_folder = os.path.join(project_folder, 'Predictions')
+        save_folder = os.path.join(project_folder, 'infer_{}'.format(name_inference))
     if not os.path.exists(save_folder):
         os.mkdir(save_folder)
-    save_path = os.path.join(save_folder, 'prediction_sample%s.h5' % sample)
+    save_folder = os.path.join(save_folder, 'sample{}'.format(sample))
+    if not os.path.exists(save_folder):
+        os.mkdir(save_folder)
+    save_path = os.path.join(save_folder, 'prediction.h5')
 
     infer_config['volume_config']['affinities'] = {}
     infer_config['volume_config']['affinities']['path_in_h5_dataset'] = {}
@@ -143,9 +147,9 @@ def predict(sample,
                                                                  best=False).cuda([gpu])
     # model = trainer.model
 
-    infer_config = infer_config['infer_config']
-    infer_config['offsets'] = offsets
-    trainer.build_infer_engine(infer_config)
+    infer_config_opt = infer_config['infer_config']
+    infer_config_opt['offsets'] = offsets
+    trainer.build_infer_engine(infer_config_opt)
 
     # return None
 
@@ -166,11 +170,21 @@ def predict(sample,
     # if only_nn_channels:
     #     output = output[:3]
     #     save_path = save_path[:-3] + '_nnaffinities.h5'
-    if dump_affs or name_aggl is None:
+    if dump_affs:
         print("Dumping local affinities on disk...")
         tick = time.time()
         vigra.writeHDF5(output.astype('float32'), save_path, name_inference, compression='gzip')
         print("Done in {} s!".format(time.time() - tick))
+
+    if dump_edge_indicators:
+        file_path = os.path.join(save_folder, 'edge_data.h5')
+        assert 'init_segmentation' in infer_config['volume_config']
+        paths = infer_config['volume_config']['init_segmentation']
+        initSegm = vigra.readHDF5(paths['path'][sample], paths['path_in_h5_dataset'][sample]).astype(np.uint32)
+
+        save_edge_indicators(output, initSegm, offsets,
+                             file_path, n_threads=n_threads,
+                             invert_affinities=True)
 
 
 
@@ -186,6 +200,7 @@ if __name__ == '__main__':
     parser.add_argument('--path_init_segm', default=None)
     parser.add_argument('--name_aggl', default=None)
     parser.add_argument('--dump_affs', default=False, type=bool)
+    parser.add_argument('--dump_edge_indicators', default=False, type=bool)
     parser.add_argument('--use_default_postproc_config', default=False, type=bool)
     parser.add_argument('--samples', nargs='+', default=['A', 'B', 'C'], type=str)
     parser.add_argument('--postproc_config_version', default=None)
@@ -266,7 +281,8 @@ if __name__ == '__main__':
                     args.use_default_postproc_config,
                     model_IDs=args.model_IDs,
                     use_test_datasets=args.use_test_datasets,
-                    save_folder=args.save_folder)
+                    save_folder=args.save_folder,
+                    dump_edge_indicators=args.dump_edge_indicators)
             torch.cuda.empty_cache()
 
         # # pool = ThreadPool()

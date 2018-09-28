@@ -208,6 +208,13 @@ master_config:
     crop_right: [0, 50, 50]
   random_slides: False
 #  shape_after_slide: [478, 478]
+  agglomeration_kwargs:
+    path: '/export/home/abailoni/learnedHC/plain_unstruct/pureDICE_wholeTrainingSet/postprocess/inferName_v100k_repAttrHC095_A/edge_data.h5'
+    prob_agglomeration: 1.
+    max_threshold: 0.5
+    min_threshold: 0.5
+    flip_probability: 0.03
+    number_of_threads: 8
 
 offsets: [[-1, 0, 0], [0, -1, 0], [0, 0, -1], [-2, 0, 0], [0, -3, 0], [0, 0, -3], [-3, 0, 0],
                     [0, -9, 0], [0, 0, -9], [-4, 0, 0], [0, -27, 0], [0, 0, -27]]

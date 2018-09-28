@@ -216,6 +216,8 @@ class BlockWiseSegmentationPipelineSolver(object):
                 output[global_slicing[i]] = output_patch_cropped[i] + max_label
                 max_label += max_label_patch[i] + 1
 
+        print("Out shape", output.shape)
+        print("Out padded shape", output_padded.shape)
         # Combine padded output with cropped one:
         final_output = output
         if any(tuple([pad[0]!=0  for i, pad in enumerate(dataset.padding)])):
@@ -223,6 +225,9 @@ class BlockWiseSegmentationPipelineSolver(object):
             global_pad = tuple(slice(pad[0], dataset.volume.shape[i] - pad[1])
                                    for i, pad in enumerate(dataset.padding))
             final_output = output_padded + max_label
+            print("Final out shape", final_output.shape)
+            print("Out shape", output.shape)
+            print("Out shape cropped", output[global_pad[1:]].shape)
             final_output[global_pad[1:]] = output[global_pad[1:]]
             final_output, _, _ = vigra.analysis.relabelConsecutive(final_output,
                                                                                  keep_zeros=False)

@@ -1,8 +1,11 @@
 import nifty
 import numpy as np
+import vigra
+import os
 from nifty.graph import rag as nrag
 import time
 from nifty.graph import undirectedLongRangeGridGraph
+from ...criteria.learned_HC.utils.segm_utils import cantor_pairing_fct
 
 def accumulate_affinities_on_graph_edges(affinities, offsets, graph=None, label_image=None,
                                          contractedRag=None,
@@ -189,6 +192,8 @@ class FeaturerLongRangeAffs(object):
                         offsets_weights=offsets_weights,
                         number_of_threads=self.n_threads)
                 out_dict['edge_indicators'] = edge_indicators
+                out_dict['merge_prio'] = edge_indicators
+                out_dict['not_merge_prio'] = 1 - edge_indicators
                 out_dict['edge_sizes'] = edge_sizes
             elif self.statistic == 'max':
                 merge_prio, edge_sizes = \
@@ -214,6 +219,8 @@ class FeaturerLongRangeAffs(object):
                 out_dict['merge_prio'] = merge_prio
                 out_dict['not_merge_prio'] = not_merge_prio
                 out_dict['edge_sizes'] = edge_sizes
+            else:
+                raise NotImplementedError
 
 
         if not self.return_dict:
@@ -302,13 +309,20 @@ def build_pixel_lifted_graph_from_offsets(image_shape,
                         offsets_probabilities=offsets_probabilities,
                         labels=label_image)
     nb_nodes = graph.numberOfNodes
+    print(label_image)
+    print(is_local_offset)
+    print(offsets_probabilities)
+
+
     if label_image is None:
         print("Getting edge index...")
         offset_index = graph.edgeOffsetIndex()
-        is_local_edge = offset_index.astype('int32')
+        print(np.unique(offset_index, return_counts=True))
+        is_local_edge = np.empty_like(offset_index, dtype='bool')
         w = np.where(offset_index < nb_local_offsets)
         is_local_edge[:] = 0
         is_local_edge[w] = 1
+        print("Nb. local edges: {} out of {}".format(is_local_edge.sum(), graph.numberOfEdges))
     else:
         print("Took {} s!".format(time.time() - tick))
         print("Checking edge locality...")
@@ -340,3 +354,47 @@ def build_pixel_lifted_graph_from_offsets(image_shape,
         GT_labels_nodes = graph.nodeValues(GT_labels_image)
 
     return graph, is_local_edge, GT_labels_nodes, edge_weights
+
+
+def save_edge_indicators(affinities, segmentation, offsets, save_path,
+                             n_threads=8, invert_affinities=False):
+        featurer = FeaturerLongRangeAffs(offsets, n_threads=n_threads,
+                                         invert_affinities=invert_affinities, return_dict=True)
+
+        results = featurer(affinities, segmentation)
+        rag = results['graph']
+        # Edge indicators should be affinities (merge: 1.0; split: 0.0)
+        edge_indicators = results['edge_indicators']
+        edge_sizes = results['edge_sizes']
+
+        print("Sorting edges...")
+        uvIds = np.sort(rag.uvIds(), axis=1)
+        cantor_coeff = cantor_pairing_fct(uvIds[:, 0], uvIds[:, 1])
+        edge_data = np.stack((edge_indicators, edge_sizes), axis=-1)
+
+        vigra.writeHDF5(edge_data, save_path, 'edge_data', compression='gzip')
+        vigra.writeHDF5(cantor_coeff, save_path, 'cantor_ids', compression='gzip')
+
+
+from skunkworks.postprocessing.segmentation_pipelines.multicut.multicut import probs_to_costs
+
+def save_edge_indicators_students(affinities, segmentation, offsets, save_path,
+                         n_threads=8, invert_affinities=False):
+    featurer = FeaturerLongRangeAffs(offsets, n_threads=n_threads,
+                                     invert_affinities=invert_affinities, return_dict=True)
+
+    results = featurer(affinities, segmentation)
+    rag = results['graph']
+    print("Number of nodes, edges:", rag.numberOfNodes, rag.numberOfEdges)
+    # Edge indicators should be affinities (merge: 1.0; split: 0.0)
+    edge_indicators = results['edge_indicators']
+    edge_sizes = results['edge_sizes']
+
+    costs = probs_to_costs(1-edge_indicators)
+
+
+    print("Sorting edges...")
+    uvIds = np.sort(rag.uvIds(), axis=1)
+
+    vigra.writeHDF5(costs, save_path, 'edge_weights', compression='gzip')
+    vigra.writeHDF5(uvIds, save_path, 'uv_IDs', compression='gzip')

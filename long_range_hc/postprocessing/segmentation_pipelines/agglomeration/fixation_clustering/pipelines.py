@@ -16,6 +16,7 @@ class FixationAgglomerativeClustering(SegmentationPipeline):
     def __init__(self, offsets, fragmenter=None,
                  update_rule_merge='mean', update_rule_not_merge='mean',
                  zero_init=False,
+                 initSignedWeights=False,
                  max_distance_lifted_edges=3,
                  offsets_probabilities=None,
                  used_offsets=None,
@@ -47,6 +48,7 @@ class FixationAgglomerativeClustering(SegmentationPipeline):
                 update_rule_merge=update_rule_merge,
                 update_rule_not_merge=update_rule_not_merge,
                 zero_init=zero_init,
+                initSignedWeights=initSignedWeights,
                 n_threads=n_threads,
                 invert_affinities=invert_affinities,
                 extra_aggl_kwargs=extra_aggl_kwargs,
@@ -60,6 +62,7 @@ class FixationAgglomerativeClustering(SegmentationPipeline):
                 update_rule_merge=update_rule_merge,
                 update_rule_not_merge=update_rule_not_merge,
                 zero_init=zero_init,
+                initSignedWeights=initSignedWeights,
                 n_threads=n_threads,
                 offsets_probabilities=offsets_probabilities,
                 offsets_weights=offsets_weights,
@@ -75,6 +78,7 @@ class FixationAgglomeraterBase(object):
     def __init__(self, offsets, used_offsets=None,
                  update_rule_merge='mean', update_rule_not_merge='mean',
                  zero_init=False,
+                 initSignedWeights=False,
                  n_threads=1,
                  invert_affinities=False,
                  offsets_weights=None,
@@ -90,6 +94,7 @@ class FixationAgglomeraterBase(object):
                  - 'mean'
                  - 'max'
                  - 'min'
+                 - 'sum'
                  - {name: 'rank', q=0.5, numberOfBins=40}
                  - {name: 'generalized_mean', p=2.0}   # 1.0 is mean
                  - {name: 'smooth_max', p=2.0}   # 0.0 is mean
@@ -112,13 +117,14 @@ class FixationAgglomeraterBase(object):
         self.offsets = offsets
         self.debug = debug
         self.zeroInit = zero_init
+        self.initSignedWeights = initSignedWeights
         self.n_threads = n_threads
         self.invert_affinities = invert_affinities
         self.extra_aggl_kwargs = extra_aggl_kwargs if extra_aggl_kwargs is not None else {}
         self.extra_runAggl_kwargs = extra_runAggl_kwargs if extra_runAggl_kwargs is not None else {}
 
     def parse_update_rule(self, rule):
-        accepted_rules_1 = ['max', 'min', 'mean', 'ArithmeticMean']
+        accepted_rules_1 = ['max', 'min', 'mean', 'ArithmeticMean', 'sum']
         accepted_rules_2 = ['generalized_mean', 'rank', 'smooth_max']
         if not isinstance(rule, str):
             rule = rule.copy()
@@ -219,6 +225,7 @@ class FixationAgglomeraterFromSuperpixels(FixationAgglomeraterBase):
                                                       updateRule0=self.update_rules[0],
                                                       updateRule1=self.update_rules[1],
                                                       zeroInit=self.zeroInit,
+                                                      initSignedWeights=self.initSignedWeights,
                                                       sizeRegularizer=self.extra_aggl_kwargs.get('sizeRegularizer', 0.),
                                                       sizeThreshMin=self.extra_aggl_kwargs.get('sizeThreshMin', 0.),
                                                       sizeThreshMax=self.extra_aggl_kwargs.get('sizeThreshMax', 300.),
@@ -303,6 +310,7 @@ class FixationAgglomerater(FixationAgglomeraterBase):
             )
         print("Number of edges in graph", graph.numberOfEdges)
         print("Number of nodes in graph", graph.numberOfNodes)
+        print("Local edges:")
 
         # Build policy:
         # edge_sizes = np.ones(graph.numberOfEdges, dtype='float32')
@@ -316,6 +324,7 @@ class FixationAgglomerater(FixationAgglomeraterBase):
                               updateRule0=self.update_rules[0],
                               updateRule1=self.update_rules[1],
                               zeroInit=self.zeroInit,
+                              initSignedWeights=self.initSignedWeights,
                               sizeRegularizer=self.extra_aggl_kwargs.get('sizeRegularizer', 0.),
                               sizeThreshMin=self.extra_aggl_kwargs.get('sizeThreshMin', 0.),
                               sizeThreshMax=self.extra_aggl_kwargs.get('sizeThreshMax', 300.),

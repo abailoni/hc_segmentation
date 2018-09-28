@@ -78,6 +78,7 @@ def align(volume, sample, offset=None,
     # Crop extra padding:
     pad_crop = tuple([slice(pd2[0] - pd1[0], -(pd2[1] - pd1[1])) for pd1, pd2 in zip(wanted_pad, original_pad)])
     raw_transf_cropped = vol_transf[pad_crop]
+    return raw_transf_cropped
 
 
 def undo_alignment(volume, sample, offset=None):

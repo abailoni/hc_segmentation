@@ -227,7 +227,8 @@ def cantor_pairing_fct(int1, int2):
 
     It returns an unique integer associated to (int1, int2).
     """
-    return (int1 + int2) * (int1 + int2 + 1) / 2 + int2
+    return np.floor_divide((int1 + int2) * (int1 + int2 + 1), np.array(2, dtype='uint64')) + int2
+    # return (int1 + int2) * (int1 + int2 + 1) / 2 + int2
 
 def find_best_agglomeration(segm, GT_segm):
     assert segm.ndim == 3, "Only 3D at the moment"

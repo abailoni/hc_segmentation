@@ -13,17 +13,17 @@ from long_range_hc.postprocessing.WS_growing import SizeThreshAndGrowWithWS
 from skunkworks.metrics.cremi_score import cremi_score
 
 SOA_folder = '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities'
-# project_folder = '/export/home/abailoni/learnedHC/plain_unstruct/pureDICE_wholeTrainingSet'
+project_folder = '/export/home/abailoni/learnedHC/plain_unstruct/pureDICE_wholeTrainingSet'
 # project_folder = '/export/home/abailoni/learnedHC/model_090_v2/unstrInitSegm_pureDICE'
-project_folder = '/export/home/abailoni/learnedHC/model_050_A_v3/pureDICE_wholeDtSet'
+# project_folder = '/export/home/abailoni/learnedHC/model_050_A_v3/pureDICE_wholeDtSet'
 
 
 
-aggl_name_partial = 'inferName_v100k-alignedTestOversegmPlusMC_MCfull080_'
+aggl_name_partial = 'inferName_v100k_repAttrHC095_'
 # aggl_name_partial = 'inferName_v100k-alignedTestOversegmPlusMC_HC065_'
 for sample in [
-    # 'B',
-    # 'C',
+    'C',
+    'B',
     'A',
 ]:
     aggl_name = aggl_name_partial + sample
@@ -33,6 +33,7 @@ for sample in [
     #                                      data_to_import=['affinities', 'gt'])
     finalSegm = import_segmentations(project_folder, aggl_name,
                                              keys_to_return=['finalSegm'])
+    finalSegm = vigra.analysis.labelVolume(finalSegm.astype(np.uint32))
     # FIXME:
     # affinities = 1 - import_SOA_datasets(data_to_import=['affinities'],
     #                                   crop_slice="1:3,:,:,:",
@@ -49,19 +50,19 @@ for sample in [
 
 
 
-    grower = SizeThreshAndGrowWithWS(size_threshold=70,
+    grower = SizeThreshAndGrowWithWS(size_threshold=3,
                             offsets=np.array([[0, -1, 0], [0, 0, -1]]),
                             apply_WS_growing=True)
 
 
     # # # 1:
-    # seeds = np.empty_like(finalSegm)
-    # max_label = 0
-    # for z in range(finalSegm.shape[0]):
-    #     print(z)
-    #     partial_out = grower(1 - affinities[:,slice(z,z+1)], finalSegm[slice(z,z+1)])
-    #     seeds[slice(z,z+1)] = partial_out + max_label
-    #     max_label += partial_out.max() + 1
+    seeds = np.empty_like(finalSegm)
+    max_label = 0
+    for z in range(finalSegm.shape[0]):
+        print(z)
+        partial_out = grower(1 - affinities[:,slice(z,z+1)], finalSegm[slice(z,z+1)])
+        seeds[slice(z,z+1)] = partial_out + max_label
+        max_label += partial_out.max() + 1
 
     # # 2:
     # TODO: fix max label
@@ -77,7 +78,7 @@ for sample in [
     # seeds = np.concatenate(seeds)
 
     # 3:
-    seeds = grower(1 - affinities, finalSegm)
+    # seeds = grower(1 - affinities, finalSegm)
 
     print("Writing...")
     file_path = os.path.join(project_folder, "postprocess/{}/pred_segm.h5".format(aggl_name))

@@ -385,33 +385,48 @@ class FromSegmToEmbeddingSpace(Transform):
 
 class OverSegmentationAgglomeration(Transform):
     def __init__(self, path=None,
-                 path_in_h5='data',
                  prob_agglomeration=0.3,
                  max_threshold=1.0,
                  min_threshold=0.5,
-                 wrong_merge_flips=False,
-                 wrong_split_flips=False,
+                 allow_wrong_merges=False,
+                 allow_wrong_splits=False,
                  flip_probability=0.03,
                  number_of_threads=8,
+                 minimum_sigma=0.05,
+                 scale_factor_sigma=0.7,
                  **super_kwargs):
         assert isinstance(path, str)
         self.number_of_threads = number_of_threads
 
         # Expected data in the array: u, v, edge_indicator, edge_weight (shape --> (N, 4))
-        edge_weights = vigra.readHDF5(path, pathInFile=path_in_h5).astype(np.float32)
-        uvIds = np.sort(edge_weights[:,:2], axis=1)
-        cantor_coeff = cantor_pairing_fct(uvIds[:,[0]], uvIds[:,[1]])
-        # TODO: is it slow...?
-        sort_indices = np.argsort(cantor_coeff[:,0])
-        edge_weights = np.concatenate((cantor_coeff, edge_weights[:,2:]), axis=1)
-        self.edge_weights = edge_weights[sort_indices]
+        if path is not None:
+            if '$' in path:
+                edge_data, cantor_ids = [], []
+                for sample in ['A', 'B', 'C']:
+                    sample_path = path.replace('$', sample)
+                    edge_data.append(vigra.readHDF5(sample_path, pathInFile='edge_data').astype(np.float32))
+                    cantor_ids.append(vigra.readHDF5(sample_path, pathInFile='cantor_ids').astype(np.uint64))
+                edge_data = np.concatenate(edge_data, axis=0)
+                cantor_ids = np.concatenate(cantor_ids, axis=0)
+                sort_indices = np.argsort(cantor_ids)
+                # TODO: check not to have double IDs...!
+                self.edge_data = edge_data[sort_indices]
+                self.cantor_ids = cantor_ids[sort_indices]
+            else:
+                self.edge_data = vigra.readHDF5(path, pathInFile='edge_data').astype(np.float32)
+                self.cantor_ids = vigra.readHDF5(path, pathInFile='cantor_ids').astype(np.uint64)
+        else:
+            self.edge_data = None
+            print("Path not given. Initial agglomeration skipped.")
 
         self.prob_agglomeration = prob_agglomeration
         self.max_threshold = max_threshold
         self.min_threshold = min_threshold
         self.flip_probability = flip_probability
-        self.wrong_merge_flips = wrong_merge_flips
-        self.wrong_split_flips= wrong_split_flips
+        self.allow_wrong_merges= allow_wrong_merges
+        self.allow_wrong_splits= allow_wrong_splits
+        self.minimum_sigma= minimum_sigma
+        self.scale_factor_sigma= scale_factor_sigma
 
         super(OverSegmentationAgglomeration, self).__init__(**super_kwargs)
 
@@ -419,7 +434,7 @@ class OverSegmentationAgglomeration(Transform):
                                ):
         np.random.seed()
         self.set_random_variable('agglomerate_oversegmentation',
-                                 np.random.rand() <= 0.3)
+                                 np.random.rand() <= self.prob_agglomeration)
         self.set_random_variable('threshold',
                                  np.random.uniform(self.min_threshold, self.max_threshold))
 
@@ -427,6 +442,9 @@ class OverSegmentationAgglomeration(Transform):
     def tensor_function(self, tensor_):
         """
         """
+        if self.edge_data is None:
+            return tensor_
+
         tensor = tensor_.astype(np.uint32)
         assert tensor_.ndim == 3
 
@@ -435,31 +453,53 @@ class OverSegmentationAgglomeration(Transform):
         agglomerate_oversegmentation = self.get_random_variable('agglomerate_oversegmentation')
 
         if agglomerate_oversegmentation:
+            # print("Running initial clustering...")
+            # tick = time.time()
+
             rag = nrag.gridRag(tensor, self.number_of_threads)
 
             uvIds = np.sort(rag.uvIds(), axis=1)
-            cantor_coeff = cantor_pairing_fct(uvIds[:, [0]], uvIds[:, [1]])
+            cantor_coeff = cantor_pairing_fct(uvIds[:, 0], uvIds[:, 1])
 
-            edge_indices = np.searchsorted(self.edge_weights[:, 0], cantor_coeff)
-            # TODO: check if some edges where not found...!?
-            selected_edges = self.edge_weights[edge_indices]
+            edge_indices = np.searchsorted(self.cantor_ids, cantor_coeff)
+            # Due to elastic transform, there could be some edges that are not found (tiny
+            # pixels, probably). In that case set affinity to 0.:
+            edges_not_found = cantor_coeff != self.cantor_ids[edge_indices]
+            selected_edges = self.edge_data[edge_indices]
+            selected_edges[edges_not_found] = np.tile(np.array([0., 1.]), (edges_not_found.sum(), 1))
+            if edges_not_found.sum() > 30:
+                print("WARNING: {} edges where not found out of {}".format(edges_not_found.sum(), edges_not_found.shape))
             # Edge indicators should be affinities (merge: 1.0; split: 0.0)
-            edge_indicators = selected_edges[:, 1]
-            edge_sizes = selected_edges[:, 2]
+            edge_indicators = selected_edges[:, 0]
+            edge_sizes = selected_edges[:, 1]
 
 
-            # Add noise:
-            if self.wrong_split_flips or self.wrong_merge_flips:
-                random_probs = np.random.uniform(low=0., high=1., size=edge_indicators.shape)
-                edges_to_flip = random_probs < self.flip_probability
-                if self.wrong_merge_flips and not self.wrong_split_flips:
-                    # Only allow 'false-merge' flips:
-                    edges_to_flip = np.logical_and(edges_to_flip, edge_indicators < 0.5)
-                elif self.wrong_split_flips and not self.wrong_merge_flips:
-                    # Only allow 'false-split' flips:
-                    edges_to_flip = np.logical_and(edges_to_flip, edge_indicators > 0.5)
-                print("Nb. flips: {} out of {}".format(edges_to_flip.sum(), edges_to_flip.shape))
-                edge_indicators[edges_to_flip] = 1 - edge_indicators[edges_to_flip]
+            # # Perform random flips:
+            # if self.wrong_split_flips or self.wrong_merge_flips:
+            #     random_probs = np.random.uniform(low=0., high=1., size=edge_indicators.shape)
+            #     edges_to_flip = random_probs < self.flip_probability
+            #     if self.wrong_merge_flips and not self.wrong_split_flips:
+            #         # Only allow 'false-merge' flips:
+            #         edges_to_flip = np.logical_and(edges_to_flip, edge_indicators < 0.5)
+            #     elif self.wrong_split_flips and not self.wrong_merge_flips:
+            #         # Only allow 'false-split' flips:
+            #         edges_to_flip = np.logical_and(edges_to_flip, edge_indicators > 0.5)
+            #     print("Nb. flips: {} out of {}".format(edges_to_flip.sum(), edges_to_flip.shape))
+            #     edge_indicators[edges_to_flip] = 1 - edge_indicators[edges_to_flip]
+
+            # Add "smart" noise to the edge indicators:
+            if self.allow_wrong_splits or self.allow_wrong_merges:
+                # Get uncertainty prediction as absolute difference from 0.5:
+                # TODO: collect statistics during the avg-accumulation (better idea of the uncertainty)
+                sigma =  self.minimum_sigma + (0.5 - np.abs(edge_indicators - 0.5))*self.scale_factor_sigma
+                noise = np.random.normal(scale=sigma, size=edge_indicators.shape)
+                if not self.allow_wrong_splits:
+                    # Get rid of noise that decrease the affinities:
+                    noise[noise < 0.] = 0.
+                elif not self.allow_wrong_merges:
+                    # Get rid of noise that increase the affinities:
+                    noise[noise > 0.] = 0.
+                edge_indicators = np.clip(edge_indicators + noise, a_min=0., a_max=1.)
 
             node_sizes = np.ones((rag.numberOfNodes ,))
             is_local_edge = np.ones_like(edge_indicators)
@@ -470,9 +510,9 @@ class OverSegmentationAgglomeration(Transform):
                                                           edgeSizes=edge_sizes,
                                                           nodeSizes=node_sizes,
                                                           isMergeEdge=is_local_edge,
-                                                          updateRule0='',
+                                                          updateRule0=nagglo.updatRule('mean'),
                                                           updateRule1=nagglo.updatRule('mean'),
-                                                          zeroInit=nagglo.updatRule('mean'),
+                                                          zeroInit=False,
                                                           sizeRegularizer=0.,
                                                           sizeThreshMin=0.,
                                                           sizeThreshMax=1000.,
@@ -481,18 +521,19 @@ class OverSegmentationAgglomeration(Transform):
                                                           )
             agglomerativeClustering = nagglo.agglomerativeClustering(cluster_policy)
 
-            print("Running initial clustering...")
-            tick = time.time()
 
             agglomerativeClustering.run(False, 1000)  # (True, 10000)
             node_labels = agglomerativeClustering.result()
-            print("Took {} s!".format(time.time() - tick))
 
             final_segm = map_features_to_label_array(
                 tensor,
                 np.expand_dims(node_labels, axis=-1),
-                number_of_threads=self.number_of_threads
+                number_of_threads=3
             )[..., 0]
+
+            final_segm, _, _ = vigra.analysis.relabelConsecutive(final_segm.astype('uint32'))
+
+            # print("Took {} s!".format(time.time() - tick))
 
             return final_segm.astype('float32')
 

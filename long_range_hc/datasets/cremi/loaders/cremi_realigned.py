@@ -204,8 +204,8 @@ class CREMIDatasetRealigned(Zip):
                 # computation being warped into the FOV.
                 transforms.add(VolumeAsymmetricCrop(**crop_config))
 
-        assert len(self.apply_FromSegmToEmbeddingSpace_to) == 1
-        transforms.add(OverSegmentationAgglomeration(**self.master_config.get('agglomeration_kwargs'),
+        assert len(self.apply_FromSegmToEmbeddingSpace_to) == 1 or len(self.apply_FromSegmToEmbeddingSpace_to) == 0
+        transforms.add(OverSegmentationAgglomeration(**self.master_config.get('agglomeration_kwargs', {}),
                        apply_to=self.apply_FromSegmToEmbeddingSpace_to))
 
         transforms.add(FromSegmToEmbeddingSpace(dim_embedding_space=self.master_config.get('dim_embedding_vector_space', 12),

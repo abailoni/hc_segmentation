@@ -112,7 +112,7 @@ def adapt_configs_to_model(model_IDs,
             # Loop over 'init_segmentation', 'GT', ...
             # If the path is not specified, then the one of 'init_segmentation' will be used
             for input_key in source_vol_config:
-                target_vol_config[input_key] = {'dtype': 'int32', 'path': {},
+                target_vol_config[input_key] = {'dtype': 'int64', 'path': {},
                                                           'path_in_h5_dataset': {}} if input_key not in target_vol_config else target_vol_config[input_key]
                 for smpl in samples:
                     path = source_vol_config[input_key]['path'] if 'path' in source_vol_config[input_key] else source_vol_config['init_segmentation']['path']

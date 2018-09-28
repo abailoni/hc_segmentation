@@ -122,6 +122,11 @@ def evaluate(project_folder, sample, offsets,
     if crop_slice is not None:
         post_proc_config['data_slice'][sample] = crop_slice
     else:
+        # if data_config['slicing_config']['data_slice'][sample] != ':, :, :':
+        #     crop_slice = data_config['slicing_config']['data_slice'][sample]
+        # else:
+        #     crop_slice = post_proc_config['data_slice'][sample]
+        # post_proc_config['data_slice'][sample] = crop_slice
         crop_slice = post_proc_config['data_slice'][sample]
 
     crop_slice_is_not_none = [slice(None) for _ in range(4)] != parse_data_slice(crop_slice)
@@ -259,6 +264,7 @@ def evaluate(project_folder, sample, offsets,
     name_finalSegm = 'finalSegm'
     print("Writing on disk...")
     # TODO: write possible blocks and fragments...
+    print("SHAPE:", pred_segm.shape)
     vigra.writeHDF5(pred_segm.astype('int64'), segm_file, name_finalSegm, compression='gzip')
 
     # print("Connected components if slice is taken...")

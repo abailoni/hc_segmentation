@@ -17,10 +17,10 @@ project_folder = '/export/home/abailoni/learnedHC/plain_unstruct/pureDICE_wholeT
 # project_folder = '/export/home/abailoni/learnedHC/model_050_A_v2/pureDICE'
 # project_folder = '/export/home/abailoni/learnedHC/model_090_v2/unstrInitSegm_pureDICE'
 
-aggl_name_partial = 'inferName_v100k_HC098_notCropped_'
+aggl_name_partial = 'inferName_v100k_repAttrHC095_'
 
 for sample in [
-    'C',
+    # 'C',
     'B',
     'A',
 ]:
@@ -30,12 +30,12 @@ for sample in [
     gt = import_SOA_datasets(data_to_import=['gt'], sample=sample)
 
     WS_segm = import_segmentations(project_folder, aggl_name,
-                                             keys_to_return=['finalSegm_WS_inters_WS'])
+                                             keys_to_return=['finalSegm_WS'])
 
     find_best = FindBestAgglFromOversegmAndGT(border_thickness=2,
                                   number_of_threads=8,
                                               break_oversegm_on_GT_borders=True,
-                                              undersegm_rel_threshold=0.80)
+                                              undersegm_rel_threshold=0.60)
 
 
     # crop_slice = (slice(40,55), slice(500,1000), slice(500,1000))
@@ -71,7 +71,7 @@ for sample in [
 
 
     file_path = os.path.join(project_folder, "postprocess/{}/pred_segm.h5".format(aggl_name))
-    vigra.writeHDF5(best_GT, file_path, 'finalSegm_WS_inters_WS_bestGT', compression='gzip')
+    vigra.writeHDF5(best_GT, file_path, 'finalSegm_bestGT', compression='gzip')
 
     # print("Computing score...")
     # # Get rid of ingore-label in best-agglomeration:

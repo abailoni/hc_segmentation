@@ -367,8 +367,8 @@ def plot_pretrain_predictions(img_data, targets, z_slice, fig=None):
             else:
                 plot_segm(targets[0, z_slice], img_data['init_segm'], z_slice, mask_value=0,
                           background=img_data['raw'], highlight_boundaries=True)
-                targets[0, z_slice].matshow(get_masked_boundary_mask(img_data['target'][0])[z_slice], cmap='Set1',
-                                            alpha=1., interpolation=DEF_INTERP)
+                # targets[0, z_slice].matshow(get_masked_boundary_mask(img_data['target'][0])[z_slice], cmap='Set1',
+                #                             alpha=0.6, interpolation=DEF_INTERP)
 
                 plot_segm(targets[1, z_slice], img_data['target'][0], z_slice, mask_value=0,
                           background=img_data['raw'], highlight_boundaries=True)
@@ -393,7 +393,7 @@ def plot_pretrain_predictions(img_data, targets, z_slice, fig=None):
     elif nb_offs == 27:
         plotted_offsets = [3, 5, 14, 25, 0]
     elif nb_offs == 17:
-        plotted_offsets = [1, 7, 8, 12, 16]
+        plotted_offsets = [1, 0, 7, 8, 16]
     elif nb_offs == 3:
         plotted_offsets = [0, 1, 2]
     else:
@@ -403,9 +403,9 @@ def plot_pretrain_predictions(img_data, targets, z_slice, fig=None):
         targets[i+2, z_slice].matshow(img_data['stat_prediction'][offset,z_slice], cmap='gray', interpolation=DEF_INTERP)
         # targets[i+1, z_slice].matshow(img_data['target'][offset+1, z_slice], cmap='gray', interpolation=DEF_INTERP)
         if 'loss_weights' in img_data:
-            cax = targets[i + 2, z_slice].matshow(mask_the_mask(img_data['loss_weights'][offset, z_slice], interval=[-0.0001, 1.0001]),
+            cax = targets[i + 2, z_slice].matshow(mask_the_mask(img_data['loss_weights'][offset, z_slice], value_to_mask=1.),
                                             cmap='rainbow',
-                                            alpha=0.7, interpolation=DEF_INTERP)
+                                            alpha=0.3, interpolation=DEF_INTERP)
             if z_slice == 6 and i == 0:
                 fig.colorbar(cax, ax=targets[i + 2, z_slice])
         targets[i+2, z_slice].matshow(mask_the_mask(img_data['target'][offset+1, z_slice], value_to_mask=1.0), cmap='Set1',
@@ -473,6 +473,7 @@ def plot_data_batch(img_data, plot_type, path, name, column_size=0):
         if 'merge_targets' not in img_data:
             f.suptitle("Structrued prediction: CS {}; VIs {}; VIm {}; ARAND {}\n".format(*img_data['scores']) + "Init. segm. + pretrained: {}".format(img_data['scores_pretrained']), fontsize=5, )
 
+    img_data['target'][0], _, _ = vigra.analysis.relabelConsecutive(img_data['target'][0].astype('uint32'))
     for z_slice in range(z_context):
         if plot_type == "segm_results":
             plot_segm_results(img_data,ax,z_slice)

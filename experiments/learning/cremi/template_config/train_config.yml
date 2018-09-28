@@ -83,7 +83,7 @@ HC_config:
 
 #  postproc_type: 'DTWS'
   struct_weights_kwargs:
-    trained_mistakes: 'all_mistakes'
+    trained_mistakes: 'none'
     train_correct_predictions: False
 
 

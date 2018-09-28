@@ -207,12 +207,20 @@ class HierarchicalClusteringTrainer(Trainer):
         :param segm: [batch_size, z, x, y]
         """
         if not hasattr(self, 'segmToAffs_initSegm'):
+            offsets = self.options['HC_config']['offsets']
+            erode_boundary_thickness = self.options['HC_config'][
+                    'erode_boundary_thickness'] if 'erode_boundary_thickness' in self.options['HC_config'] else 2
+            boundary_erode_segmentation = [0, erode_boundary_thickness,
+                                               erode_boundary_thickness] if erode_boundary_thickness != 0 else None
+            # if include_long_range_affs:
+            #     offsets += [[-4, 0, 0], [0, -12, 0], [0, 0, -12], [0, -27, 0], [0, 0, -27]]
+
             self.segmToAffs_initSegm = Segmentation2AffinitiesFromOffsets(dim=3,
-                                               offsets=[[-1, 0, 0], [0, -2, 0], [0, 0, -2]],
+                                               offsets=offsets,
                                                add_singleton_channel_dimension = True,
                                                retain_segmentation = True,
                                                use_gpu=True,
-                                                                 boundary_erode_segmentation=[0,1,1]
+                                                                 boundary_erode_segmentation=boundary_erode_segmentation
             )
 
         with torch.no_grad():
@@ -222,6 +230,34 @@ class HierarchicalClusteringTrainer(Trainer):
             affinities = []
             for b in range(segm_tensor.size()[0]):
                 affinities.append(self.segmToAffs_initSegm(segm_tensor[b])[None, ...])
+            affinities = torch.cat(affinities, dim=0)
+            if not retain_segmentation:
+                affinities = affinities[:, 1:]
+        return affinities
+
+
+    def computeSegmToAffsCUDA_initSegm_shortRange(self, segm_tensor, retain_segmentation = True):
+        """
+        :param segm: [batch_size, z, x, y]
+        """
+        if not hasattr(self, 'segmToAffs_initSegm_shortRange'):
+            offsets = [[-1, 0, 0], [0, -2, 0], [0, 0, -2]]
+            boundary_erode_segmentation = [0, 2, 2]
+            self.segmToAffs_initSegm_shortRange = Segmentation2AffinitiesFromOffsets(dim=3,
+                                               offsets=offsets,
+                                               add_singleton_channel_dimension = True,
+                                               retain_segmentation = True,
+                                               use_gpu=True,
+                                                                 boundary_erode_segmentation=boundary_erode_segmentation
+            )
+
+        with torch.no_grad():
+
+            segm_tensor = segm_tensor.data
+
+            affinities = []
+            for b in range(segm_tensor.size()[0]):
+                affinities.append(self.segmToAffs_initSegm_shortRange(segm_tensor[b])[None, ...])
             affinities = torch.cat(affinities, dim=0)
             if not retain_segmentation:
                 affinities = affinities[:, 1:]
@@ -363,16 +399,31 @@ class HierarchicalClusteringTrainer(Trainer):
         """
         :param input_: Numpy array with expected shape: (1 batch, 1 channel, 5, 324, 324)
         """
+        pass
 
 
     def apply_model(self, *inputs):
         rnd_ints = None
+        boundary_segmentation_mask = None
         if len(inputs) == 1:
             model_inputs = inputs[0]
         elif len(inputs) == 2:
-            init_segm_vectors = inputs[1][:, 1:].float()
-            binary_boundaries = self.computeSegmToAffsCUDA_initSegm(inputs[1][:, 0].float(), retain_segmentation=False)
-            model_inputs = torch.cat([inputs[0], init_segm_vectors, binary_boundaries], dim=1)
+
+            if self.options['model_type'] == 'splitCNN':
+                assert inputs[1].size(1) != 1, "SplitCNN requires embedding vectors"
+                init_segm_vectors = inputs[1][:, 1:].float()
+                binary_boundaries = self.computeSegmToAffsCUDA_initSegm_shortRange(inputs[1][:, 0].float(),
+                                                                        retain_segmentation=False)
+                model_inputs = torch.cat([inputs[0], init_segm_vectors, binary_boundaries], dim=1)
+            elif self.options['model_type'] == 'mergeCNN':
+                # assert inputs[1].size(1) == 1, "MergeCNN does not use embedding vectors"
+                binary_boundaries = self.computeSegmToAffsCUDA_initSegm(inputs[1][:, 0].float(),
+                                                                        retain_segmentation=False)
+                boundary_segmentation_mask = binary_boundaries
+                model_inputs = torch.cat([inputs[0], binary_boundaries], dim=1)
+            else:
+                raise NotImplementedError()
+
         elif len(inputs) == 4:
             def get_batch_inputs(b):
                 batch_inputs = [inp[[b],...] for inp in inputs]
@@ -428,8 +479,10 @@ class HierarchicalClusteringTrainer(Trainer):
         output = super(HierarchicalClusteringTrainer, self).apply_model(model_inputs)
         output = output[0] if isinstance(output, tuple) else output
 
-        if rnd_ints is not None:
-            output = (output, rnd_ints)
+        # if rnd_ints is not None:
+        #     output = (output, rnd_ints)
+        if boundary_segmentation_mask is not None:
+            output = (output, boundary_segmentation_mask)
         return output
 
 
@@ -494,14 +547,53 @@ class HierarchicalClusteringTrainer(Trainer):
             # self.model.set_static_prediction(True)
             # static_prediction = self.apply_model(*inputs)
 
-        rnd_ints = None
+        boundary_segmentation_mask = None
         if isinstance(out_prediction, tuple):
-            rnd_ints = out_prediction[1]
+            boundary_segmentation_mask = out_prediction[1]
             out_prediction = out_prediction[0]
 
-        # Compute structured loss weights:
-        loss_weights = self.compute_oversegm_loss_weights(out_prediction, target,
-                                                              init_segm=init_segm_labels)
+        # # Compute structured loss weights:
+        # loss_weights = self.compute_oversegm_loss_weights(out_prediction, target,
+        #                                                       init_segm=init_segm_labels)
+
+
+        # Modify targets:
+        if len(inputs) == 2:
+
+            # TODO: check this:
+            # Boundary masks are affinities (boundaries: 0, merge: 1)
+            loss_weights = torch.ones_like(target[:, 1:])
+            if self.options['model_type'] == 'splitCNN':
+                boundary_segmentation_mask = self.computeSegmToAffsCUDA_initSegm(inputs[1][:, 0].float(),
+                                                                        retain_segmentation=False)
+
+                # Here we should not train boundaries that should be merged in future:
+                # print(boundary_segmentation_mask.size(), target[:, 1:].size())
+                loss_weights[(boundary_segmentation_mask == 0.) * (target[:, 1:] == 1.)] = 0
+
+                if 'modify_targets' in self.options:
+                    if self.options['modify_targets']:
+                        # MODIFY TARGETS:
+                        new_targets = torch.ones_like(target)
+                        new_targets[:,0] = target[:,0]
+                        new_targets[:, 1:][(target[:, 1:] == 0.) * (boundary_segmentation_mask == 1.)] = 0.
+                        target = new_targets
+
+            elif self.options['model_type'] == 'mergeCNN':
+                # Here we should not train boundaries that were previously wrongly merged:
+                loss_weights[(boundary_segmentation_mask == 1.) * (target[:,1:] == 0.)] = 0
+
+                if 'modify_targets' in self.options:
+                    if self.options['modify_targets']:
+                        # MODIFY TARGETS:
+                        new_targets = torch.ones_like(target)
+                        new_targets[:, 0] = target[:, 0]
+                        new_targets[:,1:][(target[:,1:] == 1.) * (boundary_segmentation_mask == 0.)] = 0.
+                        target = new_targets
+
+                #         target[:,2:4] = 1 - target[:,2:4]
+                #         target[:,8:] = 1 - target[:,8:]
+
 
 
 
@@ -527,6 +619,11 @@ class HierarchicalClusteringTrainer(Trainer):
 
         print(loss.data.cpu().numpy())
 
+        # if 'invert_xy_targets' in self.options:
+        #     if self.options['invert_xy_targets']:
+        #         out_prediction[:, 1:3] = 1 - out_prediction[:, 1:3]
+        #         out_prediction[:, 7:] = 1 - out_prediction[:, 7:]
+
         if self.pre_train:
             if not validation:
                 pass
@@ -534,7 +631,7 @@ class HierarchicalClusteringTrainer(Trainer):
                 self.plot_pretrain_batch({"raw":raw,
                                           "init_segm": init_segm_labels,
                                           "loss_weights": loss_weights,
-                                          "rnd_ints": rnd_ints,
+                                          # "rnd_ints": rnd_ints,
                                           # "lookAhead1": inputs[2][:, 0],
                                           # "lookAhead2": inputs[3][:, 0],
                                           "stat_prediction":out_prediction,
@@ -638,44 +735,45 @@ class HierarchicalClusteringTrainer(Trainer):
             loss = Variable(from_numpy(np.array([0.], dtype=np.float)))
         else:
             target = target if not is_cuda else target.cuda()
-            # TODO: change this shit... (multiply weights and sum directly in the loss...)
+            loss = self.criterion.unstructured_loss(prediction, target)
+
             if loss_weights is not None:
-                loss_weights = loss_weights if not is_cuda else loss_weights.cuda()
-                # if self.options['loss_type'] == 'soresen':
-                #     sqrt_weights = torch.sqrt(loss_weights)
-                #     prediction = prediction * sqrt_weights
-                #     target[:,1:] = target[:,1:] * sqrt_weights
-                loss = self.criterion.unstructured_loss(prediction, target)
-                # TEMP for getting ignore label:
-                # loss_weights[loss == 0.0] = 0.
-
-                loss = loss.sum()
-
-                # print("Soresen loss: ", loss.data.cpu().numpy())
-
-
-                BCE_loss = self.BCE_loss(prediction, 1 - target[:,1:])
-                BCE_loss = BCE_loss * loss_weights
-                BCE_loss = BCE_loss.mean()
-
-                # print("BCE loss: ", BCE_loss.data.cpu().numpy())
-
-                loss = loss + BCE_loss * self.options['HC_config']['loss_BCE_factor']
-
-                # if self.options['loss_type'] == 'BCE':
-                #     loss = (loss * loss_weights)
+                loss = loss * loss_weights
+                # TODO: change this shit... (multiply weights and sum directly in the loss...)
+                # loss_weights = loss_weights if not is_cuda else loss_weights.cuda()
+                # # if self.options['loss_type'] == 'soresen':
+                # #     sqrt_weights = torch.sqrt(loss_weights)
+                # #     prediction = prediction * sqrt_weights
+                # #     target[:,1:] = target[:,1:] * sqrt_weights
+                # loss = self.criterion.unstructured_loss(prediction, target)
+                # # TEMP for getting ignore label:
+                # # loss_weights[loss == 0.0] = 0.
                 #
-                # if 'loss_mul_factor' in self.options['HC_config']:
-                #     factor = self.options['HC_config']['loss_mul_factor']
-                #     factor = eval(factor) if isinstance(factor, str) else factor
-                #     loss = loss * factor
+                # loss = loss.sum()
+                #
+                # # print("Soresen loss: ", loss.data.cpu().numpy())
+                #
+                #
+                # BCE_loss = self.BCE_loss(prediction, 1 - target[:,1:])
+                # BCE_loss = BCE_loss * loss_weights
+                # BCE_loss = BCE_loss.mean()
+                #
+                # # print("BCE loss: ", BCE_loss.data.cpu().numpy())
+                #
+                # loss = loss + BCE_loss * self.options['HC_config']['loss_BCE_factor']
+                #
+                # # if self.options['loss_type'] == 'BCE':
+                # #     loss = (loss * loss_weights)
+                # #
+                # # if 'loss_mul_factor' in self.options['HC_config']:
+                # #     factor = self.options['HC_config']['loss_mul_factor']
+                # #     factor = eval(factor) if isinstance(factor, str) else factor
+                # #     loss = loss * factor
+                #
+                # loss = loss.sum()
 
-                loss = loss.sum()
 
-
-            else:
-                loss = self.criterion.unstructured_loss(prediction, target)
-                loss = loss.sum()
+            loss = loss.sum()
         if is_cuda:
             loss = loss.cuda()
         return loss, loss_weights
@@ -778,6 +876,8 @@ class HierarchicalClusteringTrainer(Trainer):
 
     def unwrap_prediction(self, output):
         # FIXME: fix this mess that does not work if batch is different from 1!
+        if isinstance(output, tuple):
+            output = output[0]
         out = output.cpu().data.numpy()
         assert out.shape[0] == 1
         out = np.squeeze(out)
