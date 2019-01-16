@@ -18,7 +18,7 @@ from inferno.io.volumetric.volumetric_utils import parse_data_slice
 
 
 from long_range_hc.datasets import AffinitiesHDF5VolumeLoader
-from long_range_hc.postprocessing.blockwise_solver import BlockWise
+from segmfriends.algorithms.blockwise import BlockWise
 from long_range_hc.postprocessing.segmentation_pipelines.agglomeration.fixation_clustering import \
     FixationAgglomeraterFromSuperpixels
 

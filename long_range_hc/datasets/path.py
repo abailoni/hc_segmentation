@@ -1,9 +1,10 @@
+import getpass
 import os
 import socket
-import getpass
-from inferno.utils.io_utils import yaml2dict
-import json
+
 import yaml
+
+from inferno.utils.io_utils import yaml2dict
 
 original_trainvol_path = "/groups/saalfeld/home/papec/Work/neurodata_hdd/cremi"
 username = getpass.getuser()
@@ -35,12 +36,6 @@ def get_template_config_file(template_path, output_path):
         template = yaml2dict(output_path)
     return template
 
-
-def parse_offsets(offset_file):
-    assert os.path.exists(offset_file)
-    with open(offset_file, 'r') as f:
-        offsets = json.load(f)
-    return offsets
 
 def recursive_dict_update(source, target):
     for key, value in source.items():

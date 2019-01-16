@@ -1,18 +1,20 @@
 import sys
+
+import segmfriends.transform.segm_to_bound
+
 sys.path.append("/net/hciserver03/storage/abailoni/pyCharm_projects/hc_segmentation/")
 import vigra
 import os
 
 import numpy as np
 
-from long_range_hc.postprocessing.data_utils import import_dataset, import_segmentations
+from segmfriends.io.load import import_dataset, import_segmentations
 
 project_folder = '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities'
 
 import nifty.graph.rag as nrag
-import long_range_hc.criteria.learned_HC.utils.rag_utils as rag_utils
 
-from long_range_hc.postprocessing.segmentation_pipelines.features import build_lifted_graph_from_rag
+from segmfriends.utils.graph import build_lifted_graph_from_rag
 
 
 def get_boundary_IDs(aggl_name):
@@ -38,7 +40,7 @@ def get_boundary_IDs(aggl_name):
         number_of_threads=8)
 
     print("Computing boundary IDs...")
-    bound_IDs = rag_utils.compute_mask_boundaries_graph(
+    bound_IDs = segmfriends.transform.segm_to_bound.compute_mask_boundaries_graph(
         offsets,
         graph=lifted_graph,
         label_image=segm,

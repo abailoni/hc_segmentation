@@ -5,7 +5,7 @@ import os
 
 import numpy as np
 
-from long_range_hc.postprocessing.data_utils import import_dataset, import_segmentations
+from segmfriends.io.load import import_dataset, import_segmentations
 
 project_folder = '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities'
 

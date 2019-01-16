@@ -25,8 +25,9 @@ from skunkworks.inference import SimpleInferenceEngine
 from inferno.trainers.basic import Trainer
 from inferno.utils.io_utils import toh5
 
-from long_range_hc.datasets.path import get_template_config_file, parse_offsets, adapt_configs_to_model
-from long_range_hc.postprocessing.segmentation_pipelines.features import save_edge_indicators
+from long_range_hc.datasets.path import get_template_config_file, adapt_configs_to_model
+from segmfriends.io.load import parse_offsets
+from segmfriends.io.save import save_edge_indicators
 from long_range_hc.trainers.learnedHC.trainHC import HierarchicalClusteringTrainer
 
 from post_process import evaluate

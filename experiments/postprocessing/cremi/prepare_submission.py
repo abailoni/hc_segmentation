@@ -5,7 +5,7 @@ import os
 
 import numpy as np
 
-from long_range_hc.postprocessing.data_utils import import_dataset, import_segmentations, import_SOA_datasets
+from segmfriends.io.load import import_SOA_datasets, import_dataset, import_segmentations
 
 from cremi import Annotations, Volume
 from cremi.io import CremiFile

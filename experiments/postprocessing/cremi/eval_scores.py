@@ -1,7 +1,7 @@
 import sys
 sys.path.append("/net/hciserver03/storage/abailoni/pyCharm_projects/hc_segmentation/")
 
-from long_range_hc.postprocessing.data_utils import import_dataset, import_segmentations, import_SOA_datasets
+from segmfriends.io.load import import_SOA_datasets, import_dataset, import_segmentations
 
 import matplotlib
 import numpy as np

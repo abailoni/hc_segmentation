@@ -20,10 +20,10 @@ import yaml
 from inferno.utils.io_utils import yaml2dict
 from inferno.io.volumetric.volumetric_utils import parse_data_slice
 
-from long_range_hc.postprocessing.data_utils import import_dataset, import_segmentations, import_postproc_data
+from segmfriends.io.load import import_postproc_data, import_dataset, import_segmentations
 
 from long_range_hc.datasets import AffinitiesVolumeLoader
-from long_range_hc.postprocessing.blockwise_solver import BlockWise
+from segmfriends.algorithms.blockwise import BlockWise
 from long_range_hc.postprocessing.segmentation_pipelines.agglomeration.fixation_clustering import \
     FixationAgglomeraterFromSuperpixels
 
@@ -235,10 +235,10 @@ def evaluate(project_folder, sample, offsets,
     pred_segm = output_segmentations[0] if isinstance(output_segmentations, tuple) else output_segmentations
     comp_time = time.time() - tick
     print("Post-processing took {} s".format(comp_time))
-    print("Pred. sahpe: ", pred_segm.shape)
-    if not use_test_datasets:
-        print("GT shape: ", gt.shape)
-        print("Min. GT label: ", gt.min())
+    # print("Pred. sahpe: ", pred_segm.shape)
+    # if not use_test_datasets:
+    #     print("GT shape: ", gt.shape)
+    #     print("Min. GT label: ", gt.min())
 
     if post_proc_config.get('stacking_2D', False):
         print('2D stacking...')
@@ -264,8 +264,12 @@ def evaluate(project_folder, sample, offsets,
     name_finalSegm = 'finalSegm'
     print("Writing on disk...")
     # TODO: write possible blocks and fragments...
-    print("SHAPE:", pred_segm.shape)
+    # print("SHAPE:", pred_segm.shape)
     vigra.writeHDF5(pred_segm.astype('int64'), segm_file, name_finalSegm, compression='gzip')
+    if isinstance(output_segmentations, tuple):
+        vigra.writeHDF5(output_segmentations[1].astype('uint32'), segm_file, 'UCM', compression='gzip')
+
+
 
     # print("Connected components if slice is taken...")
     # gt = vigra.analysis.labelVolumeWithBackground(gt.astype('uint32'))

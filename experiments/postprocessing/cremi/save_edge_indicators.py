@@ -5,14 +5,17 @@ import os
 import json
 import numpy as np
 
-from long_range_hc.postprocessing.data_utils import import_dataset, import_segmentations, import_postproc_data, import_SOA_datasets
+from segmfriends.io.load import import_postproc_data, import_SOA_datasets, import_dataset, import_segmentations, \
+    parse_offsets
 
-from long_range_hc.datasets.path import get_template_config_file, parse_offsets, adapt_configs_to_model
-from long_range_hc.criteria.learned_HC.utils.segm_utils import accumulate_segment_features_vigra, map_features_to_label_array, cantor_pairing_fct
+from long_range_hc.datasets.path import get_template_config_file, adapt_configs_to_model
+from segmfriends.features.mappings import map_features_to_label_array
+from segmfriends.utils.various import cantor_pairing_fct
+from segmfriends.features.vigra_feat import accumulate_segment_features_vigra
 
 from multiprocessing.pool import ThreadPool, Pool
 
-from long_range_hc.postprocessing.segmentation_pipelines.features import save_edge_indicators, save_edge_indicators_students
+from segmfriends.io.save import save_edge_indicators, save_edge_indicators_students
 
 from skunkworks.metrics.cremi_score import cremi_score
 
@@ -22,12 +25,14 @@ project_folder = '/export/home/abailoni/learnedHC/plain_unstruct/pureDICE_wholeT
 # project_folder = '/export/home/abailoni/learnedHC/model_050_A_v3/pureDICE_wholeDtSet'
 increment_labels = False
 
-key = 'finalSegm_WS'
-aggl_name_partial = 'inferName_v100k_repAttrHC095_'
+key = 'finalSegm'
+aggl_name_partial = 'inferName_v100k_DTWSnewDataSet_'
 # aggl_name_partial = 'inferName_v100k-alignedTestOversegmPlusMC_HC065_'
 
-project_folder_affs = '/export/home/abailoni/learnedHC/mergeSpCNN/pureDICE_v2'
-aggl_name_partial_affs = 'inferName_v100k_signedHC050_'
+# project_folder_affs = '/export/home/abailoni/learnedHC/mergeSpCNN/pureDICE_v2'
+# aggl_name_partial_affs = 'inferName_v100k_signedHC050_'
+project_folder_affs = '/export/home/abailoni/learnedHC/plain_unstruct/pureDICE_wholeTrainingSet'
+aggl_name_partial_affs = 'inferName_v100k_DTWSnewDataSet_'
 
 offsets = parse_offsets(
     '/net/hciserver03/storage/abailoni/pyCharm_projects/hc_segmentation/experiments/postprocessing/cremi/offsets/offsets_MWS.json')
@@ -58,12 +63,14 @@ for sample in [
         max_label += max_label_sample
 
     # These are prob. maps and are inverted later on
-    boundary_probs, raw = import_postproc_data(project_folder_affs, aggl_name=aggl_name_partial_affs + sample,
-                                                 data_to_import=['affinities', 'raw'],
-                                            crop_slice=":,60:120,350:1000,350:1000")
+    boundary_probs, raw, gt = import_postproc_data(project_folder_affs, aggl_name=aggl_name_partial_affs + sample,
+                                                 data_to_import=['affinities', 'raw', 'GT'],
+                                                   crop_slice=':,10:135,350:1000,350:1000'
+                                            )
     # ":,60:120,350:1000,350:1000"
-    overSegm = overSegm[60:120,350:1000,350:1000]
-    overSegm, _, _ = vigra.analysis.relabelConsecutive(overSegm)
+    # ":,10:135,350:1000,350:1000"
+    overSegm = overSegm[10:135,350:1000,350:1000]
+    overSegm, _, _ = vigra.analysis.relabelConsecutive(overSegm.astype('uint32'))
 
 
     save_path = os.path.join(project_folder, "postprocess/{}/edge_data.h5".format(aggl_name))
@@ -73,7 +80,9 @@ for sample in [
 
     save_edge_indicators_students(boundary_probs, overSegm, offsets,
                          save_path, n_threads=8,
-                         invert_affinities=False)
+                         invert_affinities=True)
 
     vigra.writeHDF5(overSegm, os.path.join(project_folder, "postprocess/{}/segmentation.h5".format(aggl_name)), 'data', compression='gzip')
     vigra.writeHDF5(raw, os.path.join(project_folder, "postprocess/{}/raw.h5".format(aggl_name)), 'data', compression='gzip')
+    vigra.writeHDF5(gt.astype('uint32'), os.path.join(project_folder, "postprocess/{}/gt.h5".format(aggl_name)), 'data',
+                    compression='gzip')

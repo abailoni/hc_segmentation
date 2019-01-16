@@ -16,7 +16,7 @@ from inferno.utils.io_utils import yaml2dict
 
 import vigra
 import os
-from long_range_hc.postprocessing.data_utils import import_dataset, import_segmentations, import_postproc_data
+from segmfriends.io.load import import_postproc_data, import_dataset, import_segmentations
 
 import time
 
@@ -27,7 +27,7 @@ from inferno.utils.io_utils import yaml2dict
 
 from inferno.io.volumetric.volumetric_utils import parse_data_slice
 
-from long_range_hc.criteria.learned_HC.utils.segm_utils import accumulate_segment_features_vigra
+from segmfriends.features.vigra_feat import accumulate_segment_features_vigra
 
 from skunkworks.metrics.cremi_score import cremi_score
 from long_range_hc.postprocessing.segmentation_pipelines.agglomeration.fixation_clustering import \

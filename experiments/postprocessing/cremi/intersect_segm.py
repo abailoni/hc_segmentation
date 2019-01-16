@@ -4,17 +4,17 @@ import vigra
 import os
 from shutil import copyfile
 
-
-
-from long_range_hc.datasets.segm_transform import FindBestAgglFromOversegmAndGT
+from segmfriends.transform.inferno.temp_crap import FindBestAgglFromOversegmAndGT
 import numpy as np
 from multiprocessing.pool import ThreadPool, Pool
 
-from long_range_hc.postprocessing.data_utils import import_dataset, import_segmentations, import_SOA_datasets
+from segmfriends.io.load import import_segmentations
+from segmfriends.io.load import import_SOA_datasets, import_dataset
 
 from skunkworks.metrics.cremi_score import cremi_score
 
-from long_range_hc.criteria.learned_HC.utils.segm_utils import cantor_pairing_fct
+from segmfriends.utils.various import cantor_pairing_fct
+
 # project_folder = '/export/home/abailoni/learnedHC/input_segm/WSDT_DS1'
 SOA_folder = '/export/home/abailoni/learnedHC/new_experiments/SOA_affinities'
 # project_folder = '/export/home/abailoni/learnedHC/plain_unstruct/MWSoffs_bound2_addedBCE_allBound01'

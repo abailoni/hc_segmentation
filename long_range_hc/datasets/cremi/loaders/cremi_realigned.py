@@ -16,7 +16,8 @@ from neurofire.transform.volume import RandomSlide
 from skunkworks.datasets.cremi.loaders.raw import RawVolumeWithDefectAugmentation
 from skunkworks.transforms.artifact_source import RejectNonZeroThreshold
 
-from long_range_hc.datasets.segm_transform import FromSegmToEmbeddingSpace, OverSegmentationAgglomeration
+from segmfriends.transform.inferno import FromSegmToEmbeddingSpace
+from segmfriends.transform.inferno.temp_crap import OverSegmentationAgglomeration
 
 
 def get_multiple_datasets(dataset_names,

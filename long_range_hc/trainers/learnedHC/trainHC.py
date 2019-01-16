@@ -28,7 +28,7 @@ from torch import from_numpy
 from long_range_hc.postprocessing.segmentation_pipelines.agglomeration.fixation_clustering import \
     FixationAgglomeraterFromSuperpixels
 
-from long_range_hc.datasets.segm_transform import ComputeStructuredWeightsWrongMerges
+from segmfriends.transform.inferno.temp_crap import ComputeStructuredWeightsWrongMerges
 
 from neurofire.criteria.loss_wrapper import LossWrapper
 from neurofire.criteria.loss_transforms import InvertTarget, MaskTransitionToIgnoreLabel, RemoveSegmentationFromTarget
@@ -412,8 +412,10 @@ class HierarchicalClusteringTrainer(Trainer):
             if self.options['model_type'] == 'splitCNN':
                 assert inputs[1].size(1) != 1, "SplitCNN requires embedding vectors"
                 init_segm_vectors = inputs[1][:, 1:].float()
+                init_segm_vectors = torch.zeros_like(init_segm_vectors)
                 binary_boundaries = self.computeSegmToAffsCUDA_initSegm_shortRange(inputs[1][:, 0].float(),
                                                                         retain_segmentation=False)
+                binary_boundaries = torch.zeros_like(binary_boundaries)
                 model_inputs = torch.cat([inputs[0], init_segm_vectors, binary_boundaries], dim=1)
             elif self.options['model_type'] == 'mergeCNN':
                 # assert inputs[1].size(1) == 1, "MergeCNN does not use embedding vectors"
@@ -483,6 +485,8 @@ class HierarchicalClusteringTrainer(Trainer):
         #     output = (output, rnd_ints)
         if boundary_segmentation_mask is not None:
             output = (output, boundary_segmentation_mask)
+
+        print(output.data.cpu().numpy().mean())
         return output
 
 

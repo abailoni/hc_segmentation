@@ -1,7 +1,7 @@
 # this file provides factories for different postprocessing pipelines
 
 from skunkworks.postprocessing.watershed.wsdt import WatershedOnDistanceTransform, WatershedOnDistanceTransformFromAffinities
-from .segmentation_pipelines.agglomeration.fixation_clustering import FixationAgglomerativeClustering, FixationAgglomeraterFromSuperpixels
+from segmfriends.algorithms.agglo import GreedyEdgeContractionAgglomeraterFromSuperpixels, GreedyEdgeContractionClustering
 import numpy as np
 
 from skunkworks.postprocessing.watershed import DamWatershed
@@ -62,8 +62,7 @@ def get_segmentation_pipeline(
     elif segm_pipeline_type == 'multicut':
         from skunkworks.postprocessing.segmentation_pipelines.multicut.pipelines import Multicut, MulticutPipelineFromAffinities
 
-        from long_range_hc.postprocessing.segmentation_pipelines.features import FeaturerLongRangeAffs
-
+        from segmfriends.features.featurer import FeaturerLongRangeAffs
 
         featurer = FeaturerLongRangeAffs(offsets, n_threads=nb_threads,
                                          offsets_weights=multicut_kwargs.get('offsets_weights'),
@@ -106,17 +105,19 @@ def get_segmentation_pipeline(
             prob_LR_edges = HC_kwargs.get('probability_long_range_edges', 1.)
             offsets_probs = np.array([1.] * nb_local_offsets + [prob_LR_edges] * (len(offsets) - nb_local_offsets))
 
-            segm_pipeline = FixationAgglomerativeClustering(
+            segm_pipeline = GreedyEdgeContractionClustering(
                 offsets,
                 fragmenter,
                 n_threads=nb_threads,
                 invert_affinities=invert_affinities,
                 return_fragments=return_fragments,
                 offsets_probabilities=offsets_probs,
+                strides=HC_kwargs.get('strides', None),
+                return_UCM=HC_kwargs.get('return_UCM', False),
                 **HC_kwargs.get('agglomeration_kwargs', {})
             )
         else:
-            segm_pipeline = FixationAgglomeraterFromSuperpixels(
+            segm_pipeline = GreedyEdgeContractionAgglomeraterFromSuperpixels(
                 offsets,
                 n_threads=nb_threads,
                 invert_affinities=invert_affinities,
@@ -126,7 +127,7 @@ def get_segmentation_pipeline(
 
     elif segm_pipeline_type == 'MWS':
         segm_pipeline = DamWatershed(offsets,
-                                     min_segment_size=10,
+                                     # min_segment_size=10,
                                      invert_affinities=not invert_affinities,
                                    n_threads=nb_threads,
                                    **MWS_kwargs)

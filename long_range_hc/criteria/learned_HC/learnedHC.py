@@ -1,35 +1,28 @@
 """
 This module implements the learned Watershed algorithm as a pytorch module
 """
-import time
 
-import torch.nn as nn
-from torch import from_numpy
-from torch.autograd import Variable
-from torch import stack
-import numpy as np
 from copy import deepcopy
 
-import vigra
-# FIXME imports!!
-from ...postprocessing.segmentation_pipelines.agglomeration.fixation_clustering import constrained_fixation_policy
-from ...postprocessing.segmentation_pipelines import features
-
-import skunkworks.postprocessing.util
-from skunkworks.metrics.cremi_score import cremi_score
-
 import nifty.graph.rag as nrag
+import numpy as np
+import torch.nn as nn
+import vigra
+from segmfriends.transform.combine_segms_CY import find_best_agglomeration
+from torch import from_numpy
+from torch import stack
+from torch.autograd import Variable
 
-from .utils import segm_utils
-from .utils import rag_utils
-from . import constrained_hierarchical_clustering as constr_HC
-
-from skunkworks.postprocessing.watershed.wsdt import WatershedOnDistanceTransformFromAffinities
-from skunkworks.postprocessing.watershed.ws import WatershedFromAffinities
-
-from .utils.segm_utils_CY import find_best_agglomeration
-
+# FIXME imports!!
+import segmfriends.features.mappings
+import segmfriends.features.vigra_feat
+import segmfriends.transform.segm_to_bound
+import skunkworks.postprocessing.util
 from inferno.utils.io_utils import yaml2dict
+from skunkworks.metrics.cremi_score import cremi_score
+from skunkworks.postprocessing.watershed.ws import WatershedFromAffinities
+from skunkworks.postprocessing.watershed.wsdt import WatershedOnDistanceTransformFromAffinities
+from . import constrained_hierarchical_clustering as constr_HC
 
 eKeys = constr_HC.EDGE_KEYS
 nKeys = constr_HC.NODE_KEYS
@@ -203,7 +196,7 @@ class LHC_Worker(nn.Module):
         # used_nKeys.pop('node_GT')
 
         # Map collected data back to image:
-        map_node_feat = segm_utils.map_features_to_label_array(
+        map_node_feat = segmfriends.features.mappings.map_features_to_label_array(
             self._init_segm,
             node_features[..., [id for _, id in used_nKeys.items()]],
             number_of_threads=self._nb_threads
@@ -225,7 +218,7 @@ class LHC_Worker(nn.Module):
                              'edge_sizes':0.}
 
         for id, edge_feat in enumerate(used_eKeys):
-            mapped_feat = segm_utils.map_features_to_label_array(
+            mapped_feat = segmfriends.features.mappings.map_features_to_label_array(
                 self._init_boundMask_IDs,
                 edge_features[..., [used_eKeys[edge_feat]]],
                 ignore_label=-1,
@@ -597,7 +590,7 @@ class LHC_Worker(nn.Module):
 
                 self._GT_labels_nodes = find_best_agglomeration(self._init_segm, self._GT_label_image)
                 self._best_agglomeration = (
-                    segm_utils.map_features_to_label_array(
+                    segmfriends.features.mappings.map_features_to_label_array(
                         self._init_segm,
                         np.expand_dims(self._GT_labels_nodes, axis=-1),
                         number_of_threads=self._nb_threads)
@@ -606,9 +599,9 @@ class LHC_Worker(nn.Module):
             self._rag = rag = nrag.gridRag(self._init_segm.astype(np.uint32))
 
             zero_affs = np.zeros(self._HC_window_size + (self._nb_offsets,), dtype=np.float)
-            node_sizes = segm_utils.accumulate_segment_features_vigra(zero_affs[..., 0],
-                                                                      self._init_segm, statistics=["Count"],
-                                                                      normalization_mode=None, map_to_image=False)
+            node_sizes = segmfriends.features.vigra_feat.accumulate_segment_features_vigra(zero_affs[..., 0],
+                                                                                           self._init_segm, statistics=["Count"],
+                                                                                           normalization_mode=None, map_to_image=False)
             node_sizes = np.squeeze(node_sizes)
 
             self._constrained_HC, graph, edge_indicators, edge_sizes = \
@@ -625,7 +618,7 @@ class LHC_Worker(nn.Module):
             self._graph = graph
 
             # Compute expensive boundary mask with edge IDs:
-            bound_IDs = rag_utils.compute_mask_boundaries_graph(
+            bound_IDs = segmfriends.transform.segm_to_bound.compute_mask_boundaries_graph(
                 self._offsets,
                 graph=graph,
                 label_image=self._init_segm,
@@ -637,7 +630,7 @@ class LHC_Worker(nn.Module):
             self._init_boundMask_IDs = bound_IDs
 
             # self.add_cache_data('cHC_data/vect/edge_indicators', edge_indicators, 'current')
-            img_edge_indicators = segm_utils.map_features_to_label_array(
+            img_edge_indicators = segmfriends.features.mappings.map_features_to_label_array(
                 self._init_boundMask_IDs,
                 np.expand_dims(edge_indicators, axis=-1),
                 ignore_label=-1,
@@ -673,7 +666,7 @@ class LHC_Worker(nn.Module):
 
             clustering.run_next_milestep(pretrained_edge_affs, nb_iterations=-1)
             # TODO: per carità, this should be moved into the clustering...
-            final_segm = segm_utils.map_features_to_label_array(
+            final_segm = segmfriends.features.mappings.map_features_to_label_array(
                 w._init_segm,
                 np.expand_dims(clustering.current_data['node_labels'], axis=-1),
             number_of_threads=self._nb_threads
@@ -987,7 +980,7 @@ class LHC(nn.Module):
 
                 clustering.run_next_milestep(pretrained_edge_affs, nb_iterations=-1)
                 # TODO: per carità, this should be moved into the clustering...
-                final_segm = segm_utils.map_features_to_label_array(
+                final_segm = segmfriends.features.mappings.map_features_to_label_array(
                     w._init_segm,
                     np.expand_dims(clustering.current_data['node_labels'], axis=-1),
             number_of_threads=w._nb_threads

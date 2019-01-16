@@ -79,7 +79,7 @@ gen_HC:
     segm_pipeline_type: 'gen_HC'
 
 gen_HC_pix:
-  parent_model: ['gen_HC', 'blockwise']
+  parent_model: ['gen_HC']
   postproc:
     start_from_given_segm: False
     use_fragmenter: False
@@ -87,21 +87,113 @@ gen_HC_pix:
       affinities:
         slicing_config:
           stride:
-            A: [12, 1, 600, 600]
-            B: [12, 1, 600, 600]
-            C: [12, 1, 600, 600]
+            A: [12, 7, 600, 600]
+            B: [12, 7, 600, 600]
+            C: [12, 7, 600, 600]
           window_size:
-            A: [None, 3, None, None]
-            B: [None, 3, None, None]
-            C: [None, 3, None, None]
+            A: [None, None, None, None]
+            B: [None, None, None, None]
+            C: [None, None, None, None]
 
-gen_HC_sum:
+debug_postproc:
+  postproc:
+    data_slice:
+      A: ':, 20:25, 200:1230, 200:1230'
+      B: ':, 20:25, 200:1230, 200:1230'
+      C: ':, 20:25, 200:1230, 200:1230'
+#      A: ':, 20:32, :, :'
+#      B: ':, 20:32, :, :'
+#      C: ':, 20:32, :, :'
+
+all_long_range_edges:
+  postproc:
+    generalized_HC_kwargs:
+      probability_long_range_edges: 1.
+
+few_long_rage_edges:
+  postproc:
+    generalized_HC_kwargs:
+      probability_long_range_edges: 0.01
+
+
+
+only_local_edges:
+  postproc:
+    generalized_HC_kwargs:
+      probability_long_range_edges: 0.
+#      agglomeration_kwargs:
+#        used_offsets: [0,1,2]
+
+GAEC:
   parent_model: ['gen_HC']
   postproc:
     generalized_HC_kwargs:
       agglomeration_kwargs:
-        update_rule_merge: 'sum'
-        update_rule_not_merge: 'sum'
+        extra_aggl_kwargs:
+          update_rule: 'sum'
+          add_cannot_link_constraints: False
+          use_log_costs: True
+#      extra_runAggl_kwargs:
+#        verbose: True
+#        printNth: 1000000
+
+MEAN_constr:
+  parent_model: ['gen_HC']
+  postproc:
+    generalized_HC_kwargs:
+      agglomeration_kwargs:
+        extra_aggl_kwargs:
+          update_rule: 'mean'
+          add_cannot_link_constraints: True
+
+MEAN:
+  parent_model: ['gen_HC']
+  postproc:
+    generalized_HC_kwargs:
+      agglomeration_kwargs:
+        extra_aggl_kwargs:
+          update_rule: 'mean'
+          add_cannot_link_constraints: False
+
+
+
+MAX:
+  parent_model: ['gen_HC']
+  postproc:
+    generalized_HC_kwargs:
+      agglomeration_kwargs:
+        extra_aggl_kwargs:
+          update_rule: 'max'
+          add_cannot_link_constraints: False
+
+
+greedyFixation:
+  parent_model: ['gen_HC']
+  postproc:
+    generalized_HC_kwargs:
+      agglomeration_kwargs:
+        extra_aggl_kwargs:
+          update_rule: 'sum'
+          add_cannot_link_constraints: True
+          use_log_costs: True
+#      extra_runAggl_kwargs:
+#        verbose: True
+#        printNth: 1000000
+
+
+
+#gen_HC_sum:
+#  parent_model: ['gen_HC']
+#  postproc:
+#    generalized_HC_kwargs:
+#      probability_long_range_edges: 0.1
+#      agglomeration_kwargs:
+#        extra_aggl_kwargs:
+#          update_rule: 'mean'
+#          add_cannot_link_constraints: False
+#      extra_runAggl_kwargs:
+#        verbose: True
+#        printNth: 1000000
 
 
 
@@ -148,9 +240,8 @@ gen_HC_max:
     segm_pipeline_type: 'gen_HC'
     generalized_HC_kwargs:
       agglomeration_kwargs:
-#        zero_init: True
-        update_rule_merge: 'max'
-        update_rule_not_merge: 'max'
+        extra_aggl_kwargs:
+          update_rule: 'max'
 
 notInvertAffs:
   postproc:
@@ -233,6 +324,13 @@ blockwise:
   postproc:
     blockwise_kwargs:
       nb_parallel_blocks: 1
+2_blocks:
+  parent_model: ['blockwise']
+  postproc:
+    blockwise_kwargs:
+      nb_parallel_blocks: 2
+
+
 
 12_blocks:
   parent_model: ['blockwise']

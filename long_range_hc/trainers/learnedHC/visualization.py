@@ -24,14 +24,14 @@ matplotlib.rcParams.update({'font.size': 5})
 # fixed_rand[2, :] = [0., 1., 0.]
 # fixed_rand[3, :] = [0., 0., 1.]
 # rand_cm = matplotlib.colors.ListedColormap(fixed_rand, name='indexed')
-rand_cm = matplotlib.colors.ListedColormap(np.random.rand(100000, 3))
+rand_cm = matplotlib.colors.ListedColormap(np.random.rand(1000000, 3))
 
 DEF_INTERP = 'none'
-segm_plot_kwargs = {'vmax': 10000, 'vmin':0}
+segm_plot_kwargs = {'vmax': 1000000, 'vmin':0}
 
-from long_range_hc.criteria.learned_HC.utils.rag_utils import compute_mask_boundaries
-from long_range_hc.datasets.segm_transform import FindBestAgglFromOversegmAndGT
-from skunkworks.postprocessing.util import from_affinities_to_hmap
+from segmfriends.transform.segm_to_bound import compute_mask_boundaries
+from segmfriends.transform.inferno.temp_crap import FindBestAgglFromOversegmAndGT
+from segmfriends.features import from_affinities_to_hmap
 
 
 class VisualizationCallback(Callback):
@@ -588,3 +588,16 @@ def plot_lookahead(ax, lookahead, mergers=True, z_slice=0):
     ax.get_xaxis().set_visible(False)
     ax.get_yaxis().set_visible(False)
     return ax
+
+def get_figure(ncols, nrows, hide_axes=True):
+    f, ax = plt.subplots(ncols=ncols, nrows=nrows,
+                         figsize=(ncols, nrows))
+    for a in f.get_axes():
+        a.axis('off')
+    return f, ax
+
+def save_plot(f, path, file_name):
+    plt.subplots_adjust(wspace=0, hspace=0)
+    # plt.tight_layout()
+    if file_name.endswith('pdf'):
+        f.savefig(os.path.join(path, file_name), format='pdf')
