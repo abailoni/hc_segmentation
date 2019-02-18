@@ -2,7 +2,6 @@
 
 from skunkworks.postprocessing.watershed.wsdt import WatershedOnDistanceTransform, WatershedOnDistanceTransformFromAffinities
 from segmfriends.algorithms.agglo import GreedyEdgeContractionAgglomeraterFromSuperpixels, GreedyEdgeContractionClustering
-import numpy as np
 
 from skunkworks.postprocessing.watershed import DamWatershed
 from skunkworks.postprocessing.watershed.ws import WatershedFromAffinities
@@ -35,6 +34,7 @@ def get_fragmented(postproc_kwargs, offsets, invert_affinities, nb_threads):
             raise NotImplementedError()
     return fragmenter
 
+
 def get_segmentation_pipeline(
         segm_pipeline_type,
         offsets,
@@ -42,6 +42,8 @@ def get_segmentation_pipeline(
         invert_affinities=False,
         return_fragments=False,
         **post_proc_config):
+
+    raise DeprecationWarning("Updated function has been moved to segmfriends")
 
     multicut_kwargs = post_proc_config.get('multicut_kwargs', {})
     MWS_kwargs = post_proc_config.get('MWS_kwargs', {})
@@ -67,9 +69,9 @@ def get_segmentation_pipeline(
         featurer = FeaturerLongRangeAffs(offsets, n_threads=nb_threads,
                                          offsets_weights=multicut_kwargs.get('offsets_weights'),
                                          used_offsets=multicut_kwargs.get('used_offsets'),
-                                         invert_affinities=not invert_affinities,
+                                         invert_affinities= not invert_affinities,
                                          debug=False,
-                                         max_distance_lifted_edges=1
+                                         offset_probabilities=multicut_kwargs.get('offsets_probabilities', 1.0)
                                          )
         if post_proc_config.get('start_from_given_segm', False):
             segm_pipeline = Multicut(featurer, edge_statistic='mean',
@@ -101,19 +103,12 @@ def get_segmentation_pipeline(
             # ------------------------------
             # Build agglomeration:
             # ------------------------------
-            nb_local_offsets = HC_kwargs.get('nb_local_offsets', 3)
-            prob_LR_edges = HC_kwargs.get('probability_long_range_edges', 1.)
-            offsets_probs = np.array([1.] * nb_local_offsets + [prob_LR_edges] * (len(offsets) - nb_local_offsets))
-
             segm_pipeline = GreedyEdgeContractionClustering(
                 offsets,
                 fragmenter,
                 n_threads=nb_threads,
                 invert_affinities=invert_affinities,
                 return_fragments=return_fragments,
-                offsets_probabilities=offsets_probs,
-                strides=HC_kwargs.get('strides', None),
-                return_UCM=HC_kwargs.get('return_UCM', False),
                 **HC_kwargs.get('agglomeration_kwargs', {})
             )
         else:
